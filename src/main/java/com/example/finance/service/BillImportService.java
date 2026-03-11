@@ -8,6 +8,7 @@ import com.example.finance.entity.FamilyMember;
 import com.example.finance.repository.BillImportBatchRepository;
 import com.example.finance.repository.CategoryRepository;
 import com.example.finance.repository.FamilyMemberRepository;
+import com.example.finance.repository.TransactionRecordRepository;
 import com.example.finance.util.CsvParserUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,13 +32,17 @@ import java.util.stream.Collectors;
 @Service
 public class BillImportService {
 
+    private static final List<String> DUPLICATE_IMPORT_STATUSES = List.of("SUCCESS", "PARTIAL_SUCCESS");
+
     private final BillImportBatchRepository billImportBatchRepository;
     private final FamilyMemberRepository familyMemberRepository;
     private final CategoryRepository categoryRepository;
     private final FamilyService familyService;
     private final AccountService accountService;
     private final TransactionRecordService transactionRecordService;
+    private final TransactionRecordRepository transactionRecordRepository;
     private final BillParseRuleService billParseRuleService;
+    private final BillImportPendingItemService billImportPendingItemService;
 
     public BillImportService(
             BillImportBatchRepository billImportBatchRepository,
@@ -47,7 +51,9 @@ public class BillImportService {
             FamilyService familyService,
             AccountService accountService,
             TransactionRecordService transactionRecordService,
-            BillParseRuleService billParseRuleService
+            TransactionRecordRepository transactionRecordRepository,
+            BillParseRuleService billParseRuleService,
+            BillImportPendingItemService billImportPendingItemService
     ) {
         this.billImportBatchRepository = billImportBatchRepository;
         this.familyMemberRepository = familyMemberRepository;
@@ -55,7 +61,9 @@ public class BillImportService {
         this.familyService = familyService;
         this.accountService = accountService;
         this.transactionRecordService = transactionRecordService;
+        this.transactionRecordRepository = transactionRecordRepository;
         this.billParseRuleService = billParseRuleService;
+        this.billImportPendingItemService = billImportPendingItemService;
     }
 
     public List<BillImportApiModels.BatchResponse> list(Long familyId) {
@@ -77,6 +85,18 @@ public class BillImportService {
         }
         familyService.getById(familyId);
         validateMember(familyId, uploadedByMemberId);
+        String fileHash = calculateHash(file);
+        billImportBatchRepository.findFirstByFamilyIdAndFileHashAndImportStatusInOrderByCreatedAtDescIdDesc(
+                        familyId,
+                        fileHash,
+                        DUPLICATE_IMPORT_STATUSES
+                )
+                .ifPresent(existingBatch -> {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "检测到重复导入文件，最近一次成功批次 ID 为 " + existingBatch.getId()
+                    );
+                });
         Account account = accountService.getById(accountId);
         if (!familyId.equals(account.getFamilyId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "导入账户不属于当前家庭");
@@ -89,14 +109,14 @@ public class BillImportService {
                 ? sourcePlatform.trim().toUpperCase(Locale.ROOT)
                 : "CSV");
         batch.setOriginalFileName(file.getOriginalFilename() == null ? "bill.csv" : file.getOriginalFilename());
-        batch.setFileHash(calculateHash(file));
+        batch.setFileHash(fileHash);
         batch.setImportStatus("PROCESSING");
         batch = billImportBatchRepository.save(batch);
 
         List<String> warnings = new ArrayList<>();
         int unmatchedCount = 0;
         try {
-            CsvParserUtil.ParseResult parseResult = CsvParserUtil.parse(file);
+            CsvParserUtil.ParseResult parseResult = CsvParserUtil.parse(file, batch.getSourcePlatform());
             warnings.addAll(parseResult.errors());
             batch.setTotalCount(parseResult.rows().size() + parseResult.errors().size());
             batch.setFailCount(parseResult.errors().size());
@@ -111,13 +131,19 @@ public class BillImportService {
             int successCount = 0;
             for (CsvParserUtil.ParsedRow row : parseResult.rows()) {
                 try {
-                    Long categoryId = resolveCategoryId(familyId, row, categoryByName);
-                    if (categoryId == null) {
-                        unmatchedCount++;
-                        warnings.add("未匹配分类: " + safe(row.merchantName()) + " [" + row.rawLine() + "]");
+                    if (StringUtils.hasText(row.externalTradeNo())
+                            && transactionRecordRepository.existsByFamilyIdAndSourcePlatformAndExternalTradeNo(
+                            familyId,
+                            batch.getSourcePlatform(),
+                            row.externalTradeNo()
+                    )) {
+                        batch.setFailCount(batch.getFailCount() + 1);
+                        warnings.add("跳过重复流水: " + row.externalTradeNo());
+                        continue;
                     }
 
-                    transactionRecordService.createRecord(new TransactionRecordService.CreateCommand(
+                    Long categoryId = resolveCategoryId(familyId, row, categoryByName);
+                    var createdRecord = transactionRecordService.createRecord(new TransactionRecordService.CreateCommand(
                             familyId,
                             accountId,
                             null,
@@ -130,9 +156,27 @@ public class BillImportService {
                             row.merchantName(),
                             null,
                             batch.getSourcePlatform(),
-                            null,
+                            row.externalTradeNo(),
                             row.note()
                     ));
+                    if (categoryId == null) {
+                        unmatchedCount++;
+                        billImportPendingItemService.createPendingItem(new BillImportPendingItemService.CreateCommand(
+                                familyId,
+                                batch.getId(),
+                                createdRecord.getId(),
+                                batch.getSourcePlatform(),
+                                row.externalTradeNo(),
+                                row.merchantName(),
+                                row.categoryName(),
+                                row.transactionType(),
+                                row.amount(),
+                                row.transactionTime(),
+                                row.note(),
+                                row.rawLine()
+                        ));
+                        warnings.add("未匹配分类，已加入待归类队列: " + safe(row.merchantName()) + " [" + row.rawLine() + "]");
+                    }
                     successCount++;
                 } catch (RuntimeException exception) {
                     batch.setFailCount(batch.getFailCount() + 1);

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface TransactionRecordRepository extends JpaRepository<TransactionRecord, Long> {
 
@@ -22,4 +23,12 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
             LocalDateTime start,
             LocalDateTime end
     );
+
+    boolean existsByFamilyIdAndSourcePlatformAndExternalTradeNo(
+            Long familyId,
+            String sourcePlatform,
+            String externalTradeNo
+    );
+
+    Optional<TransactionRecord> findByIdAndFamilyId(Long id, Long familyId);
 }

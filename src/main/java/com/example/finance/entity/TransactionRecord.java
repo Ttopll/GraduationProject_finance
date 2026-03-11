@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_transaction_record_family_time", columnList = "family_id, transaction_time"),
                 @Index(name = "idx_transaction_record_account_time", columnList = "account_id, transaction_time"),
                 @Index(name = "idx_transaction_record_category_time", columnList = "category_id, transaction_time"),
-                @Index(name = "idx_transaction_record_source_batch_id", columnList = "source_batch_id")
+                @Index(name = "idx_transaction_record_source_batch_id", columnList = "source_batch_id"),
+                @Index(name = "idx_transaction_record_platform_trade_no", columnList = "source_platform, external_trade_no")
         }
 )
 public class TransactionRecord extends AbstractAuditEntity {

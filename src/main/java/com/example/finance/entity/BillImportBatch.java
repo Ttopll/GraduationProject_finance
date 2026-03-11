@@ -17,7 +17,8 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_bill_import_batch_family_id", columnList = "family_id"),
                 @Index(name = "idx_bill_import_batch_uploaded_by", columnList = "uploaded_by_member_id"),
-                @Index(name = "idx_bill_import_batch_status", columnList = "import_status")
+                @Index(name = "idx_bill_import_batch_status", columnList = "import_status"),
+                @Index(name = "idx_bill_import_batch_family_hash", columnList = "family_id, file_hash")
         }
 )
 public class BillImportBatch extends AbstractAuditEntity {

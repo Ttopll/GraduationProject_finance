@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS debt_repayment;
 DROP TABLE IF EXISTS debt;
 DROP TABLE IF EXISTS fixed_asset;
 DROP TABLE IF EXISTS budget_plan;
+DROP TABLE IF EXISTS bill_import_pending_item;
 DROP TABLE IF EXISTS transaction_record;
 DROP TABLE IF EXISTS bill_parse_rule;
 DROP TABLE IF EXISTS bill_import_batch;
@@ -153,6 +154,7 @@ CREATE TABLE bill_import_batch (
     KEY idx_bill_import_batch_family_id (family_id),
     KEY idx_bill_import_batch_uploaded_by (uploaded_by_member_id),
     KEY idx_bill_import_batch_status (import_status),
+    KEY idx_bill_import_batch_family_hash (family_id, file_hash),
     CONSTRAINT fk_bill_import_batch_family
         FOREIGN KEY (family_id) REFERENCES family (id)
         ON DELETE CASCADE ON UPDATE CASCADE,
@@ -207,6 +209,7 @@ CREATE TABLE transaction_record (
     KEY idx_transaction_record_account_time (account_id, transaction_time),
     KEY idx_transaction_record_category_time (category_id, transaction_time),
     KEY idx_transaction_record_source_batch_id (source_batch_id),
+    KEY idx_transaction_record_platform_trade_no (source_platform, external_trade_no),
     CONSTRAINT fk_transaction_record_family
         FOREIGN KEY (family_id) REFERENCES family (id)
         ON DELETE CASCADE ON UPDATE CASCADE,
@@ -224,6 +227,46 @@ CREATE TABLE transaction_record (
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_transaction_record_batch
         FOREIGN KEY (source_batch_id) REFERENCES bill_import_batch (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE bill_import_pending_item (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    family_id BIGINT NOT NULL,
+    source_batch_id BIGINT NOT NULL,
+    transaction_record_id BIGINT NULL,
+    source_platform VARCHAR(20) NOT NULL,
+    external_trade_no VARCHAR(64) NULL,
+    merchant_name VARCHAR(100) NULL,
+    raw_category_name VARCHAR(100) NULL,
+    transaction_type VARCHAR(20) NOT NULL,
+    amount DECIMAL(14,2) NOT NULL,
+    transaction_time DATETIME NOT NULL,
+    note VARCHAR(255) NULL,
+    raw_line TEXT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    resolved_category_id BIGINT NULL,
+    resolved_by_member_id BIGINT NULL,
+    resolved_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_bill_import_pending_family_status (family_id, status),
+    KEY idx_bill_import_pending_batch_id (source_batch_id),
+    KEY idx_bill_import_pending_record_id (transaction_record_id),
+    CONSTRAINT fk_bill_import_pending_family
+        FOREIGN KEY (family_id) REFERENCES family (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_bill_import_pending_batch
+        FOREIGN KEY (source_batch_id) REFERENCES bill_import_batch (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_bill_import_pending_record
+        FOREIGN KEY (transaction_record_id) REFERENCES transaction_record (id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_bill_import_pending_category
+        FOREIGN KEY (resolved_category_id) REFERENCES category (id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_bill_import_pending_member
+        FOREIGN KEY (resolved_by_member_id) REFERENCES family_member (id)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

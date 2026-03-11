@@ -2,19 +2,21 @@ package com.example.finance.util;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 public final class CsvParserUtil {
 
@@ -28,50 +30,75 @@ public final class CsvParserUtil {
             DateTimeFormatter.ISO_LOCAL_DATE_TIME
     );
 
-    private static final Set<String> TIME_HEADERS = Set.of(
+    private static final List<String> TIME_HEADERS = List.of(
             "time", "date", "datetime", "transactiontime", "tradetime",
-            "发生时间", "交易时间", "时间", "日期"
+            "发生时间", "交易时间", "交易创建时间", "付款时间", "时间", "日期"
     );
-    private static final Set<String> AMOUNT_HEADERS = Set.of(
-            "amount", "money", "transactionamount", "金额", "金额元", "收支金额"
+    private static final List<String> AMOUNT_HEADERS = List.of(
+            "amount", "money", "transactionamount", "金额", "金额元", "收支金额", "订单金额"
     );
-    private static final Set<String> TYPE_HEADERS = Set.of(
-            "type", "transactiontype", "inout", "incomeexpense", "收支类型", "类型", "收支", "收/支"
+    private static final List<String> TYPE_HEADERS = List.of(
+            "收/支", "收支", "inout", "incomeexpense", "收支类型", "type", "transactiontype", "类型", "交易类型"
     );
-    private static final Set<String> MERCHANT_HEADERS = Set.of(
+    private static final List<String> MERCHANT_HEADERS = List.of(
             "merchant", "merchantname", "counterparty", "tradingparty",
-            "商户", "商户名称", "交易对方", "对方", "收付款方"
+            "商户", "商户名称", "交易对方", "对方", "收付款方", "对方户名"
     );
-    private static final Set<String> NOTE_HEADERS = Set.of(
-            "note", "remark", "description", "memo", "备注", "说明", "商品说明"
+    private static final List<String> NOTE_HEADERS = List.of(
+            "note", "remark", "description", "memo", "备注", "说明", "商品说明", "商品", "商品名称"
     );
-    private static final Set<String> CATEGORY_HEADERS = Set.of(
-            "category", "分类", "消费分类"
+    private static final List<String> CATEGORY_HEADERS = List.of(
+            "category", "分类", "消费分类", "一级分类"
+    );
+    private static final List<String> TRADE_NO_HEADERS = List.of(
+            "tradeno", "transactionno", "orderNo", "orderno", "externaltradeno",
+            "交易单号", "流水号", "交易流水号", "商户单号", "订单号", "交易号", "商家订单号", "微信支付订单号"
     );
 
     private CsvParserUtil() {
     }
 
     public static ParseResult parse(MultipartFile file) throws IOException {
+        return parse(file, null);
+    }
+
+    public static ParseResult parse(MultipartFile file, String sourcePlatform) throws IOException {
+        byte[] fileBytes = file.getBytes();
+        List<ParseCandidate> candidates = new ArrayList<>();
+        candidates.add(parse(fileBytes, StandardCharsets.UTF_8));
+
+        // Chinese wallet export files are often encoded in GBK, especially on Windows.
+        if (shouldTryGbk(sourcePlatform)) {
+            candidates.add(parse(fileBytes, Charset.forName("GBK")));
+        }
+
+        return chooseBestCandidate(candidates).result();
+    }
+
+    private static ParseCandidate parse(byte[] fileBytes, Charset charset) throws IOException {
         List<ParsedRow> rows = new ArrayList<>();
         List<String> errors = new ArrayList<>();
+        boolean hasHeader = false;
 
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)
+                new InputStreamReader(new ByteArrayInputStream(fileBytes), charset)
         )) {
             String firstLine = reader.readLine();
             if (firstLine == null) {
                 errors.add("CSV 文件为空");
-                return new ParseResult(rows, errors);
+                return new ParseCandidate(new ParseResult(rows, errors), false, charset);
             }
 
             firstLine = stripBom(firstLine);
             List<String> firstColumns = splitCsvLine(firstLine);
             HeaderMapping headerMapping = HeaderMapping.from(firstColumns);
+            hasHeader = headerMapping.hasHeader();
 
             int lineNumber = 1;
             if (!headerMapping.hasHeader()) {
-                parseDataLine(firstColumns, headerMapping, lineNumber, rows, errors);
+                if (!shouldIgnoreLine(firstLine)) {
+                    parseDataLine(firstColumns, headerMapping, lineNumber, rows, errors);
+                }
             }
 
             String line;
@@ -80,11 +107,14 @@ public final class CsvParserUtil {
                 if (line.isBlank()) {
                     continue;
                 }
+                if (shouldIgnoreLine(line)) {
+                    continue;
+                }
                 parseDataLine(splitCsvLine(line), headerMapping, lineNumber, rows, errors);
             }
         }
 
-        return new ParseResult(rows, errors);
+        return new ParseCandidate(new ParseResult(rows, errors), hasHeader, charset);
     }
 
     private static void parseDataLine(
@@ -101,6 +131,7 @@ public final class CsvParserUtil {
             String merchantText = headerMapping.value(columns, headerMapping.merchantIndex(), 3);
             String noteText = headerMapping.value(columns, headerMapping.noteIndex(), 4);
             String categoryText = headerMapping.value(columns, headerMapping.categoryIndex(), 5);
+            String tradeNoText = headerMapping.value(columns, headerMapping.tradeNoIndex(), 6);
 
             LocalDateTime transactionTime = parseDateTime(timeText);
             BigDecimal rawAmount = parseAmount(amountText);
@@ -117,6 +148,7 @@ public final class CsvParserUtil {
                     trimToNull(merchantText),
                     trimToNull(noteText),
                     trimToNull(categoryText),
+                    trimToNull(tradeNoText),
                     String.join(" | ", columns)
             ));
         } catch (RuntimeException exception) {
@@ -163,9 +195,57 @@ public final class CsvParserUtil {
         return switch (upper) {
             case "EXPENSE", "OUT", "PAY", "支出" -> "EXPENSE";
             case "INCOME", "IN", "RECEIVE", "收入" -> "INCOME";
-            case "TRANSFER", "转账" -> "TRANSFER";
+            case "TRANSFER", "转账", "不计收支" -> "TRANSFER";
             default -> amount.signum() < 0 ? "EXPENSE" : "INCOME";
         };
+    }
+
+    private static boolean shouldIgnoreLine(String line) {
+        String normalized = trimToNull(line);
+        if (normalized == null) {
+            return true;
+        }
+        String compact = normalized.replace(",", "").replace("|", "").replace("-", "").trim();
+        return compact.startsWith("共")
+                || compact.startsWith("本次")
+                || compact.startsWith("统计")
+                || compact.startsWith("导出说明");
+    }
+
+    private static boolean shouldTryGbk(String sourcePlatform) {
+        if (sourcePlatform == null) {
+            return true;
+        }
+        String normalized = sourcePlatform.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty()
+                || "CSV".equals(normalized)
+                || "ALIPAY".equals(normalized)
+                || "WECHAT".equals(normalized)
+                || "WECHAT_PAY".equals(normalized);
+    }
+
+    private static ParseCandidate chooseBestCandidate(List<ParseCandidate> candidates) {
+        ParseCandidate best = candidates.get(0);
+        for (int i = 1; i < candidates.size(); i++) {
+            ParseCandidate current = candidates.get(i);
+            if (isBetter(current, best)) {
+                best = current;
+            }
+        }
+        return best;
+    }
+
+    private static boolean isBetter(ParseCandidate candidate, ParseCandidate best) {
+        if (candidate.hasHeader() != best.hasHeader()) {
+            return candidate.hasHeader();
+        }
+        if (candidate.result().rows().size() != best.result().rows().size()) {
+            return candidate.result().rows().size() > best.result().rows().size();
+        }
+        if (candidate.result().errors().size() != best.result().errors().size()) {
+            return candidate.result().errors().size() < best.result().errors().size();
+        }
+        return StandardCharsets.UTF_8.equals(best.charset()) && !StandardCharsets.UTF_8.equals(candidate.charset());
     }
 
     private static List<String> splitCsvLine(String line) {
@@ -216,11 +296,15 @@ public final class CsvParserUtil {
             String merchantName,
             String note,
             String categoryName,
+            String externalTradeNo,
             String rawLine
     ) {
     }
 
     public record ParseResult(List<ParsedRow> rows, List<String> errors) {
+    }
+
+    private record ParseCandidate(ParseResult result, boolean hasHeader, Charset charset) {
     }
 
     private record HeaderMapping(
@@ -230,7 +314,8 @@ public final class CsvParserUtil {
             Integer typeIndex,
             Integer merchantIndex,
             Integer noteIndex,
-            Integer categoryIndex
+            Integer categoryIndex,
+            Integer tradeNoIndex
     ) {
 
         private static HeaderMapping from(List<String> headers) {
@@ -241,8 +326,18 @@ public final class CsvParserUtil {
             Integer merchantIndex = HeaderIndex.find(headerIndexMap, MERCHANT_HEADERS);
             Integer noteIndex = HeaderIndex.find(headerIndexMap, NOTE_HEADERS);
             Integer categoryIndex = HeaderIndex.find(headerIndexMap, CATEGORY_HEADERS);
+            Integer tradeNoIndex = HeaderIndex.find(headerIndexMap, TRADE_NO_HEADERS);
             boolean hasHeader = timeIndex != null || amountIndex != null || merchantIndex != null || typeIndex != null;
-            return new HeaderMapping(hasHeader, timeIndex, amountIndex, typeIndex, merchantIndex, noteIndex, categoryIndex);
+            return new HeaderMapping(
+                    hasHeader,
+                    timeIndex,
+                    amountIndex,
+                    typeIndex,
+                    merchantIndex,
+                    noteIndex,
+                    categoryIndex,
+                    tradeNoIndex
+            );
         }
 
         private String value(List<String> columns, Integer mappedIndex, int fallbackIndex) {
@@ -264,7 +359,7 @@ public final class CsvParserUtil {
             return result;
         }
 
-        private static Integer find(Map<String, Integer> headerIndexMap, Set<String> aliases) {
+        private static Integer find(Map<String, Integer> headerIndexMap, Collection<String> aliases) {
             for (String alias : aliases) {
                 Integer index = headerIndexMap.get(normalize(alias));
                 if (index != null) {

@@ -119,6 +119,30 @@ public class BillParseRuleService {
         billParseRuleRepository.save(rule);
     }
 
+    @Transactional
+    public BillParseRule createKeywordRuleIfAbsent(Long familyId, Long categoryId, String merchantKeyword, Integer priority) {
+        if (!StringUtils.hasText(merchantKeyword)) {
+            return null;
+        }
+        String normalizedKeyword = merchantKeyword.trim();
+        for (BillParseRule existingRule : billParseRuleRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, 1)) {
+            if (categoryId.equals(existingRule.getCategoryId())
+                    && normalizedKeyword.equalsIgnoreCase(normalize(existingRule.getMerchantKeyword()))
+                    && !StringUtils.hasText(existingRule.getRegexPattern())) {
+                return existingRule;
+            }
+        }
+
+        BillParseRuleApiModels.CreateRequest request = new BillParseRuleApiModels.CreateRequest(
+                familyId,
+                categoryId,
+                normalizedKeyword,
+                null,
+                priority
+        );
+        return create(request);
+    }
+
     private boolean matches(BillParseRule rule, String merchantName) {
         if (StringUtils.hasText(rule.getMerchantKeyword())
                 && merchantName.toLowerCase(Locale.ROOT).contains(rule.getMerchantKeyword().trim().toLowerCase(Locale.ROOT))) {
