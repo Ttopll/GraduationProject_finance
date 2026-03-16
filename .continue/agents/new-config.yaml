@@ -1,0 +1,12 @@
+{
+    "models": [
+        {
+            "title": "GLM-5",
+            "provider": "openai",
+            "model": "glm-5",
+            "apiBase": "https://open.bigmodel.cn/api/paas/v4/",
+            "apiKey": "ee4b27ed48a34a2799650189f2c12c14.Olc7O0D8HOl5RSFi"
+        }
+    ]
+}
+

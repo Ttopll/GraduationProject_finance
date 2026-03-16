@@ -1,0 +1,3 @@
+datetime,amount,type,merchant,note,category,tradeno
+2026-03-10 08:30:00,32.50,EXPENSE,STARBUCKS,coffee,,demo-trade-001
+2026-03-10 19:10:00,18.80,EXPENSE,UNKNOWN_STORE,snack,,demo-trade-002
