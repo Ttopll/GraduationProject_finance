@@ -198,6 +198,9 @@ public class TransactionRecordService {
         if (!familyId.equals(account.getFamilyId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户不属于当前家庭");
         }
+        if (!Integer.valueOf(1).equals(account.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account is inactive");
+        }
         return account;
     }
 

@@ -387,6 +387,59 @@ Authorization: Bearer {accessToken}
 - [ ] 返回 `200 OK`
 - [ ] 列表中存在 `accountId`
 
+#### B3A. 修改账户
+
+- 接口：`PUT /api/accounts/{accountId}`
+- 是否鉴权：是
+- 目标：验证账户元数据可修改
+
+请求体示例：
+
+```json
+{
+  "accountName": "Cash Wallet Updated",
+  "accountType": "CASH",
+  "institutionName": "Local Updated",
+  "accountNoMask": "CASH-002",
+  "creditLimit": 0,
+  "billingDay": 12,
+  "repaymentDay": 22,
+  "isShared": 1,
+  "remark": "updated acceptance account"
+}
+```
+
+验收点：
+
+- [ ] 返回 `200 OK`
+- [ ] 响应中的 `accountName` 已更新
+- [ ] 响应中的 `billingDay` 为 `12`
+- [ ] 响应中的 `repaymentDay` 为 `22`
+
+#### B3B. 停用账户
+
+- 接口：`POST /api/accounts/{accountId}/disable`
+- 是否鉴权：是
+- 目标：验证停用后账户状态变化
+
+验收点：
+
+- [ ] 返回 `200 OK`
+- [ ] 响应中的 `status` 为 `0`
+- [ ] 可选：使用该账户继续创建交易或还款时，应返回 `400 Bad Request`
+
+#### B3C. 重新启用账户
+
+- 接口：`POST /api/accounts/{accountId}/enable`
+- 是否鉴权：是
+- 目标：验证账户可以重新启用
+
+验收点：
+
+- [ ] 返回 `200 OK`
+- [ ] 响应中的 `status` 为 `1`
+- [ ] 再次调用 `GET /api/accounts?familyId={familyId}` 仍可查询到账户
+
 #### B4. 创建支出分类
 
 - 接口：`POST /api/categories`

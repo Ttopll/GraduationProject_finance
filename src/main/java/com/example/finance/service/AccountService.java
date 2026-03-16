@@ -7,6 +7,7 @@ import com.example.finance.repository.AccountRepository;
 import com.example.finance.repository.FamilyMemberRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,6 +17,9 @@ import java.util.Locale;
 
 @Service
 public class AccountService {
+
+    private static final int ACTIVE_STATUS = 1;
+    private static final int INACTIVE_STATUS = 0;
 
     private final AccountRepository accountRepository;
     private final FamilyService familyService;
@@ -31,31 +35,58 @@ public class AccountService {
         this.familyMemberRepository = familyMemberRepository;
     }
 
+    @Transactional
     public Account create(AccountApiModels.CreateRequest request) {
         familyService.getById(request.familyId());
-
-        if (request.ownerMemberId() != null) {
-            FamilyMember familyMember = familyMemberRepository.findById(request.ownerMemberId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "账户归属成员不存在"));
-            if (!request.familyId().equals(familyMember.getFamilyId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户归属成员不属于当前家庭");
-            }
-        }
+        validateOwnerMember(request.familyId(), request.ownerMemberId());
 
         Account account = new Account();
         account.setFamilyId(request.familyId());
-        account.setOwnerMemberId(request.ownerMemberId());
-        account.setAccountName(request.accountName().trim());
-        account.setAccountType(request.accountType().trim().toUpperCase(Locale.ROOT));
-        account.setInstitutionName(normalize(request.institutionName()));
-        account.setAccountNoMask(normalize(request.accountNoMask()));
         account.setCurrentBalance(defaultAmount(request.currentBalance()));
-        account.setCreditLimit(defaultAmount(request.creditLimit()));
-        account.setBillingDay(request.billingDay());
-        account.setRepaymentDay(request.repaymentDay());
-        account.setIsShared(request.isShared() == null ? 1 : request.isShared());
-        account.setStatus(1);
-        account.setRemark(normalize(request.remark()));
+        account.setStatus(ACTIVE_STATUS);
+        applyAccountFields(
+                account,
+                request.ownerMemberId(),
+                request.accountName(),
+                request.accountType(),
+                request.institutionName(),
+                request.accountNoMask(),
+                request.creditLimit(),
+                request.billingDay(),
+                request.repaymentDay(),
+                request.isShared(),
+                request.remark()
+        );
+        return accountRepository.save(account);
+    }
+
+    @Transactional
+    public Account update(Long accountId, AccountApiModels.UpdateRequest request) {
+        Account account = getById(accountId);
+        familyService.getById(account.getFamilyId());
+        validateOwnerMember(account.getFamilyId(), request.ownerMemberId());
+
+        applyAccountFields(
+                account,
+                request.ownerMemberId(),
+                request.accountName(),
+                request.accountType(),
+                request.institutionName(),
+                request.accountNoMask(),
+                request.creditLimit(),
+                request.billingDay(),
+                request.repaymentDay(),
+                request.isShared(),
+                request.remark()
+        );
+        return accountRepository.save(account);
+    }
+
+    @Transactional
+    public Account changeStatus(Long accountId, boolean active) {
+        Account account = getById(accountId);
+        familyService.getById(account.getFamilyId());
+        account.setStatus(active ? ACTIVE_STATUS : INACTIVE_STATUS);
         return accountRepository.save(account);
     }
 
@@ -66,7 +97,53 @@ public class AccountService {
 
     public Account getById(Long accountId) {
         return accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "账户不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "account not found"));
+    }
+
+    private void applyAccountFields(
+            Account account,
+            Long ownerMemberId,
+            String accountName,
+            String accountType,
+            String institutionName,
+            String accountNoMask,
+            BigDecimal creditLimit,
+            Integer billingDay,
+            Integer repaymentDay,
+            Integer isShared,
+            String remark
+    ) {
+        account.setOwnerMemberId(ownerMemberId);
+        account.setAccountName(accountName.trim());
+        account.setAccountType(accountType.trim().toUpperCase(Locale.ROOT));
+        account.setInstitutionName(normalize(institutionName));
+        account.setAccountNoMask(normalize(accountNoMask));
+        account.setCreditLimit(defaultAmount(creditLimit));
+        account.setBillingDay(validateDayOfMonth(billingDay, "billingDay"));
+        account.setRepaymentDay(validateDayOfMonth(repaymentDay, "repaymentDay"));
+        account.setIsShared(isShared == null ? 1 : isShared);
+        account.setRemark(normalize(remark));
+    }
+
+    private void validateOwnerMember(Long familyId, Long ownerMemberId) {
+        if (ownerMemberId == null) {
+            return;
+        }
+        FamilyMember familyMember = familyMemberRepository.findByIdAndStatus(ownerMemberId, ACTIVE_STATUS)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "account owner member not found"));
+        if (!familyId.equals(familyMember.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account owner member does not belong to family");
+        }
+    }
+
+    private Integer validateDayOfMonth(Integer value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value < 1 || value > 31) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be between 1 and 31");
+        }
+        return value;
     }
 
     private BigDecimal defaultAmount(BigDecimal value) {

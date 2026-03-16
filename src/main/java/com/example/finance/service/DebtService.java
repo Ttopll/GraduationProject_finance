@@ -96,6 +96,9 @@ public class DebtService {
             if (!request.familyId().equals(payAccount.getFamilyId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "付款账户不属于当前家庭");
             }
+            if (!Integer.valueOf(1).equals(payAccount.getStatus())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account is inactive");
+            }
         }
 
         BigDecimal principalPaid = request.principalPaid();
