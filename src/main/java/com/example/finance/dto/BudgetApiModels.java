@@ -29,6 +29,18 @@ public final class BudgetApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            @NotNull Long categoryId,
+            @NotBlank @Size(max = 100) String budgetName,
+            @NotBlank @Size(max = 20) String periodType,
+            @NotNull @Positive BigDecimal amount,
+            @DecimalMin("0.00") @DecimalMax("1.00") BigDecimal alertRatio,
+            @NotNull LocalDate startDate,
+            LocalDate endDate,
+            @Size(max = 255) String remark
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,

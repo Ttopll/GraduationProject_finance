@@ -23,11 +23,16 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class BudgetService {
+
+    private static final int ENABLED = 1;
+    private static final int DISABLED = 0;
+    private static final BigDecimal DEFAULT_ALERT_RATIO = new BigDecimal("0.80");
+    private static final List<String> SUPPORTED_PERIOD_TYPES = List.of("MONTH", "YEAR");
 
     private final BudgetPlanRepository budgetPlanRepository;
     private final CategoryRepository categoryRepository;
@@ -52,41 +57,58 @@ public class BudgetService {
     @Transactional
     public BudgetPlan create(BudgetApiModels.CreateRequest request) {
         familyService.getById(request.familyId());
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "预算分类不存在"));
-        if (!request.familyId().equals(category.getFamilyId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预算分类不属于当前家庭");
-        }
-
-        if (request.createdByMemberId() != null) {
-            FamilyMember familyMember = familyMemberRepository.findById(request.createdByMemberId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "预算创建人不存在"));
-            if (!request.familyId().equals(familyMember.getFamilyId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预算创建人不属于当前家庭");
-            }
-        }
-
-        String periodType = request.periodType().trim().toUpperCase(Locale.ROOT);
-        if (!List.of("MONTH", "YEAR").contains(periodType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预算周期仅支持 MONTH 或 YEAR");
-        }
-        if (request.endDate() != null && request.endDate().isBefore(request.startDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "预算结束时间不能早于开始时间");
-        }
+        validateCategoryBelongsToFamily(request.familyId(), request.categoryId());
+        validateCreatorMember(request.familyId(), request.createdByMemberId());
 
         BudgetPlan budgetPlan = new BudgetPlan();
         budgetPlan.setFamilyId(request.familyId());
-        budgetPlan.setCategoryId(request.categoryId());
         budgetPlan.setCreatedByMemberId(request.createdByMemberId());
-        budgetPlan.setBudgetName(request.budgetName().trim());
-        budgetPlan.setPeriodType(periodType);
-        budgetPlan.setAmount(request.amount());
-        budgetPlan.setAlertRatio(request.alertRatio() == null ? new BigDecimal("0.80") : request.alertRatio());
-        budgetPlan.setStartDate(request.startDate());
-        budgetPlan.setEndDate(request.endDate());
-        budgetPlan.setEnabled(1);
-        budgetPlan.setRemark(normalize(request.remark()));
+        applyBudgetFields(
+                budgetPlan,
+                request.categoryId(),
+                request.budgetName(),
+                request.periodType(),
+                request.amount(),
+                request.alertRatio(),
+                request.startDate(),
+                request.endDate(),
+                request.remark()
+        );
+        budgetPlan.setEnabled(ENABLED);
         return budgetPlanRepository.save(budgetPlan);
+    }
+
+    @Transactional
+    public BudgetPlan update(Long budgetId, BudgetApiModels.UpdateRequest request) {
+        BudgetPlan budgetPlan = getBudget(budgetId);
+        familyService.getById(budgetPlan.getFamilyId());
+        validateCategoryBelongsToFamily(budgetPlan.getFamilyId(), request.categoryId());
+
+        applyBudgetFields(
+                budgetPlan,
+                request.categoryId(),
+                request.budgetName(),
+                request.periodType(),
+                request.amount(),
+                request.alertRatio(),
+                request.startDate(),
+                request.endDate(),
+                request.remark()
+        );
+        return budgetPlanRepository.save(budgetPlan);
+    }
+
+    @Transactional
+    public BudgetPlan changeEnabled(Long budgetId, boolean enabled) {
+        BudgetPlan budgetPlan = getBudget(budgetId);
+        familyService.getById(budgetPlan.getFamilyId());
+        budgetPlan.setEnabled(enabled ? ENABLED : DISABLED);
+        return budgetPlanRepository.save(budgetPlan);
+    }
+
+    public BudgetPlan getBudget(Long budgetId) {
+        return budgetPlanRepository.findById(budgetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "budget not found"));
     }
 
     public List<BudgetPlan> listByFamilyId(Long familyId) {
@@ -101,7 +123,7 @@ public class BudgetService {
         LocalDate periodStart = month.atDay(1);
         LocalDate periodEnd = month.atEndOfMonth();
 
-        List<BudgetPlan> budgets = budgetPlanRepository.findByFamilyIdAndEnabledOrderByIdDesc(familyId, 1).stream()
+        List<BudgetPlan> budgets = budgetPlanRepository.findByFamilyIdAndEnabledOrderByIdDesc(familyId, ENABLED).stream()
                 .filter(budget -> isBudgetActiveInPeriod(budget, periodStart, periodEnd))
                 .toList();
         Map<Long, String> categoryNameMap = buildCategoryNameMap(familyId);
@@ -110,6 +132,61 @@ public class BudgetService {
         return budgets.stream()
                 .map(budget -> toUsageResponse(budget, month, categoryNameMap.get(budget.getCategoryId()), expenseByCategory))
                 .toList();
+    }
+
+    private void applyBudgetFields(
+            BudgetPlan budgetPlan,
+            Long categoryId,
+            String budgetName,
+            String periodType,
+            BigDecimal amount,
+            BigDecimal alertRatio,
+            LocalDate startDate,
+            LocalDate endDate,
+            String remark
+    ) {
+        budgetPlan.setCategoryId(categoryId);
+        budgetPlan.setBudgetName(budgetName.trim());
+        budgetPlan.setPeriodType(validatePeriodType(periodType));
+        budgetPlan.setAmount(amount);
+        budgetPlan.setAlertRatio(alertRatio == null ? DEFAULT_ALERT_RATIO : alertRatio);
+        budgetPlan.setStartDate(startDate);
+        budgetPlan.setEndDate(validateDateRange(startDate, endDate));
+        budgetPlan.setRemark(normalize(remark));
+    }
+
+    private void validateCategoryBelongsToFamily(Long familyId, Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "budget category not found"));
+        if (!familyId.equals(category.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budget category does not belong to family");
+        }
+    }
+
+    private void validateCreatorMember(Long familyId, Long createdByMemberId) {
+        if (createdByMemberId == null) {
+            return;
+        }
+        FamilyMember familyMember = familyMemberRepository.findById(createdByMemberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "budget creator member not found"));
+        if (!familyId.equals(familyMember.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budget creator member does not belong to family");
+        }
+    }
+
+    private String validatePeriodType(String periodType) {
+        String normalizedPeriodType = periodType.trim().toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_PERIOD_TYPES.contains(normalizedPeriodType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "periodType only supports MONTH or YEAR");
+        }
+        return normalizedPeriodType;
+    }
+
+    private LocalDate validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (endDate != null && endDate.isBefore(startDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budget endDate cannot be earlier than startDate");
+        }
+        return endDate;
     }
 
     private Map<Long, BigDecimal> expenseByCategory(Long familyId, LocalDateTime start, LocalDateTime end) {

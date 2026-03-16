@@ -6,8 +6,10 @@ import com.example.finance.security.FamilyAccessService;
 import com.example.finance.service.BudgetService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +55,30 @@ public class BudgetController {
         return budgetService.listByFamilyId(familyId).stream()
                 .map(BudgetController::toResponse)
                 .toList();
+    }
+
+    @PutMapping("/{budgetId}")
+    public BudgetApiModels.Response update(
+            @PathVariable Long budgetId,
+            @Valid @RequestBody BudgetApiModels.UpdateRequest request
+    ) {
+        BudgetPlan budgetPlan = budgetService.getBudget(budgetId);
+        familyAccessService.requireFamilyRead(budgetPlan.getFamilyId());
+        return toResponse(budgetService.update(budgetId, request));
+    }
+
+    @PostMapping("/{budgetId}/enable")
+    public BudgetApiModels.Response enable(@PathVariable Long budgetId) {
+        BudgetPlan budgetPlan = budgetService.getBudget(budgetId);
+        familyAccessService.requireFamilyRead(budgetPlan.getFamilyId());
+        return toResponse(budgetService.changeEnabled(budgetId, true));
+    }
+
+    @PostMapping("/{budgetId}/disable")
+    public BudgetApiModels.Response disable(@PathVariable Long budgetId) {
+        BudgetPlan budgetPlan = budgetService.getBudget(budgetId);
+        familyAccessService.requireFamilyRead(budgetPlan.getFamilyId());
+        return toResponse(budgetService.changeEnabled(budgetId, false));
     }
 
     @GetMapping("/usage")

@@ -471,6 +471,58 @@ Authorization: Bearer {accessToken}
 - [ ] 返回 `200 OK`
 - [ ] `Food Budget 2026-03` 对应的 `spentAmount` 初始为 `0`
 
+#### B9. 修改预算
+
+- 接口：`PUT /api/budgets/{budgetId}`
+- 是否鉴权：是
+- 目标：验证预算可被修改
+
+请求体示例：
+
+```json
+{
+  "categoryId": {{categoryId}},
+  "budgetName": "Food Budget 2026-03 Updated",
+  "periodType": "MONTH",
+  "amount": 260,
+  "alertRatio": 0.75,
+  "startDate": "2026-03-01",
+  "endDate": "2026-03-31",
+  "remark": "updated acceptance budget"
+}
+```
+
+验收点：
+
+- [ ] 返回 `200 OK`
+- [ ] 响应中的 `budgetName` 已更新
+- [ ] 响应中的 `amount` 为 `260`
+- [ ] 响应中的 `alertRatio` 为 `0.75`
+
+#### B10. 停用预算并确认统计不再返回
+
+- 接口：`POST /api/budgets/{budgetId}/disable`
+- 是否鉴权：是
+- 目标：验证停用后的预算不再参与预算使用情况统计
+
+验收点：
+
+- [ ] 调用停用接口返回 `200 OK`
+- [ ] 响应中的 `enabled` 为 `0`
+- [ ] 再次调用 `GET /api/budgets/usage?familyId={familyId}&month=2026-03`，结果中不再包含 `budgetId`
+
+#### B11. 重新启用预算
+
+- 接口：`POST /api/budgets/{budgetId}/enable`
+- 是否鉴权：是
+- 目标：验证预算可重新启用
+
+验收点：
+
+- [ ] 调用启用接口返回 `200 OK`
+- [ ] 响应中的 `enabled` 为 `1`
+- [ ] 再次调用 `GET /api/budgets?familyId={familyId}`，预算仍可查询到
+
 ### C. 交易流水与汇总
 
 #### C1. 新增一笔支出交易
