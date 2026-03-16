@@ -64,9 +64,12 @@ Authorization: Bearer {accessToken}
 
 - `baseUrl = http://localhost:8088`
 - `token`
+- `memberToken`
 - `userId`
+- `memberUserId`
 - `familyId`
 - `familyMemberId`
+- `memberFamilyMemberId`
 - `accountId`
 - `accountId2`
 - `categoryId`
@@ -169,6 +172,7 @@ Authorization: Bearer {accessToken}
 - [ ] 响应中有 `id`
 - [ ] 记录该 `id` 为 `familyId`
 - [ ] 响应中有 `inviteCode`
+- [ ] 记录 `inviteCode`
 
 #### A5. 查询家庭列表
 
@@ -204,6 +208,119 @@ Authorization: Bearer {accessToken}
 - [ ] `memberships` 中存在刚创建的 `familyId`
 - [ ] 该条 membership 的 `roleCode` 为 `OWNER`
 - [ ] 记录 `familyMemberId`
+
+#### A8. 注册第二个用户
+
+- 接口：`POST /api/users`
+- 是否鉴权：否
+- 目标：准备邀请码加入和户主转交流程的第二个家庭成员
+
+请求体示例：
+
+```json
+{
+  "username": "accept_user_02",
+  "password": "Pass123456",
+  "nickname": "accept02",
+  "realName": "Acceptance User 02",
+  "phone": "13800000002",
+  "email": "accept02@example.com",
+  "userType": "USER"
+}
+```
+
+验收点：
+
+- [ ] 返回 `201 Created`
+- [ ] 响应中有 `id`
+- [ ] 记录该 `id` 为 `memberUserId`
+
+#### A9. 第二个用户登录并通过邀请码加入家庭
+
+- 接口：`POST /api/auth/login`、`POST /api/families/join`
+- 是否鉴权：登录接口否，加入家庭接口是
+- 目标：验证邀请码加入家庭能力
+
+登录请求体示例：
+
+```json
+{
+  "username": "accept_user_02",
+  "password": "Pass123456"
+}
+```
+
+加入家庭请求体示例：
+
+```json
+{
+  "inviteCode": "{{inviteCode}}",
+  "memberName": "Family Member 02"
+}
+```
+
+验收点：
+
+- [ ] 登录返回 `200 OK`
+- [ ] 记录第二个用户的 `accessToken` 为 `memberToken`
+- [ ] 使用 `memberToken` 调用加入家庭接口返回 `201 Created`
+- [ ] 响应中的 `roleCode` 为 `MEMBER`
+
+#### A10. 查询家庭成员列表
+
+- 接口：`GET /api/families/{familyId}/members`
+- 是否鉴权：是
+- 目标：验证家庭成员列表查询能力
+
+验收点：
+
+- [ ] 返回 `200 OK`
+- [ ] 列表中同时存在 `familyMemberId` 与第二个成员
+- [ ] 记录第二个成员的 `memberId` 为 `memberFamilyMemberId`
+
+#### A11. 户主转交
+
+- 接口：`POST /api/families/{familyId}/transfer-owner`
+- 是否鉴权：是
+- 目标：验证户主身份可安全转交给其他有效成员
+
+请求体示例：
+
+```json
+{
+  "targetMemberId": {{memberFamilyMemberId}}
+}
+```
+
+验收点：
+
+- [ ] 使用原户主的 `token` 调用返回 `200 OK`
+- [ ] 响应中的 `roleCode` 为 `OWNER`
+- [ ] 随后调用 `GET /api/families/{familyId}`，确认 `ownerUserId` 已变为 `memberUserId`
+
+#### A12. 原户主主动退出家庭
+
+- 接口：`POST /api/families/{familyId}/leave`
+- 是否鉴权：是
+- 目标：验证成员主动退出流程
+
+验收点：
+
+- [ ] 使用原户主的 `token` 调用返回 `200 OK`
+- [ ] 响应中的 `memberStatus` 为 `0`
+- [ ] 响应中的 `ownerUserId` 仍为 `memberUserId`
+
+#### A13. 新户主刷新邀请码
+
+- 接口：`POST /api/families/{familyId}/refresh-invite-code`
+- 是否鉴权：是
+- 目标：验证户主权限已成功转移
+
+验收点：
+
+- [ ] 使用 `memberToken` 调用返回 `200 OK`
+- [ ] 返回新的 `inviteCode`
+- [ ] 新的 `inviteCode` 与 A4 中记录的旧邀请码不同
 
 ### B. 账户、分类、预算
 

@@ -12,6 +12,8 @@ public interface FamilyMemberRepository extends JpaRepository<FamilyMember, Long
 
     List<FamilyMember> findByFamilyIdOrderByIdAsc(Long familyId);
 
+    Optional<FamilyMember> findByFamilyIdAndUserId(Long familyId, Long userId);
+
     Optional<FamilyMember> findByFamilyIdAndUserIdAndStatus(Long familyId, Long userId, Integer status);
 
     Optional<FamilyMember> findByIdAndStatus(Long id, Integer status);
