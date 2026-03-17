@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -172,6 +173,7 @@ public class RuleEvaluationService {
         return switch (rule.getRuleType()) {
             case "THRESHOLD" -> calculateThresholdMetric(rule, familyId, month, categoryNameMap);
             case "CONSECUTIVE_THRESHOLD" -> calculateConsecutiveThresholdMetric(rule, familyId, month, categoryNameMap);
+            case "TREND_ANOMALY" -> calculateTrendAnomalyMetric(rule, familyId, month, categoryNameMap);
             default -> throw new IllegalArgumentException("不支持的规则类型: " + rule.getRuleType());
         };
     }
@@ -211,7 +213,10 @@ public class RuleEvaluationService {
                 metricLabel,
                 RuleThresholdConfigUtil.toJson(context),
                 compare(metricValue, rule.getOperatorType(), rule.getThresholdValue()),
-                null
+                null,
+                null,
+                null,
+                metricValue
         );
     }
 
@@ -273,7 +278,85 @@ public class RuleEvaluationService {
                 metricLabel,
                 RuleThresholdConfigUtil.toJson(context),
                 matchedMonthCount == consecutiveMonths,
-                consecutiveMonths
+                consecutiveMonths,
+                null,
+                null,
+                currentMonthValue
+        );
+    }
+
+    private MetricContext calculateTrendAnomalyMetric(
+            RuleDefinition rule,
+            Long familyId,
+            YearMonth month,
+            Map<Long, String> categoryNameMap
+    ) {
+        int baselineMonths = RuleThresholdConfigUtil.parseBaselineMonths(rule.getThresholdJson());
+        YearMonth startMonth = month.minusMonths(baselineMonths);
+        LocalDateTime start = startMonth.atDay(1).atStartOfDay();
+        LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay().minusNanos(1);
+
+        List<TransactionRecord> records = transactionRecordRepository
+                .findByFamilyIdAndTransactionTypeAndTransactionTimeBetweenOrderByTransactionTimeAscIdAsc(
+                        familyId,
+                        "EXPENSE",
+                        start,
+                        end
+                );
+
+        Map<YearMonth, BigDecimal> monthlyTotals = new LinkedHashMap<>();
+        for (int offset = 0; offset <= baselineMonths; offset++) {
+            monthlyTotals.put(startMonth.plusMonths(offset), BigDecimal.ZERO);
+        }
+
+        for (TransactionRecord record : records) {
+            if (!matchesMetric(rule, record)) {
+                continue;
+            }
+            YearMonth recordMonth = YearMonth.from(record.getTransactionTime());
+            if (!monthlyTotals.containsKey(recordMonth)) {
+                continue;
+            }
+            monthlyTotals.put(recordMonth, monthlyTotals.get(recordMonth).add(record.getAmount()));
+        }
+
+        BigDecimal currentMonthValue = monthlyTotals.getOrDefault(month, BigDecimal.ZERO);
+        BigDecimal baselineTotal = monthlyTotals.entrySet().stream()
+                .filter(entry -> !month.equals(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal baselineAverage = baselineTotal.divide(BigDecimal.valueOf(baselineMonths), 4, RoundingMode.HALF_UP);
+
+        boolean hasValidBaseline = baselineAverage.compareTo(BigDecimal.ZERO) > 0;
+        BigDecimal growthRate = hasValidBaseline
+                ? currentMonthValue.subtract(baselineAverage).divide(baselineAverage, 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        boolean triggered = hasValidBaseline && compare(growthRate, rule.getOperatorType(), rule.getThresholdValue());
+        String metricLabel = resolveMetricLabel(rule, categoryNameMap);
+
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("ruleType", rule.getRuleType());
+        context.put("metricLabel", metricLabel);
+        context.put("metricValue", growthRate);
+        context.put("timeScope", rule.getTimeScope());
+        context.put("month", month.toString());
+        context.put("operatorType", rule.getOperatorType());
+        context.put("thresholdValue", rule.getThresholdValue());
+        context.put("baselineMonths", baselineMonths);
+        context.put("baselineAverage", baselineAverage);
+        context.put("currentMonthValue", currentMonthValue);
+        context.put("baselineStatus", hasValidBaseline ? "OK" : "ZERO_BASELINE");
+        context.put("monthlyValues", buildMonthlyValueItems(monthlyTotals));
+
+        return new MetricContext(
+                growthRate,
+                metricLabel,
+                RuleThresholdConfigUtil.toJson(context),
+                triggered,
+                null,
+                baselineMonths,
+                baselineAverage,
+                currentMonthValue
         );
     }
 
@@ -288,6 +371,20 @@ public class RuleEvaluationService {
                     metricContext.consecutiveMonths,
                     metricContext.metricValue,
                     rule.getThresholdValue()
+            );
+        }
+        if (metricContext.baselineMonths != null) {
+            return String.format(
+                    Locale.ROOT,
+                    "%s [%s] 在 %s 相比前 %d 个月平均值出现异常增长，当前月 %.2f，基线均值 %.2f，增幅 %.2f%%，阈值 %.2f%%。",
+                    rule.getMessageTemplate(),
+                    metricContext.metricLabel,
+                    month,
+                    metricContext.baselineMonths,
+                    metricContext.currentValue,
+                    metricContext.baselineValue,
+                    metricContext.metricValue.multiply(new BigDecimal("100")),
+                    rule.getThresholdValue().multiply(new BigDecimal("100"))
             );
         }
         return String.format(
@@ -386,7 +483,10 @@ public class RuleEvaluationService {
             String metricLabel,
             String contextJson,
             boolean triggered,
-            Integer consecutiveMonths
+            Integer consecutiveMonths,
+            Integer baselineMonths,
+            BigDecimal baselineValue,
+            BigDecimal currentValue
     ) {
     }
 

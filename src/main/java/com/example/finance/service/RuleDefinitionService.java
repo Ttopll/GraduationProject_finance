@@ -61,8 +61,11 @@ public class RuleDefinitionService {
         String actionType = request.actionType().trim().toUpperCase(Locale.ROOT);
         String normalizedThresholdJson;
 
-        if (!List.of("THRESHOLD", "CONSECUTIVE_THRESHOLD").contains(ruleType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 THRESHOLD 或 CONSECUTIVE_THRESHOLD 规则");
+        if (!List.of("THRESHOLD", "CONSECUTIVE_THRESHOLD", "TREND_ANOMALY").contains(ruleType)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "当前仅支持 THRESHOLD、CONSECUTIVE_THRESHOLD 或 TREND_ANOMALY 规则"
+            );
         }
         if (!List.of("CATEGORY_EXPENSE", "FAMILY_EXPENSE").contains(metricType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 CATEGORY_EXPENSE 或 FAMILY_EXPENSE 指标");
@@ -81,6 +84,12 @@ public class RuleDefinitionService {
         }
         if ("CONSECUTIVE_THRESHOLD".equals(ruleType) && !"MONTH".equals(timeScope)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONSECUTIVE_THRESHOLD 规则仅支持 MONTH 时间范围");
+        }
+        if ("TREND_ANOMALY".equals(ruleType) && !"MONTH".equals(timeScope)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "TREND_ANOMALY 规则仅支持 MONTH 时间范围");
+        }
+        if ("TREND_ANOMALY".equals(ruleType) && !List.of("GT", "GTE").contains(operatorType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "TREND_ANOMALY 规则仅支持 GT 或 GTE 运算符");
         }
         try {
             normalizedThresholdJson = RuleThresholdConfigUtil.normalizeThresholdJson(ruleType, request.thresholdJson());

@@ -817,6 +817,7 @@ Authorization: Bearer {accessToken}
 
 - [ ] 返回 `201 Created`
 - [ ] 记录 `id` 为 `ruleId`
+- [ ] 如创建 `CONSECUTIVE_THRESHOLD` 或 `TREND_ANOMALY`，`thresholdJson` 配置被正确接收
 
 #### E2. 查询规则列表
 

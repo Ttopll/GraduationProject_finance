@@ -10,10 +10,6 @@ import java.util.regex.Pattern;
 
 public final class RuleThresholdConfigUtil {
 
-    private static final Pattern CONSECUTIVE_MONTHS_PATTERN = Pattern.compile(
-            "\"consecutiveMonths\"\\s*:\\s*(?:\"(\\d+)\"|(\\d+))"
-    );
-
     private RuleThresholdConfigUtil() {
     }
 
@@ -24,6 +20,12 @@ public final class RuleThresholdConfigUtil {
             normalized.put("consecutiveMonths", consecutiveMonths);
             return toJson(normalized);
         }
+        if ("TREND_ANOMALY".equals(ruleType)) {
+            int baselineMonths = parseBaselineMonths(thresholdJson);
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("baselineMonths", baselineMonths);
+            return toJson(normalized);
+        }
         if (StringUtils.hasText(thresholdJson)) {
             throw new IllegalArgumentException("THRESHOLD 规则不需要 thresholdJson");
         }
@@ -31,26 +33,41 @@ public final class RuleThresholdConfigUtil {
     }
 
     public static int parseConsecutiveMonths(String thresholdJson) {
+        int consecutiveMonths = parsePositiveIntField(thresholdJson, "consecutiveMonths", 2);
+        return consecutiveMonths;
+    }
+
+    public static int parseBaselineMonths(String thresholdJson) {
+        int baselineMonths = parsePositiveIntField(thresholdJson, "baselineMonths", 2);
+        return baselineMonths;
+    }
+
+    private static int parsePositiveIntField(String thresholdJson, String fieldName, int minimumValue) {
         if (!StringUtils.hasText(thresholdJson)) {
-            throw new IllegalArgumentException("CONSECUTIVE_THRESHOLD 规则必须提供 thresholdJson");
+            throw new IllegalArgumentException("规则必须提供 thresholdJson");
         }
-        Matcher matcher = CONSECUTIVE_MONTHS_PATTERN.matcher(thresholdJson);
+        Matcher matcher = integerFieldPattern(fieldName).matcher(thresholdJson);
         if (!matcher.find()) {
-            throw new IllegalArgumentException("thresholdJson 必须包含 consecutiveMonths");
+            throw new IllegalArgumentException("thresholdJson 必须包含 " + fieldName);
         }
 
         String rawValue = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-        int consecutiveMonths;
+        int value;
         try {
-            consecutiveMonths = Integer.parseInt(rawValue);
+            value = Integer.parseInt(rawValue);
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("consecutiveMonths 必须是整数");
+            throw new IllegalArgumentException(fieldName + " 必须是整数");
         }
 
-        if (consecutiveMonths < 2) {
-            throw new IllegalArgumentException("consecutiveMonths 必须大于等于 2");
+        if (value < minimumValue) {
+            throw new IllegalArgumentException(fieldName + " 必须大于等于 " + minimumValue);
         }
-        return consecutiveMonths;
+        return value;
+    }
+
+    private static Pattern integerFieldPattern(String fieldName) {
+        String regex = "\"" + Pattern.quote(fieldName) + "\"\\s*:\\s*(?:\"(\\d+)\"|(\\d+))";
+        return Pattern.compile(regex);
     }
 
     public static String toJson(Map<String, ?> value) {

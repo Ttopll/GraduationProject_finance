@@ -122,4 +122,86 @@ class RuleDefinitionServiceTests {
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertEquals("CONSECUTIVE_THRESHOLD 规则仅支持 MONTH 时间范围", exception.getReason());
     }
+
+    @Test
+    void createShouldPersistTrendAnomalyRule() {
+        Long familyId = 1L;
+        Long categoryId = 2L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setFamilyId(familyId);
+
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
+        when(ruleDefinitionRepository.save(any(RuleDefinition.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RuleDefinition ruleDefinition = ruleDefinitionService.create(
+                new RuleDefinitionApiModels.CreateRequest(
+                        familyId,
+                        categoryId,
+                        null,
+                        "Food Trend Rule",
+                        "trend_anomaly",
+                        "category_expense",
+                        "month",
+                        "gte",
+                        new BigDecimal("0.30"),
+                        "{\"baselineMonths\":\"3\"}",
+                        "notify",
+                        "Food trend anomaly",
+                        20
+                )
+        );
+
+        assertEquals("TREND_ANOMALY", ruleDefinition.getRuleType());
+        assertEquals("CATEGORY_EXPENSE", ruleDefinition.getMetricType());
+        assertEquals("MONTH", ruleDefinition.getTimeScope());
+        assertEquals("GTE", ruleDefinition.getOperatorType());
+        assertEquals(new BigDecimal("0.30"), ruleDefinition.getThresholdValue());
+        assertEquals("{\"baselineMonths\":3}", ruleDefinition.getThresholdJson());
+    }
+
+    @Test
+    void createShouldRejectTrendAnomalyRuleWithUnsupportedOperator() {
+        Long familyId = 1L;
+        Long categoryId = 2L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setFamilyId(familyId);
+
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> ruleDefinitionService.create(
+                        new RuleDefinitionApiModels.CreateRequest(
+                                familyId,
+                                categoryId,
+                                null,
+                                "Invalid Trend Rule",
+                                "TREND_ANOMALY",
+                                "CATEGORY_EXPENSE",
+                                "MONTH",
+                                "LTE",
+                                new BigDecimal("0.30"),
+                                "{\"baselineMonths\":3}",
+                                "NOTIFY",
+                                "Food trend anomaly",
+                                null
+                        )
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("TREND_ANOMALY 规则仅支持 GT 或 GTE 运算符", exception.getReason());
+    }
 }

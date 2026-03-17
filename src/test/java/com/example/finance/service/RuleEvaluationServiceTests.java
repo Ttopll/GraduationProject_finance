@@ -157,6 +157,100 @@ class RuleEvaluationServiceTests {
         );
     }
 
+    @Test
+    void evaluateShouldTriggerTrendAnomalyRuleWhenCurrentMonthGrowthExceedsThreshold() {
+        Long familyId = 1L;
+        Long categoryId = 2L;
+
+        when(familyService.getById(familyId)).thenReturn(new Family());
+        when(budgetService.getUsage(familyId, "2026-03")).thenReturn(List.<BudgetApiModels.UsageResponse>of());
+        when(ruleDefinitionRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, 1))
+                .thenReturn(List.of(buildTrendRule(familyId, categoryId)));
+        when(categoryRepository.findByFamilyIdOrderBySortOrderAscIdAsc(familyId))
+                .thenReturn(List.of(category(categoryId, familyId, "Food")));
+        when(transactionRecordRepository.findByFamilyIdAndTransactionTypeAndTransactionTimeBetweenOrderByTransactionTimeAscIdAsc(
+                anyLong(),
+                anyString(),
+                any(),
+                any()
+        )).thenReturn(List.of(
+                expenseRecord(familyId, categoryId, "300.00", LocalDateTime.of(2025, 12, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "360.00", LocalDateTime.of(2026, 1, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "390.00", LocalDateTime.of(2026, 2, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "650.00", LocalDateTime.of(2026, 3, 6, 9, 0))
+        ));
+        when(ruleExecutionLogRepository.save(any(RuleExecutionLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(notificationService.createIfAbsentToday(
+                anyLong(),
+                any(),
+                anyString(),
+                anyLong(),
+                anyString(),
+                anyString(),
+                anyString()
+        )).thenReturn(new Notification());
+
+        RuleDefinitionApiModels.EvaluateResponse response = ruleEvaluationService.evaluate(familyId, "2026-03");
+
+        assertEquals(1, response.triggeredRuleCount());
+        assertEquals(1, response.generatedNotificationCount());
+        assertEquals(1, response.details().size());
+        assertTrue(response.details().get(0).contains("异常增长"));
+        assertTrue(response.details().get(0).contains("增幅"));
+
+        verify(ruleExecutionLogRepository).save(executionLogCaptor.capture());
+        RuleExecutionLog executionLog = executionLogCaptor.getValue();
+        assertEquals("TRIGGERED", executionLog.getResultStatus());
+        assertTrue(executionLog.getContextJson().contains("\"baselineMonths\":3"));
+        assertTrue(executionLog.getContextJson().contains("\"baselineAverage\":350.0000"));
+        assertTrue(executionLog.getContextJson().contains("\"currentMonthValue\":650.00"));
+    }
+
+    @Test
+    void evaluateShouldSkipTrendAnomalyRuleWhenBaselineIsZero() {
+        Long familyId = 1L;
+        Long categoryId = 2L;
+
+        when(familyService.getById(familyId)).thenReturn(new Family());
+        when(budgetService.getUsage(familyId, "2026-03")).thenReturn(List.<BudgetApiModels.UsageResponse>of());
+        when(ruleDefinitionRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, 1))
+                .thenReturn(List.of(buildTrendRule(familyId, categoryId)));
+        when(categoryRepository.findByFamilyIdOrderBySortOrderAscIdAsc(familyId))
+                .thenReturn(List.of(category(categoryId, familyId, "Food")));
+        when(transactionRecordRepository.findByFamilyIdAndTransactionTypeAndTransactionTimeBetweenOrderByTransactionTimeAscIdAsc(
+                anyLong(),
+                anyString(),
+                any(),
+                any()
+        )).thenReturn(List.of(
+                expenseRecord(familyId, categoryId, "0.00", LocalDateTime.of(2025, 12, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "0.00", LocalDateTime.of(2026, 1, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "0.00", LocalDateTime.of(2026, 2, 6, 9, 0)),
+                expenseRecord(familyId, categoryId, "500.00", LocalDateTime.of(2026, 3, 6, 9, 0))
+        ));
+        when(ruleExecutionLogRepository.save(any(RuleExecutionLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RuleDefinitionApiModels.EvaluateResponse response = ruleEvaluationService.evaluate(familyId, "2026-03");
+
+        assertEquals(0, response.triggeredRuleCount());
+        assertEquals(0, response.generatedNotificationCount());
+        assertTrue(response.details().isEmpty());
+
+        verify(ruleExecutionLogRepository).save(executionLogCaptor.capture());
+        RuleExecutionLog executionLog = executionLogCaptor.getValue();
+        assertEquals("SKIPPED", executionLog.getResultStatus());
+        assertTrue(executionLog.getContextJson().contains("\"baselineStatus\":\"ZERO_BASELINE\""));
+        verify(notificationService, never()).createIfAbsentToday(
+                anyLong(),
+                any(),
+                anyString(),
+                anyLong(),
+                anyString(),
+                anyString(),
+                anyString()
+        );
+    }
+
     private RuleDefinition buildConsecutiveRule(Long familyId, Long categoryId) {
         RuleDefinition ruleDefinition = new RuleDefinition();
         ruleDefinition.setId(5L);
@@ -173,6 +267,25 @@ class RuleEvaluationServiceTests {
         ruleDefinition.setMessageTemplate("Food spending alert");
         ruleDefinition.setEnabled(1);
         ruleDefinition.setPriority(10);
+        return ruleDefinition;
+    }
+
+    private RuleDefinition buildTrendRule(Long familyId, Long categoryId) {
+        RuleDefinition ruleDefinition = new RuleDefinition();
+        ruleDefinition.setId(6L);
+        ruleDefinition.setFamilyId(familyId);
+        ruleDefinition.setCategoryId(categoryId);
+        ruleDefinition.setRuleName("Food Trend Alert");
+        ruleDefinition.setRuleType("TREND_ANOMALY");
+        ruleDefinition.setMetricType("CATEGORY_EXPENSE");
+        ruleDefinition.setTimeScope("MONTH");
+        ruleDefinition.setOperatorType("GTE");
+        ruleDefinition.setThresholdValue(new BigDecimal("0.30"));
+        ruleDefinition.setThresholdJson("{\"baselineMonths\":3}");
+        ruleDefinition.setActionType("NOTIFY");
+        ruleDefinition.setMessageTemplate("Food trend anomaly");
+        ruleDefinition.setEnabled(1);
+        ruleDefinition.setPriority(20);
         return ruleDefinition;
     }
 

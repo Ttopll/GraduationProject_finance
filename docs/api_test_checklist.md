@@ -1229,11 +1229,12 @@ Authorization: Bearer {{token}}
 | `categoryId` | 条件必填 | `CATEGORY_EXPENSE` 时必须传 |
 | `createdByMemberId` | 否 | 建议省略 |
 | `ruleName` | 是 | 最长 100 |
-| `ruleType` | 是 | 只能 `THRESHOLD` |
+| `ruleType` | 是 | 支持 `THRESHOLD`、`CONSECUTIVE_THRESHOLD`、`TREND_ANOMALY` |
 | `metricType` | 是 | `CATEGORY_EXPENSE` 或 `FAMILY_EXPENSE` |
-| `timeScope` | 是 | `MONTH` 或 `YEAR` |
-| `operatorType` | 是 | `GT/GTE/LT/LTE/EQ` |
+| `timeScope` | 是 | `THRESHOLD` 支持 `MONTH/YEAR`，其余规则仅支持 `MONTH` |
+| `operatorType` | 是 | `THRESHOLD/CONSECUTIVE_THRESHOLD` 支持 `GT/GTE/LT/LTE/EQ`，`TREND_ANOMALY` 仅支持 `GT/GTE` |
 | `thresholdValue` | 是 | 正数 |
+| `thresholdJson` | 条件必填 | `CONSECUTIVE_THRESHOLD` 需传 `{"consecutiveMonths":N}`，`TREND_ANOMALY` 需传 `{"baselineMonths":N}` |
 | `actionType` | 是 | 只能 `NOTIFY` |
 | `messageTemplate` | 是 | 最长 255 |
 | `priority` | 否 | 默认 100 |
@@ -1265,7 +1266,7 @@ Authorization: Bearer {{token}}
 - 校验家庭 OWNER 权限
 - 校验分类属于家庭
 - 枚举值全部转大写
-- 仅支持阈值规则
+- 连续阈值和趋势异常规则会校验 `thresholdJson`
 
 **成功判定**
 
@@ -1274,9 +1275,10 @@ Authorization: Bearer {{token}}
 
 **最常见失败原因**
 
-- `ruleType` 不是 `THRESHOLD`
+- `ruleType` 不在支持范围内
 - `actionType` 不是 `NOTIFY`
 - `CATEGORY_EXPENSE` 却没传 `categoryId`
+- `TREND_ANOMALY` 没传 `baselineMonths` 或运算符不是 `GT/GTE`
 
 ---
 
