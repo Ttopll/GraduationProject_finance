@@ -23,6 +23,7 @@ public final class RuleDefinitionApiModels {
             @NotBlank @Size(max = 20) String timeScope,
             @NotBlank @Size(max = 10) String operatorType,
             @NotNull @Positive BigDecimal thresholdValue,
+            @Size(max = 1000) String thresholdJson,
             @NotBlank @Size(max = 20) String actionType,
             @NotBlank @Size(max = 255) String messageTemplate,
             Integer priority
@@ -40,6 +41,7 @@ public final class RuleDefinitionApiModels {
             String timeScope,
             String operatorType,
             BigDecimal thresholdValue,
+            String thresholdJson,
             String actionType,
             String messageTemplate,
             Integer enabled,

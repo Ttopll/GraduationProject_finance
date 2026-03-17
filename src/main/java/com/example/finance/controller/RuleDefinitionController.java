@@ -49,6 +49,7 @@ public class RuleDefinitionController {
                 request.timeScope(),
                 request.operatorType(),
                 request.thresholdValue(),
+                request.thresholdJson(),
                 request.actionType(),
                 request.messageTemplate(),
                 request.priority()
@@ -85,6 +86,7 @@ public class RuleDefinitionController {
                 ruleDefinition.getTimeScope(),
                 ruleDefinition.getOperatorType(),
                 ruleDefinition.getThresholdValue(),
+                ruleDefinition.getThresholdJson(),
                 ruleDefinition.getActionType(),
                 ruleDefinition.getMessageTemplate(),
                 ruleDefinition.getEnabled(),

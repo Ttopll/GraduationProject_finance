@@ -7,6 +7,7 @@ import com.example.finance.entity.RuleDefinition;
 import com.example.finance.repository.CategoryRepository;
 import com.example.finance.repository.FamilyMemberRepository;
 import com.example.finance.repository.RuleDefinitionRepository;
+import com.example.finance.util.RuleThresholdConfigUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,9 +59,10 @@ public class RuleDefinitionService {
         String timeScope = request.timeScope().trim().toUpperCase(Locale.ROOT);
         String operatorType = request.operatorType().trim().toUpperCase(Locale.ROOT);
         String actionType = request.actionType().trim().toUpperCase(Locale.ROOT);
+        String normalizedThresholdJson;
 
-        if (!"THRESHOLD".equals(ruleType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 THRESHOLD 规则");
+        if (!List.of("THRESHOLD", "CONSECUTIVE_THRESHOLD").contains(ruleType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 THRESHOLD 或 CONSECUTIVE_THRESHOLD 规则");
         }
         if (!List.of("CATEGORY_EXPENSE", "FAMILY_EXPENSE").contains(metricType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前仅支持 CATEGORY_EXPENSE 或 FAMILY_EXPENSE 指标");
@@ -77,6 +79,14 @@ public class RuleDefinitionService {
         if ("CATEGORY_EXPENSE".equals(metricType) && request.categoryId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CATEGORY_EXPENSE 规则必须指定 categoryId");
         }
+        if ("CONSECUTIVE_THRESHOLD".equals(ruleType) && !"MONTH".equals(timeScope)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONSECUTIVE_THRESHOLD 规则仅支持 MONTH 时间范围");
+        }
+        try {
+            normalizedThresholdJson = RuleThresholdConfigUtil.normalizeThresholdJson(ruleType, request.thresholdJson());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage());
+        }
 
         RuleDefinition ruleDefinition = new RuleDefinition();
         ruleDefinition.setFamilyId(request.familyId());
@@ -88,6 +98,7 @@ public class RuleDefinitionService {
         ruleDefinition.setTimeScope(timeScope);
         ruleDefinition.setOperatorType(operatorType);
         ruleDefinition.setThresholdValue(request.thresholdValue());
+        ruleDefinition.setThresholdJson(normalizedThresholdJson);
         ruleDefinition.setActionType(actionType);
         ruleDefinition.setMessageTemplate(request.messageTemplate().trim());
         ruleDefinition.setEnabled(1);
