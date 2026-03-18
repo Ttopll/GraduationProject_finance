@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家庭财务管理系统演示台</title>
+    <link rel="stylesheet" href="/demo/app.css">
+    <script type="module" src="/demo/app.js"></script>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="narrative-panel">
+        <div class="brand-mark">FFM</div>
+        <p class="eyebrow">Rule-Driven Demo Console</p>
+        <h1>家庭财务管理系统</h1>
+        <p class="lead">
+            用一页完成答辩演示：登录、家庭切换、财务分析看板、交易流水维护、债务生命周期管理。
+        </p>
+
+        <form id="loginForm" class="surface side-form">
+            <h2>登录系统</h2>
+            <label class="field">
+                <span>用户名</span>
+                <input id="usernameInput" name="username" type="text" autocomplete="username" placeholder="请输入用户名" required>
+            </label>
+            <label class="field">
+                <span>密码</span>
+                <input id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+            </label>
+            <button id="loginButton" type="submit" class="primary-button">登录并载入数据</button>
+        </form>
+
+        <section class="surface side-script">
+            <h2>建议演示顺序</h2>
+            <ol>
+                <li>登录并切换到目标家庭与成员。</li>
+                <li>展示月度收支、净资产、预算预警和支出结构。</li>
+                <li>新增一条交易流水，再演示编辑与删除。</li>
+                <li>新增债务，记录一次还款，再演示结清或删除。</li>
+            </ol>
+        </section>
+
+        <section class="side-note">
+            <p>访问路径：<code>/demo/</code></p>
+            <p>JWT 会保存在浏览器本地存储，仅适用于本地答辩演示环境。</p>
+        </section>
+    </aside>
+
+    <main class="workspace">
+        <header class="workspace-header">
+            <div>
+                <p class="eyebrow">Embedded Graduation Project Demo</p>
+                <h2>答辩演示台</h2>
+                <p id="systemStatus" class="subtle-text">当前未登录，左侧登录后自动载入家庭数据。</p>
+            </div>
+            <div class="header-actions">
+                <button id="refreshButton" type="button" class="secondary-button">刷新数据</button>
+                <button id="logoutButton" type="button" class="ghost-button">退出登录</button>
+            </div>
+        </header>
+
+        <div id="flashMessage" class="flash" data-type="info">未登录，先输入账号密码。</div>
+
+        <section id="workspaceControls" class="surface control-panel">
+            <div class="field">
+                <span>当前家庭</span>
+                <select id="familySelect"></select>
+            </div>
+            <div class="field">
+                <span>默认成员</span>
+                <select id="memberSelect"></select>
+            </div>
+            <label class="field">
+                <span>分析月份</span>
+                <input id="monthInput" type="month">
+            </label>
+            <label class="field">
+                <span>趋势窗口</span>
+                <select id="trendMonthsSelect">
+                    <option value="3">3 个月</option>
+                    <option value="6">6 个月</option>
+                    <option value="12">12 个月</option>
+                </select>
+            </label>
+            <div class="field field-wide">
+                <span>当前会话</span>
+                <div id="sessionSummary" class="session-summary">未建立会话</div>
+            </div>
+        </section>
+
+        <section class="metric-section">
+            <div id="overviewCards" class="metric-grid"></div>
+            <div id="assetCards" class="metric-grid"></div>
+        </section>
+
+        <section class="insight-grid">
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Dashboard</p>
+                        <h3>关键指标</h3>
+                    </div>
+                </div>
+                <div id="indicatorList" class="indicator-list"></div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Expense Mix</p>
+                        <h3>支出结构</h3>
+                    </div>
+                </div>
+                <div id="expenseStructureList" class="stack-list"></div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Trend</p>
+                        <h3>月度趋势</h3>
+                    </div>
+                </div>
+                <div id="trendList" class="trend-list"></div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Budget</p>
+                        <h3>预算执行</h3>
+                    </div>
+                </div>
+                <div id="budgetList" class="stack-list"></div>
+            </article>
+        </section>
+
+        <section class="workspace-grid">
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Transactions</p>
+                        <h3>交易流水维护</h3>
+                    </div>
+                    <button id="transactionResetButton" type="button" class="ghost-button">重置表单</button>
+                </div>
+
+                <form id="transactionForm" class="form-grid">
+                    <input id="transactionRecordId" type="hidden">
+                    <label class="field">
+                        <span>交易类型</span>
+                        <select id="transactionTypeSelect" required>
+                            <option value="EXPENSE">支出</option>
+                            <option value="INCOME">收入</option>
+                            <option value="TRANSFER">转账</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>主账户</span>
+                        <select id="transactionAccountSelect" required></select>
+                    </label>
+                    <label id="transactionTargetField" class="field">
+                        <span>目标账户</span>
+                        <select id="transactionTargetAccountSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>分类</span>
+                        <select id="transactionCategorySelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>记账成员</span>
+                        <select id="transactionCreatorSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>金额</span>
+                        <input id="transactionAmountInput" type="number" min="0.01" step="0.01" placeholder="例如 128.50" required>
+                    </label>
+                    <label class="field">
+                        <span>交易时间</span>
+                        <input id="transactionTimeInput" type="datetime-local" required>
+                    </label>
+                    <label class="field">
+                        <span>商户</span>
+                        <input id="transactionMerchantInput" type="text" maxlength="100" placeholder="例如 盒马鲜生">
+                    </label>
+                    <label class="field">
+                        <span>交易对方</span>
+                        <input id="transactionCounterpartyInput" type="text" maxlength="100" placeholder="可选">
+                    </label>
+                    <label class="field">
+                        <span>来源平台</span>
+                        <input id="transactionSourcePlatformInput" type="text" maxlength="20" placeholder="MANUAL / ALIPAY">
+                    </label>
+                    <label class="field field-wide">
+                        <span>备注</span>
+                        <textarea id="transactionNoteInput" rows="2" maxlength="255" placeholder="补充说明"></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button id="transactionSubmitButton" type="submit" class="primary-button">
+                            <span id="transactionSubmitText">新增流水</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>类型</th>
+                            <th>金额</th>
+                            <th>账户</th>
+                            <th>分类</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="transactionTableBody"></tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Debt</p>
+                        <h3>债务与还款</h3>
+                    </div>
+                    <button id="debtResetButton" type="button" class="ghost-button">重置债务表单</button>
+                </div>
+
+                <form id="debtForm" class="form-grid">
+                    <input id="debtIdInput" type="hidden">
+                    <label class="field">
+                        <span>债务名称</span>
+                        <input id="debtNameInput" type="text" maxlength="100" placeholder="例如 招行信用卡" required>
+                    </label>
+                    <label class="field">
+                        <span>债务类型</span>
+                        <select id="debtTypeSelect" required>
+                            <option value="CREDIT_CARD">信用卡</option>
+                            <option value="LOAN">贷款</option>
+                            <option value="MORTGAGE">房贷</option>
+                            <option value="OTHER">其他</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>债务成员</span>
+                        <select id="debtDebtorSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>债权方</span>
+                        <input id="debtLenderInput" type="text" maxlength="100" placeholder="例如 招商银行">
+                    </label>
+                    <label class="field">
+                        <span>本金</span>
+                        <input id="debtPrincipalInput" type="number" min="0.01" step="0.01" required>
+                    </label>
+                    <label class="field">
+                        <span>年利率</span>
+                        <input id="debtRateInput" type="number" min="0" step="0.01" placeholder="可选">
+                    </label>
+                    <label class="field">
+                        <span>账单日</span>
+                        <input id="debtBillingDayInput" type="number" min="1" max="31" placeholder="可选">
+                    </label>
+                    <label class="field">
+                        <span>还款日</span>
+                        <input id="debtRepaymentDayInput" type="number" min="1" max="31" placeholder="可选">
+                    </label>
+                    <label class="field">
+                        <span>到期日</span>
+                        <input id="debtDueDateInput" type="date">
+                    </label>
+                    <label class="field field-wide">
+                        <span>备注</span>
+                        <textarea id="debtRemarkInput" rows="2" maxlength="255" placeholder="补充说明"></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button id="debtSubmitButton" type="submit" class="primary-button">
+                            <span id="debtSubmitText">新增债务</span>
+                        </button>
+                    </div>
+                </form>
+
+                <form id="repaymentForm" class="form-grid repayment-grid">
+                    <label class="field">
+                        <span>还款债务</span>
+                        <select id="repaymentDebtSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>支付账户</span>
+                        <select id="repaymentAccountSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>操作成员</span>
+                        <select id="repaymentCreatorSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>还款金额</span>
+                        <input id="repaymentAmountInput" type="number" min="0.01" step="0.01" required>
+                    </label>
+                    <label class="field">
+                        <span>本金归还</span>
+                        <input id="repaymentPrincipalInput" type="number" min="0" step="0.01" placeholder="默认等于还款金额">
+                    </label>
+                    <label class="field">
+                        <span>利息归还</span>
+                        <input id="repaymentInterestInput" type="number" min="0" step="0.01" placeholder="默认 0">
+                    </label>
+                    <label class="field">
+                        <span>还款时间</span>
+                        <input id="repaymentTimeInput" type="datetime-local" required>
+                    </label>
+                    <label class="field field-wide">
+                        <span>还款备注</span>
+                        <textarea id="repaymentNoteInput" rows="2" maxlength="255" placeholder="例如 3 月账单已还"></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button id="repaymentSubmitButton" type="submit" class="secondary-button">记录还款</button>
+                    </div>
+                </form>
+
+                <div id="debtCardList" class="debt-card-list"></div>
+                <div class="repayment-history-wrap">
+                    <div class="panel-head compact">
+                        <div>
+                            <p class="panel-eyebrow">Repayment Trail</p>
+                            <h3>还款记录</h3>
+                        </div>
+                    </div>
+                    <div id="repaymentHistory" class="stack-list"></div>
+                </div>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>
