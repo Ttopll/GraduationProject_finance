@@ -19,8 +19,15 @@ const state = {
     debts: [],
     repayments: [],
     rules: [],
+    billImportBatches: [],
+    billParseRules: [],
+    pendingItems: [],
     notifications: [],
     lastRuleEvaluation: null,
+    lastBillImportResult: null,
+    billImportBatchError: null,
+    billParseRuleError: null,
+    billPendingError: null,
     selectedFamilyId: null,
     selectedMemberId: null,
     selectedRepaymentDebtId: null,
@@ -124,6 +131,21 @@ function cacheRefs() {
         "evaluateRulesButton",
         "ruleEvaluateSummary",
         "ruleList",
+        "billImportAccountSelect",
+        "billImportUploaderSelect",
+        "importSampleOneButton",
+        "importSampleTwoButton",
+        "billFileInput",
+        "uploadBillFileButton",
+        "refreshBillImportButton",
+        "billImportSummary",
+        "billImportBatchList",
+        "billParseRuleForm",
+        "billParseKeywordInput",
+        "billParseCategorySelect",
+        "billParsePriorityInput",
+        "billPendingList",
+        "billParseRuleList",
         "refreshNotificationsButton",
         "notificationList",
         "workspaceControls"
@@ -156,6 +178,12 @@ function bindEvents() {
     refs.ruleForm.addEventListener("submit", onRuleSubmit);
     refs.ruleResetButton.addEventListener("click", resetRuleForm);
     refs.evaluateRulesButton.addEventListener("click", onEvaluateRules);
+    refs.importSampleOneButton.addEventListener("click", () => onImportSample("/demo/samples/bill_import_sample_round1.csv", "样例一"));
+    refs.importSampleTwoButton.addEventListener("click", () => onImportSample("/demo/samples/bill_import_sample_round2.csv", "样例二"));
+    refs.uploadBillFileButton.addEventListener("click", onUploadBillFile);
+    refs.refreshBillImportButton.addEventListener("click", onRefreshBillImport);
+    refs.billParseRuleForm.addEventListener("submit", onBillParseRuleSubmit);
+    refs.billPendingList.addEventListener("click", onBillPendingListClick);
     refs.refreshNotificationsButton.addEventListener("click", onRefreshNotifications);
     refs.notificationList.addEventListener("click", onNotificationListClick);
 }
@@ -172,6 +200,7 @@ function hydrateState() {
     refs.transactionTimeInput.value = currentDateTimeLocal();
     refs.repaymentTimeInput.value = currentDateTimeLocal();
     refs.transactionSourcePlatformInput.value = "MANUAL";
+    refs.billParsePriorityInput.value = "10";
     resetRuleForm();
 }
 
@@ -235,8 +264,15 @@ async function refreshFamilyScopedData() {
         state.debts = [];
         state.repayments = [];
         state.rules = [];
+        state.billImportBatches = [];
+        state.billParseRules = [];
+        state.pendingItems = [];
         state.notifications = [];
         state.lastRuleEvaluation = null;
+        state.lastBillImportResult = null;
+        state.billImportBatchError = null;
+        state.billParseRuleError = null;
+        state.billPendingError = null;
         renderAll();
         return;
     }
@@ -272,6 +308,7 @@ async function refreshFamilyScopedData() {
     resolveSelectedMember();
     syncRepaymentDebtSelection();
     await refreshRepaymentsIfNeeded();
+    await refreshBillImportWorkspace(false);
     renderAll();
 }
 
@@ -324,6 +361,7 @@ async function onFamilyChange(event) {
     persistNumber(STORAGE_KEYS.familyId, state.selectedFamilyId);
     state.selectedMemberId = null;
     state.selectedRepaymentDebtId = null;
+    state.lastBillImportResult = null;
     await withLoading("正在切换家庭上下文...", refreshFamilyScopedData).catch(handleAsyncError);
 }
 
@@ -635,6 +673,89 @@ async function onEvaluateRules() {
     }).catch(handleAsyncError);
 }
 
+async function onImportSample(samplePath, label) {
+    await withLoading(`正在导入${label}...`, async () => {
+        const file = await fetchDemoSampleFile(samplePath);
+        await runBillImport(file, label);
+    }).catch(handleAsyncError);
+}
+
+async function onUploadBillFile() {
+    const file = refs.billFileInput.files?.[0];
+    if (!file) {
+        setFlash("请选择要上传的 CSV 账单文件。", "warning");
+        return;
+    }
+
+    await withLoading("正在上传本地账单...", async () => {
+        await runBillImport(file, "本地账单");
+    }).catch(handleAsyncError);
+}
+
+async function onRefreshBillImport() {
+    await withLoading("正在刷新账单导入面板...", async () => {
+        await refreshBillImportWorkspace();
+        setFlash("账单导入面板已刷新。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function onBillParseRuleSubmit(event) {
+    event.preventDefault();
+    if (!state.selectedFamilyId) {
+        setFlash("请先选择家庭。", "warning");
+        return;
+    }
+
+    const payload = {
+        familyId: state.selectedFamilyId,
+        categoryId: parseRequiredNumber(refs.billParseCategorySelect.value, "请选择解析分类"),
+        merchantKeyword: normalizeRequiredText(refs.billParseKeywordInput.value, "请输入商户关键词"),
+        priority: normalizeNullableInteger(refs.billParsePriorityInput.value) || 10
+    };
+
+    await withLoading("正在创建解析规则...", async () => {
+        await api("/api/bill-parse-rules", {
+            method: "POST",
+            body: payload
+        });
+        refs.billParseKeywordInput.value = "";
+        refs.billParsePriorityInput.value = "10";
+        await refreshBillImportWorkspace();
+        setFlash("解析规则已创建。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function onBillPendingListClick(event) {
+    const button = event.target.closest("button[data-action]");
+    if (!button || button.dataset.action !== "resolve-pending") {
+        return;
+    }
+
+    const pendingId = parseStoredNumber(button.dataset.id);
+    const card = button.closest(".pending-card");
+    if (!pendingId || !card) {
+        return;
+    }
+
+    const categorySelect = card.querySelector(".pending-category-select");
+    const createRuleCheckbox = card.querySelector(".pending-create-rule");
+    const categoryId = parseRequiredNumber(categorySelect?.value, "请选择归类分类");
+
+    await withLoading("正在处理待归类账单...", async () => {
+        await api(`/api/bill-imports/pending-items/${pendingId}/resolve`, {
+            method: "POST",
+            body: {
+                categoryId,
+                resolvedByMemberId: normalizeNullableNumber(refs.billImportUploaderSelect.value),
+                createParseRule: Boolean(createRuleCheckbox?.checked),
+                priority: 20
+            }
+        });
+        await refreshFamilyScopedData();
+        setFlash("待归类账单已处理。", "success");
+    }).catch(handleAsyncError);
+}
+
 async function onRefreshNotifications() {
     await withLoading("正在刷新通知列表...", async () => {
         await refreshNotifications(false);
@@ -667,6 +788,39 @@ async function onNotificationListClick(event) {
     }).catch(handleAsyncError);
 }
 
+async function refreshBillImportWorkspace(shouldRender = true) {
+    if (!state.selectedFamilyId) {
+        state.billImportBatches = [];
+        state.billParseRules = [];
+        state.pendingItems = [];
+        state.billImportBatchError = null;
+        state.billParseRuleError = null;
+        state.billPendingError = null;
+        if (shouldRender) {
+            renderBillImportWorkspace();
+        }
+        return;
+    }
+
+    const familyId = state.selectedFamilyId;
+    const [batchResult, ruleResult, pendingResult] = await Promise.allSettled([
+        api(`/api/bill-imports?familyId=${familyId}`),
+        api(`/api/bill-parse-rules?familyId=${familyId}`),
+        api(`/api/bill-imports/pending-items?familyId=${familyId}&status=PENDING`)
+    ]);
+
+    state.billImportBatches = batchResult.status === "fulfilled" ? batchResult.value || [] : [];
+    state.billParseRules = ruleResult.status === "fulfilled" ? ruleResult.value || [] : [];
+    state.pendingItems = pendingResult.status === "fulfilled" ? pendingResult.value || [] : [];
+    state.billImportBatchError = batchResult.status === "rejected" ? batchResult.reason?.message || "账单导入批次读取失败。" : null;
+    state.billParseRuleError = ruleResult.status === "rejected" ? ruleResult.reason?.message || "解析规则读取失败。" : null;
+    state.billPendingError = pendingResult.status === "rejected" ? pendingResult.reason?.message || "待归类列表读取失败。" : null;
+
+    if (shouldRender) {
+        renderBillImportWorkspace();
+    }
+}
+
 async function refreshNotifications(shouldRender = true) {
     if (!state.selectedFamilyId) {
         state.notifications = [];
@@ -697,8 +851,15 @@ function onLogout() {
     state.debts = [];
     state.repayments = [];
     state.rules = [];
+    state.billImportBatches = [];
+    state.billParseRules = [];
+    state.pendingItems = [];
     state.notifications = [];
     state.lastRuleEvaluation = null;
+    state.lastBillImportResult = null;
+    state.billImportBatchError = null;
+    state.billParseRuleError = null;
+    state.billPendingError = null;
     state.selectedFamilyId = null;
     state.selectedMemberId = null;
     state.selectedRepaymentDebtId = null;
@@ -718,9 +879,11 @@ function renderAll() {
     populateCategorySelect(refs.transactionCategorySelect, refs.transactionTypeSelect.value, refs.transactionCategorySelect.value);
     populateRepaymentDebtSelect();
     populateRuleSelects();
+    populateBillImportSelects();
     renderTransactionsTable();
     renderDebtCards();
     renderRepaymentHistory();
+    renderBillImportWorkspace();
     renderRulesPanel();
     renderNotifications();
     toggleTransactionTargetField();
@@ -753,6 +916,20 @@ function renderAuthState() {
         element.disabled = disabled;
     });
     refs.ruleForm.querySelectorAll("input, select, textarea, button").forEach((element) => {
+        element.disabled = disabled;
+    });
+    refs.billParseRuleForm.querySelectorAll("input, select, textarea, button").forEach((element) => {
+        element.disabled = disabled;
+    });
+    [
+        refs.billImportAccountSelect,
+        refs.billImportUploaderSelect,
+        refs.importSampleOneButton,
+        refs.importSampleTwoButton,
+        refs.billFileInput,
+        refs.uploadBillFileButton,
+        refs.refreshBillImportButton
+    ].forEach((element) => {
         element.disabled = disabled;
     });
     refs.evaluateRulesButton.disabled = disabled;
@@ -1010,6 +1187,126 @@ function renderRepaymentHistory() {
     }).join("");
 }
 
+function renderBillImportWorkspace() {
+    renderBillImportSummary();
+    renderBillImportBatches();
+    renderBillPendingItems();
+    renderBillParseRules();
+}
+
+function renderBillImportSummary() {
+    if (!state.lastBillImportResult) {
+        refs.billImportSummary.innerHTML = emptyState("建议先导入样例一，观察自动归类与待归类队列。");
+        return;
+    }
+
+    const result = state.lastBillImportResult;
+    const warnings = (result.warnings || []).length
+            ? `<div class="inline-pills">${(result.warnings || []).map((item) => `<span class="pill warning">${escapeHtml(item)}</span>`).join("")}</div>`
+            : "";
+
+    refs.billImportSummary.innerHTML = `
+        <div class="summary-card">
+            <strong>最近一次导入结果</strong>
+            <p>批次 #${escapeHtml(safeText(result.batch?.id))} 路 成功 ${escapeHtml(safeText(result.importedCount))} 笔 路 失败 ${escapeHtml(safeText(result.failedCount))} 笔 路 待归类 ${escapeHtml(safeText(result.unmatchedCount))} 笔</p>
+            ${warnings}
+        </div>
+    `;
+}
+
+function renderBillImportBatches() {
+    if (state.billImportBatchError) {
+        refs.billImportBatchList.innerHTML = renderPermissionNote(state.billImportBatchError);
+        return;
+    }
+
+    if (!state.billImportBatches.length) {
+        refs.billImportBatchList.innerHTML = emptyState("当前家庭还没有导入批次。");
+        return;
+    }
+
+    const batches = state.billImportBatches.slice().sort((left, right) => {
+        const leftTime = left.importedAt || "";
+        const rightTime = right.importedAt || "";
+        return rightTime.localeCompare(leftTime);
+    });
+
+    refs.billImportBatchList.innerHTML = batches.map((batch) => `
+        <div class="stack-item">
+            <strong>${escapeHtml(batch.originalFileName || "Unnamed Batch")}</strong>
+            <div class="detail-grid">
+                <div>批次 ID：${escapeHtml(safeText(batch.id))}</div>
+                <div>平台：${escapeHtml(batch.sourcePlatform || "CSV")}</div>
+                <div>总数：${escapeHtml(safeText(batch.totalCount))}</div>
+                <div>成功：${escapeHtml(safeText(batch.successCount))}</div>
+                <div>失败：${escapeHtml(safeText(batch.failCount))}</div>
+                <div>待归类：${escapeHtml(safeText(batch.unmatchedCount))}</div>
+            </div>
+            <span>导入时间 ${escapeHtml(formatDateTime(batch.importedAt))}</span>
+        </div>
+    `).join("");
+}
+
+function renderBillPendingItems() {
+    if (state.billPendingError) {
+        refs.billPendingList.innerHTML = renderPermissionNote(state.billPendingError);
+        return;
+    }
+
+    if (!state.pendingItems.length) {
+        refs.billPendingList.innerHTML = emptyState("当前没有待归类账单。");
+        return;
+    }
+
+    const categoryOptions = buildExpenseCategoryOptions();
+    refs.billPendingList.innerHTML = state.pendingItems.map((item) => `
+        <div class="stack-item pending-card" data-pending-id="${item.id}">
+            <strong>${escapeHtml(item.merchantName || "UNKNOWN")}</strong>
+            <div class="detail-grid">
+                <div>金额：${escapeHtml(formatCurrency(item.amount, currentCurrency()))}</div>
+                <div>时间：${escapeHtml(formatDateTime(item.transactionTime))}</div>
+                <div>平台：${escapeHtml(item.sourcePlatform || "CSV")}</div>
+                <div>批次：#${escapeHtml(safeText(item.sourceBatchId))}</div>
+                <div>原始分类：${escapeHtml(item.rawCategoryName || "-")}</div>
+                <div>备注：${escapeHtml(item.note || "-")}</div>
+            </div>
+            <label class="field">
+                <span>归类分类</span>
+                <select class="pending-category-select">
+                    ${buildOptionsHtml(categoryOptions, item.resolvedCategoryId || categoryOptions[0]?.value, "请选择支出分类")}
+                </select>
+            </label>
+            <label class="checkbox-line">
+                <input type="checkbox" class="pending-create-rule" checked>
+                <span>同时补充解析规则</span>
+            </label>
+            <div class="item-actions">
+                <button type="button" class="row-button" data-action="resolve-pending" data-id="${item.id}">确认归类</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderBillParseRules() {
+    if (state.billParseRuleError) {
+        refs.billParseRuleList.innerHTML = renderPermissionNote(state.billParseRuleError);
+        return;
+    }
+
+    if (!state.billParseRules.length) {
+        refs.billParseRuleList.innerHTML = emptyState("当前没有解析规则。");
+        return;
+    }
+
+    refs.billParseRuleList.innerHTML = state.billParseRules.map((rule) => `
+        <div class="stack-item">
+            <strong>${escapeHtml(rule.merchantKeyword || rule.regexPattern || "Unnamed Rule")}</strong>
+            <span>分类 ${escapeHtml(rule.categoryName || findCategoryName(rule.categoryId))} 路 优先级 ${escapeHtml(safeText(rule.priority))}</span>
+            <span>命中次数 ${escapeHtml(safeText(rule.hitCount))} 路 最近命中 ${escapeHtml(formatDateTime(rule.lastHitAt))}</span>
+        </div>
+    `).join("");
+}
+
 function renderRulesPanel() {
     refs.ruleEvaluateSummary.innerHTML = state.lastRuleEvaluation
             ? renderRuleEvaluationSummary(state.lastRuleEvaluation)
@@ -1125,6 +1422,32 @@ function populateRuleSelects() {
     setSelectOptions(refs.ruleCategorySelect, categoryOptions, {
         placeholder: "请选择支出分类",
         value: refs.ruleCategorySelect.value
+    });
+}
+
+function populateBillImportSelects() {
+    const memberOptions = state.members.map((member) => ({
+        value: member.memberId,
+        label: member.memberName || member.nickname || member.username || `成员 #${member.memberId}`
+    }));
+    setSelectOptions(refs.billImportUploaderSelect, memberOptions, {
+        placeholder: "不指定成员",
+        value: refs.billImportUploaderSelect.value || state.selectedMemberId
+    });
+
+    const accountOptions = state.accounts.map((account) => ({
+        value: account.id,
+        label: `${account.accountName}${account.status === 1 ? "" : " (停用)"}`
+    }));
+    setSelectOptions(refs.billImportAccountSelect, accountOptions, {
+        placeholder: state.accounts.length ? "请选择导入账户" : "暂无账户",
+        value: refs.billImportAccountSelect.value || state.accounts[0]?.id
+    });
+
+    const categoryOptions = buildExpenseCategoryOptions();
+    setSelectOptions(refs.billParseCategorySelect, categoryOptions, {
+        placeholder: "请选择支出分类",
+        value: refs.billParseCategorySelect.value || categoryOptions[0]?.value
     });
 }
 
@@ -1336,6 +1659,71 @@ function resolveRuleOperator(ruleType) {
     return operator;
 }
 
+function buildExpenseCategoryOptions() {
+    return state.categories
+            .filter((category) => category.categoryType === "EXPENSE")
+            .map((category) => ({
+                value: category.id,
+                label: `${category.categoryName}${category.enabled === 1 ? "" : " (停用)"}`
+            }));
+}
+
+function buildOptionsHtml(options, selectedValue, placeholder = null) {
+    let html = "";
+    if (placeholder !== null) {
+        html += `<option value="">${escapeHtml(placeholder)}</option>`;
+    }
+
+    for (const option of options) {
+        const selected = String(option.value) === String(selectedValue) ? " selected" : "";
+        html += `<option value="${escapeHtml(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+    }
+    return html;
+}
+
+function renderPermissionNote(message) {
+    return `<div class="permission-note">${escapeHtml(message)}</div>`;
+}
+
+async function fetchDemoSampleFile(samplePath) {
+    const response = await fetch(samplePath);
+    if (!response.ok) {
+        throw new Error(`样例账单读取失败: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const fileName = samplePath.split("/").pop() || "demo-sample.csv";
+    return new File([blob], fileName, { type: blob.type || "text/csv" });
+}
+
+function buildBillImportFormData(file) {
+    if (!state.selectedFamilyId) {
+        throw new Error("请先选择家庭。");
+    }
+
+    const accountId = parseRequiredNumber(refs.billImportAccountSelect.value, "请选择导入账户");
+    const uploadedByMemberId = normalizeNullableNumber(refs.billImportUploaderSelect.value);
+    const formData = new FormData();
+    formData.append("familyId", String(state.selectedFamilyId));
+    if (uploadedByMemberId) {
+        formData.append("uploadedByMemberId", String(uploadedByMemberId));
+    }
+    formData.append("accountId", String(accountId));
+    formData.append("sourcePlatform", "CSV");
+    formData.append("file", file, file.name || "demo-import.csv");
+    return formData;
+}
+
+async function runBillImport(file, label) {
+    const result = await api("/api/bill-imports/upload", {
+        method: "POST",
+        formData: buildBillImportFormData(file)
+    });
+    state.lastBillImportResult = result;
+    refs.billFileInput.value = "";
+    await refreshFamilyScopedData();
+    setFlash(`${label}导入完成，成功 ${result.importedCount} 笔，待归类 ${result.unmatchedCount} 笔。`, "success");
+}
+
 async function withLoading(message, task) {
     state.loading = true;
     renderAuthState();
@@ -1350,17 +1738,24 @@ async function withLoading(message, task) {
 
 async function api(path, options = {}) {
     const headers = {
-        "Content-Type": "application/json",
         ...(options.headers || {})
     };
     if (options.auth !== false && state.token) {
         headers.Authorization = `Bearer ${state.token}`;
     }
 
+    let body;
+    if (options.formData) {
+        body = options.formData;
+    } else if (options.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify(options.body);
+    }
+
     const response = await fetch(path, {
         method: options.method || "GET",
         headers,
-        body: options.body ? JSON.stringify(options.body) : undefined
+        body
     });
 
     if (response.status === 204) {

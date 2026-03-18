@@ -37,6 +37,9 @@
                 <li>展示月度收支、净资产、预算预警和支出结构。</li>
                 <li>新增一条交易流水，再演示编辑与删除。</li>
                 <li>新增债务，记录一次还款，再演示结清或删除。</li>
+                <li>账单样例导入，展示自动归类和待归类队列</li>
+                <li>处理待归类项目并补充解析规则，再导入第二轮样例</li>
+                <li>最后执行规则评估和通知展示，完成答辩闭环串讲</li>
             </ol>
         </section>
 
@@ -132,6 +135,97 @@
                     </div>
                 </div>
                 <div id="budgetList" class="stack-list"></div>
+            </article>
+        </section>
+
+        <section class="workspace-grid">
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Bill Import</p>
+                        <h3>账单导入与自动归类</h3>
+                    </div>
+                    <button id="refreshBillImportButton" type="button" class="ghost-button">刷新导入面板</button>
+                </div>
+
+                <div class="form-grid">
+                    <label class="field">
+                        <span>导入到账户</span>
+                        <select id="billImportAccountSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>上传成员</span>
+                        <select id="billImportUploaderSelect"></select>
+                    </label>
+                </div>
+
+                <div class="import-actions">
+                    <button id="importSampleOneButton" type="button" class="secondary-button">导入样例一</button>
+                    <button id="importSampleTwoButton" type="button" class="secondary-button">导入样例二</button>
+                </div>
+
+                <div class="form-grid">
+                    <label class="field field-wide">
+                        <span>本地 CSV 账单</span>
+                        <input id="billFileInput" type="file" accept=".csv,text/csv">
+                    </label>
+                    <div class="form-actions">
+                        <button id="uploadBillFileButton" type="button" class="primary-button">上传本地账单</button>
+                    </div>
+                </div>
+
+                <div id="billImportSummary" class="stack-list"></div>
+
+                <div class="panel-head compact panel-subhead">
+                    <div>
+                        <p class="panel-eyebrow">Import Batches</p>
+                        <h3>导入批次</h3>
+                    </div>
+                </div>
+                <div id="billImportBatchList" class="stack-list"></div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Parse Rules</p>
+                        <h3>待归类处理与解析规则</h3>
+                    </div>
+                </div>
+
+                <form id="billParseRuleForm" class="form-grid">
+                    <label class="field">
+                        <span>商户关键词</span>
+                        <input id="billParseKeywordInput" type="text" maxlength="100" placeholder="例如 STARBUCKS" required>
+                    </label>
+                    <label class="field">
+                        <span>归类分类</span>
+                        <select id="billParseCategorySelect" required></select>
+                    </label>
+                    <label class="field">
+                        <span>优先级</span>
+                        <input id="billParsePriorityInput" type="number" min="1" step="1" value="10">
+                    </label>
+                    <div class="form-actions">
+                        <button id="billParseRuleSubmitButton" type="submit" class="secondary-button">新增解析规则</button>
+                    </div>
+                </form>
+
+                <div class="panel-head compact panel-subhead">
+                    <div>
+                        <p class="panel-eyebrow">Pending Queue</p>
+                        <h3>待归类队列</h3>
+                    </div>
+                </div>
+                <div id="billPendingList" class="stack-list"></div>
+
+                <div class="panel-head compact panel-subhead">
+                    <div>
+                        <p class="panel-eyebrow">Effective Rules</p>
+                        <h3>已生效解析规则</h3>
+                    </div>
+                </div>
+                <div id="billParseRuleList" class="stack-list"></div>
             </article>
         </section>
 

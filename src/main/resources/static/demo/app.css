@@ -461,6 +461,48 @@ button {
     justify-content: flex-start;
 }
 
+.panel-subhead {
+    margin-top: 18px;
+}
+
+.import-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--muted);
+}
+
+.checkbox-line input {
+    width: 18px;
+    min-height: 18px;
+    margin: 0;
+}
+
+.permission-note {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(179, 107, 0, 0.11);
+    border: 1px solid rgba(179, 107, 0, 0.24);
+    color: #7f4b00;
+    line-height: 1.6;
+}
+
 .table-wrap {
     overflow-x: auto;
 }
@@ -661,7 +703,8 @@ textarea:disabled {
     .workspace-grid,
     .control-panel,
     .form-grid,
-    .debt-meta {
+    .debt-meta,
+    .detail-grid {
         grid-template-columns: 1fr;
     }
 

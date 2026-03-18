@@ -458,6 +458,27 @@ function New-Rule {
         }).Body
 }
 
+function New-BillParseRule {
+    param(
+        [string]$Token,
+        [long]$FamilyId,
+        [long]$CategoryId,
+        [string]$MerchantKeyword,
+        [int]$Priority
+    )
+
+    return (Invoke-Api `
+        -Method "POST" `
+        -Path "/api/bill-parse-rules" `
+        -Token $Token `
+        -Body @{
+            familyId = $FamilyId
+            categoryId = $CategoryId
+            merchantKeyword = $MerchantKeyword
+            priority = $Priority
+        }).Body
+}
+
 Test-Backend
 
 $ownerSession = Ensure-DemoUser `
@@ -534,6 +555,9 @@ Write-Step "Creating budgets"
 [void](New-Budget -Token $ownerSession.Token -FamilyId $family.id -CategoryId $categoryMap.food.id -CreatedByMemberId $ownerMember.memberId -Name "Food Budget" -Amount 3000 -AlertRatio 0.80 -StartDate $monthStart)
 [void](New-Budget -Token $ownerSession.Token -FamilyId $family.id -CategoryId $categoryMap.transport.id -CreatedByMemberId $ownerMember.memberId -Name "Transport Budget" -Amount 1000 -AlertRatio 0.80 -StartDate $monthStart)
 [void](New-Budget -Token $ownerSession.Token -FamilyId $family.id -CategoryId $categoryMap.education.id -CreatedByMemberId $ownerMember.memberId -Name "Education Budget" -Amount 1500 -AlertRatio 0.80 -StartDate $monthStart)
+
+Write-Step "Creating bill parse rules for the import demo"
+[void](New-BillParseRule -Token $ownerSession.Token -FamilyId $family.id -CategoryId $categoryMap.food.id -MerchantKeyword "STARBUCKS" -Priority 10)
 
 Write-Step "Creating multi-month transactions"
 [void](New-Transaction -Token $ownerSession.Token -FamilyId $family.id -AccountId $accountMap.bank.id -TargetAccountId $null -CategoryId $categoryMap.salary.id -CreatedByMemberId $ownerMember.memberId -TransactionType "INCOME" -Amount 12000 -TransactionTime (New-MonthDate -Offset -2 -Day 5 -Hour 9) -MerchantName "Payroll" -Note "January salary")
