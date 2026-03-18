@@ -31,6 +31,20 @@ public final class DebtApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            Long debtorMemberId,
+            @NotBlank @Size(max = 100) String debtName,
+            @NotBlank @Size(max = 20) String debtType,
+            @Size(max = 100) String lenderName,
+            @NotNull @Positive BigDecimal principalAmount,
+            @DecimalMin("0.00") BigDecimal annualRate,
+            Integer billingDay,
+            Integer repaymentDay,
+            LocalDate dueDate,
+            @Size(max = 255) String remark
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,

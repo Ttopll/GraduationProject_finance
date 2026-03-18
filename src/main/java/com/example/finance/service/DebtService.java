@@ -20,11 +20,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class DebtService {
+
+    private static final String ACTIVE = "ACTIVE";
+    private static final String CLEARED = "CLEARED";
 
     private final DebtRepository debtRepository;
     private final DebtRepaymentRepository debtRepaymentRepository;
@@ -52,23 +57,99 @@ public class DebtService {
     @Transactional
     public Debt create(DebtApiModels.CreateRequest request) {
         familyService.getById(request.familyId());
-        validateFamilyMember(request.familyId(), request.debtorMemberId(), "债务归属成员不存在", "债务归属成员不属于当前家庭");
+        validateFamilyMember(
+                request.familyId(),
+                request.debtorMemberId(),
+                "debt debtor member not found",
+                "debt debtor member does not belong to family"
+        );
 
         Debt debt = new Debt();
         debt.setFamilyId(request.familyId());
-        debt.setDebtorMemberId(request.debtorMemberId());
-        debt.setDebtName(request.debtName().trim());
-        debt.setDebtType(request.debtType().trim().toUpperCase(Locale.ROOT));
-        debt.setLenderName(normalize(request.lenderName()));
-        debt.setPrincipalAmount(request.principalAmount());
         debt.setCurrentBalance(request.principalAmount());
-        debt.setAnnualRate(request.annualRate() == null ? BigDecimal.ZERO : request.annualRate());
-        debt.setBillingDay(request.billingDay());
-        debt.setRepaymentDay(request.repaymentDay());
-        debt.setDueDate(request.dueDate());
-        debt.setStatus("ACTIVE");
-        debt.setRemark(normalize(request.remark()));
+        debt.setStatus(ACTIVE);
+        applyDebtFields(
+                debt,
+                request.debtorMemberId(),
+                request.debtName(),
+                request.debtType(),
+                request.lenderName(),
+                request.principalAmount(),
+                request.annualRate(),
+                request.billingDay(),
+                request.repaymentDay(),
+                request.dueDate(),
+                request.remark(),
+                BigDecimal.ZERO
+        );
         return debtRepository.save(debt);
+    }
+
+    @Transactional
+    public Debt update(Long debtId, DebtApiModels.UpdateRequest request) {
+        Debt debt = getDebt(debtId);
+        familyService.getById(debt.getFamilyId());
+        validateFamilyMember(
+                debt.getFamilyId(),
+                request.debtorMemberId(),
+                "debt debtor member not found",
+                "debt debtor member does not belong to family"
+        );
+
+        BigDecimal repaidPrincipal = debt.getPrincipalAmount().subtract(debt.getCurrentBalance());
+        applyDebtFields(
+                debt,
+                request.debtorMemberId(),
+                request.debtName(),
+                request.debtType(),
+                request.lenderName(),
+                request.principalAmount(),
+                request.annualRate(),
+                request.billingDay(),
+                request.repaymentDay(),
+                request.dueDate(),
+                request.remark(),
+                repaidPrincipal
+        );
+        debt.setStatus(debt.getCurrentBalance().compareTo(BigDecimal.ZERO) == 0 ? CLEARED : ACTIVE);
+        return debtRepository.save(debt);
+    }
+
+    @Transactional
+    public Debt clear(Long debtId) {
+        Debt debt = getDebt(debtId);
+        familyService.getById(debt.getFamilyId());
+        debt.setCurrentBalance(BigDecimal.ZERO);
+        debt.setStatus(CLEARED);
+        return debtRepository.save(debt);
+    }
+
+    @Transactional
+    public void delete(Long debtId) {
+        Debt debt = getDebt(debtId);
+        familyService.getById(debt.getFamilyId());
+
+        List<DebtRepayment> repayments = debtRepaymentRepository.findByDebtIdOrderByRepaymentTimeDescIdDesc(debtId);
+        Map<Long, Account> accountCache = new LinkedHashMap<>();
+        for (DebtRepayment repayment : repayments) {
+            if (repayment.getPayAccountId() == null) {
+                continue;
+            }
+            Account payAccount = getFamilyAccount(
+                    repayment.getPayAccountId(),
+                    debt.getFamilyId(),
+                    "repayment account not found",
+                    true,
+                    accountCache
+            );
+            payAccount.setCurrentBalance(payAccount.getCurrentBalance().add(repayment.getAmount()));
+        }
+
+        saveAccounts(accountCache);
+        if (!repayments.isEmpty()) {
+            debtRepaymentRepository.deleteAll(repayments);
+        }
+        debtRepository.delete(debt);
     }
 
     public List<Debt> listByFamilyId(Long familyId) {
@@ -85,16 +166,21 @@ public class DebtService {
     public DebtRepayment repay(Long debtId, DebtApiModels.RepaymentCreateRequest request) {
         Debt debt = getDebt(debtId);
         if (!debt.getFamilyId().equals(request.familyId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "债务不属于当前家庭");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "debt does not belong to family");
         }
-        validateFamilyMember(request.familyId(), request.createdByMemberId(), "还款记录创建人不存在", "还款记录创建人不属于当前家庭");
+        validateFamilyMember(
+                request.familyId(),
+                request.createdByMemberId(),
+                "repayment creator member not found",
+                "repayment creator member does not belong to family"
+        );
 
         Account payAccount = null;
         if (request.payAccountId() != null) {
             payAccount = accountRepository.findById(request.payAccountId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "付款账户不存在"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "repayment account not found"));
             if (!request.familyId().equals(payAccount.getFamilyId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "付款账户不属于当前家庭");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "repayment account does not belong to family");
             }
             if (!Integer.valueOf(1).equals(payAccount.getStatus())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account is inactive");
@@ -111,13 +197,13 @@ public class DebtService {
             interestPaid = interestPaid == null ? BigDecimal.ZERO : interestPaid;
         }
         if (principalPaid.compareTo(BigDecimal.ZERO) < 0 || interestPaid.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "本金和利息不能为负数");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principal and interest cannot be negative");
         }
         if (principalPaid.add(interestPaid).compareTo(request.amount()) != 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "还款金额必须等于本金和利息之和");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "repayment amount must equal principal plus interest");
         }
         if (principalPaid.compareTo(debt.getCurrentBalance()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "归还本金不能超过当前剩余欠款");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principal repayment cannot exceed current balance");
         }
 
         if (payAccount != null) {
@@ -127,7 +213,7 @@ public class DebtService {
 
         debt.setCurrentBalance(debt.getCurrentBalance().subtract(principalPaid));
         if (debt.getCurrentBalance().compareTo(BigDecimal.ZERO) == 0) {
-            debt.setStatus("CLEARED");
+            debt.setStatus(CLEARED);
         }
         debtRepository.save(debt);
 
@@ -153,7 +239,7 @@ public class DebtService {
 
         List<String> details = new ArrayList<>();
         int reminderCount = 0;
-        for (Debt debt : debtRepository.findByFamilyIdAndStatusOrderByDueDateAscIdAsc(familyId, "ACTIVE")) {
+        for (Debt debt : debtRepository.findByFamilyIdAndStatusOrderByDueDateAscIdAsc(familyId, ACTIVE)) {
             if (debt.getCurrentBalance().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -168,18 +254,18 @@ public class DebtService {
                 continue;
             }
 
-            String title = overdue ? "债务逾期提醒" : "债务到期提醒";
+            String title = overdue ? "Debt overdue reminder" : "Debt due reminder";
             String content = overdue
                     ? String.format(
                     Locale.ROOT,
-                    "债务[%s]已逾期，原到期日为 %s，当前剩余欠款 %.2f 元。",
+                    "Debt [%s] is overdue since %s, remaining balance is %.2f.",
                     debt.getDebtName(),
                     nextReminderDate,
                     debt.getCurrentBalance()
             )
                     : String.format(
                     Locale.ROOT,
-                    "债务[%s]将于 %s 到期，当前剩余欠款 %.2f 元，请及时处理。",
+                    "Debt [%s] will be due on %s, remaining balance is %.2f.",
                     debt.getDebtName(),
                     nextReminderDate,
                     debt.getCurrentBalance()
@@ -219,7 +305,37 @@ public class DebtService {
 
     public Debt getDebt(Long debtId) {
         return debtRepository.findById(debtId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "债务不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "debt not found"));
+    }
+
+    private void applyDebtFields(
+            Debt debt,
+            Long debtorMemberId,
+            String debtName,
+            String debtType,
+            String lenderName,
+            BigDecimal principalAmount,
+            BigDecimal annualRate,
+            Integer billingDay,
+            Integer repaymentDay,
+            LocalDate dueDate,
+            String remark,
+            BigDecimal repaidPrincipal
+    ) {
+        if (principalAmount.compareTo(repaidPrincipal) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "principalAmount cannot be less than repaid principal");
+        }
+        debt.setDebtorMemberId(debtorMemberId);
+        debt.setDebtName(debtName.trim());
+        debt.setDebtType(debtType.trim().toUpperCase(Locale.ROOT));
+        debt.setLenderName(normalize(lenderName));
+        debt.setPrincipalAmount(principalAmount);
+        debt.setCurrentBalance(principalAmount.subtract(repaidPrincipal));
+        debt.setAnnualRate(annualRate == null ? BigDecimal.ZERO : annualRate);
+        debt.setBillingDay(validateDayOfMonth(billingDay, "billingDay"));
+        debt.setRepaymentDay(validateDayOfMonth(repaymentDay, "repaymentDay"));
+        debt.setDueDate(dueDate);
+        debt.setRemark(normalize(remark));
     }
 
     private LocalDate withSafeDay(YearMonth yearMonth, Integer repaymentDay) {
@@ -235,6 +351,43 @@ public class DebtService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, notFoundMessage));
         if (!familyId.equals(familyMember.getFamilyId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, invalidMessage);
+        }
+    }
+
+    private Integer validateDayOfMonth(Integer value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value < 1 || value > 31) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be between 1 and 31");
+        }
+        return value;
+    }
+
+    private Account getFamilyAccount(
+            Long accountId,
+            Long familyId,
+            String notFoundMessage,
+            boolean allowInactive,
+            Map<Long, Account> accountCache
+    ) {
+        Account account = accountCache.containsKey(accountId)
+                ? accountCache.get(accountId)
+                : accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, notFoundMessage));
+        accountCache.putIfAbsent(accountId, account);
+        if (!familyId.equals(account.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account does not belong to family");
+        }
+        if (!allowInactive && !Integer.valueOf(1).equals(account.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account is inactive");
+        }
+        return account;
+    }
+
+    private void saveAccounts(Map<Long, Account> accountCache) {
+        for (Account account : accountCache.values()) {
+            accountRepository.save(account);
         }
     }
 
