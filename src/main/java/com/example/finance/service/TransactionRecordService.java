@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class TransactionRecordService {
@@ -74,51 +75,24 @@ public class TransactionRecordService {
     @Transactional
     public TransactionRecord createRecord(CreateCommand command) {
         familyService.getById(command.familyId());
-        Account account = getFamilyAccount(command.accountId(), command.familyId(), "交易账户不存在");
-        Account targetAccount = null;
-        if (command.targetAccountId() != null) {
-            targetAccount = getFamilyAccount(command.targetAccountId(), command.familyId(), "目标账户不存在");
-        }
 
-        if (command.categoryId() != null) {
-            Category category = categoryRepository.findById(command.categoryId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "交易分类不存在"));
-            if (!command.familyId().equals(category.getFamilyId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "交易分类不属于当前家庭");
-            }
-        }
+        Map<Long, Account> accountCache = new LinkedHashMap<>();
+        Account account = getFamilyAccount(command.accountId(), command.familyId(), "transaction account not found", false, accountCache);
+        Account targetAccount = getFamilyAccount(
+                command.targetAccountId(),
+                command.familyId(),
+                "target account not found",
+                false,
+                accountCache
+        );
 
-        if (command.createdByMemberId() != null) {
-            FamilyMember familyMember = familyMemberRepository.findById(command.createdByMemberId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "创建人不存在"));
-            if (!command.familyId().equals(familyMember.getFamilyId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "创建人不属于当前家庭");
-            }
-        }
+        validateCategoryBelongsToFamily(command.familyId(), command.categoryId());
+        validateCreatorMember(command.familyId(), command.createdByMemberId());
 
-        String transactionType = command.transactionType().trim().toUpperCase(Locale.ROOT);
-        if (!SUPPORTED_TRANSACTION_TYPES.contains(transactionType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "交易类型仅支持 INCOME、EXPENSE、TRANSFER");
-        }
-        if ("TRANSFER".equals(transactionType) && targetAccount == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "转账交易必须指定目标账户");
-        }
-
-        BigDecimal amount = command.amount();
-        switch (transactionType) {
-            case "INCOME" -> account.setCurrentBalance(account.getCurrentBalance().add(amount));
-            case "EXPENSE" -> account.setCurrentBalance(account.getCurrentBalance().subtract(amount));
-            case "TRANSFER" -> {
-                if (account.getId().equals(targetAccount.getId())) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "转出账户和转入账户不能相同");
-                }
-                account.setCurrentBalance(account.getCurrentBalance().subtract(amount));
-                targetAccount.setCurrentBalance(targetAccount.getCurrentBalance().add(amount));
-                accountRepository.save(targetAccount);
-            }
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不支持的交易类型");
-        }
-        accountRepository.save(account);
+        String transactionType = normalizeTransactionType(command.transactionType());
+        validateTransferAccounts(transactionType, account, targetAccount);
+        applyTransactionImpact(transactionType, command.amount(), account, targetAccount, false);
+        saveAccounts(accountCache);
 
         TransactionRecord transactionRecord = new TransactionRecord();
         transactionRecord.setFamilyId(command.familyId());
@@ -128,17 +102,110 @@ public class TransactionRecordService {
         transactionRecord.setCreatedByMemberId(command.createdByMemberId());
         transactionRecord.setSourceBatchId(command.sourceBatchId());
         transactionRecord.setTransactionType(transactionType);
-        transactionRecord.setAmount(amount);
+        transactionRecord.setAmount(command.amount());
         transactionRecord.setTransactionTime(command.transactionTime() == null ? LocalDateTime.now() : command.transactionTime());
         transactionRecord.setMerchantName(normalize(command.merchantName()));
         transactionRecord.setCounterpartyName(normalize(command.counterpartyName()));
-        transactionRecord.setSourcePlatform(StringUtils.hasText(command.sourcePlatform())
-                ? command.sourcePlatform().trim().toUpperCase(Locale.ROOT)
-                : "MANUAL");
+        transactionRecord.setSourcePlatform(resolveSourcePlatform(command.sourcePlatform(), "MANUAL"));
         transactionRecord.setExternalTradeNo(normalize(command.externalTradeNo()));
         transactionRecord.setNote(normalize(command.note()));
         transactionRecord.setStatus(1);
         return transactionRecordRepository.save(transactionRecord);
+    }
+
+    public TransactionRecord getById(Long recordId) {
+        return transactionRecordRepository.findById(recordId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "transaction record not found"));
+    }
+
+    @Transactional
+    public TransactionRecord update(Long recordId, TransactionRecordApiModels.UpdateRequest request) {
+        TransactionRecord record = getById(recordId);
+        familyService.getById(record.getFamilyId());
+
+        Map<Long, Account> accountCache = new LinkedHashMap<>();
+        Account originalAccount = getFamilyAccount(
+                record.getAccountId(),
+                record.getFamilyId(),
+                "transaction account not found",
+                true,
+                accountCache
+        );
+        Account originalTargetAccount = getFamilyAccount(
+                record.getTargetAccountId(),
+                record.getFamilyId(),
+                "target account not found",
+                true,
+                accountCache
+        );
+        Account updatedAccount = getFamilyAccount(
+                request.accountId(),
+                record.getFamilyId(),
+                "transaction account not found",
+                Objects.equals(request.accountId(), record.getAccountId()),
+                accountCache
+        );
+        Account updatedTargetAccount = getFamilyAccount(
+                request.targetAccountId(),
+                record.getFamilyId(),
+                "target account not found",
+                Objects.equals(request.targetAccountId(), record.getTargetAccountId()),
+                accountCache
+        );
+
+        validateCategoryBelongsToFamily(record.getFamilyId(), request.categoryId());
+        if (request.createdByMemberId() != null && !Objects.equals(request.createdByMemberId(), record.getCreatedByMemberId())) {
+            validateCreatorMember(record.getFamilyId(), request.createdByMemberId());
+        }
+
+        String transactionType = normalizeTransactionType(request.transactionType());
+        validateTransferAccounts(transactionType, updatedAccount, updatedTargetAccount);
+
+        applyTransactionImpact(record.getTransactionType(), record.getAmount(), originalAccount, originalTargetAccount, true);
+        applyTransactionImpact(transactionType, request.amount(), updatedAccount, updatedTargetAccount, false);
+        saveAccounts(accountCache);
+
+        record.setAccountId(request.accountId());
+        record.setTargetAccountId(request.targetAccountId());
+        record.setCategoryId(request.categoryId());
+        if (request.createdByMemberId() != null) {
+            record.setCreatedByMemberId(request.createdByMemberId());
+        }
+        record.setTransactionType(transactionType);
+        record.setAmount(request.amount());
+        record.setTransactionTime(request.transactionTime());
+        record.setMerchantName(normalize(request.merchantName()));
+        record.setCounterpartyName(normalize(request.counterpartyName()));
+        record.setSourcePlatform(resolveSourcePlatform(request.sourcePlatform(), record.getSourcePlatform()));
+        record.setExternalTradeNo(normalize(request.externalTradeNo()));
+        record.setNote(normalize(request.note()));
+        return transactionRecordRepository.save(record);
+    }
+
+    @Transactional
+    public void delete(Long recordId) {
+        TransactionRecord record = getById(recordId);
+        familyService.getById(record.getFamilyId());
+
+        Map<Long, Account> accountCache = new LinkedHashMap<>();
+        Account account = getFamilyAccount(
+                record.getAccountId(),
+                record.getFamilyId(),
+                "transaction account not found",
+                true,
+                accountCache
+        );
+        Account targetAccount = getFamilyAccount(
+                record.getTargetAccountId(),
+                record.getFamilyId(),
+                "target account not found",
+                true,
+                accountCache
+        );
+
+        applyTransactionImpact(record.getTransactionType(), record.getAmount(), account, targetAccount, true);
+        saveAccounts(accountCache);
+        transactionRecordRepository.delete(record);
     }
 
     public List<TransactionRecord> listByFamilyId(Long familyId) {
@@ -192,16 +259,107 @@ public class TransactionRecordService {
         return response;
     }
 
-    private Account getFamilyAccount(Long accountId, Long familyId, String notFoundMessage) {
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, notFoundMessage));
-        if (!familyId.equals(account.getFamilyId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "账户不属于当前家庭");
+    private void validateCategoryBelongsToFamily(Long familyId, Long categoryId) {
+        if (categoryId == null) {
+            return;
         }
-        if (!Integer.valueOf(1).equals(account.getStatus())) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "transaction category not found"));
+        if (!familyId.equals(category.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transaction category does not belong to family");
+        }
+    }
+
+    private void validateCreatorMember(Long familyId, Long createdByMemberId) {
+        if (createdByMemberId == null) {
+            return;
+        }
+        FamilyMember familyMember = familyMemberRepository.findById(createdByMemberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "transaction creator member not found"));
+        if (!familyId.equals(familyMember.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transaction creator member does not belong to family");
+        }
+    }
+
+    private String normalizeTransactionType(String transactionType) {
+        String normalizedTransactionType = transactionType.trim().toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_TRANSACTION_TYPES.contains(normalizedTransactionType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transactionType only supports INCOME, EXPENSE, TRANSFER");
+        }
+        return normalizedTransactionType;
+    }
+
+    private void validateTransferAccounts(String transactionType, Account account, Account targetAccount) {
+        if ("TRANSFER".equals(transactionType)) {
+            if (targetAccount == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transfer transaction must specify targetAccountId");
+            }
+            if (account.getId().equals(targetAccount.getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "source and target account cannot be the same");
+            }
+            return;
+        }
+        if (targetAccount != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetAccountId is only supported for transfer");
+        }
+    }
+
+    private void applyTransactionImpact(
+            String transactionType,
+            BigDecimal amount,
+            Account account,
+            Account targetAccount,
+            boolean reverse
+    ) {
+        BigDecimal delta = reverse ? amount.negate() : amount;
+        switch (transactionType) {
+            case "INCOME" -> account.setCurrentBalance(account.getCurrentBalance().add(delta));
+            case "EXPENSE" -> account.setCurrentBalance(account.getCurrentBalance().subtract(delta));
+            case "TRANSFER" -> {
+                if (targetAccount == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "transfer transaction target account is missing");
+                }
+                account.setCurrentBalance(account.getCurrentBalance().subtract(delta));
+                targetAccount.setCurrentBalance(targetAccount.getCurrentBalance().add(delta));
+            }
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unsupported transaction type");
+        }
+    }
+
+    private void saveAccounts(Map<Long, Account> accountCache) {
+        for (Account account : accountCache.values()) {
+            accountRepository.save(account);
+        }
+    }
+
+    private Account getFamilyAccount(
+            Long accountId,
+            Long familyId,
+            String notFoundMessage,
+            boolean allowInactive,
+            Map<Long, Account> accountCache
+    ) {
+        if (accountId == null) {
+            return null;
+        }
+        Account account = accountCache.containsKey(accountId)
+                ? accountCache.get(accountId)
+                : accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, notFoundMessage));
+        accountCache.putIfAbsent(accountId, account);
+        if (!familyId.equals(account.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account does not belong to family");
+        }
+        if (!allowInactive && !Integer.valueOf(1).equals(account.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "account is inactive");
         }
         return account;
+    }
+
+    private String resolveSourcePlatform(String sourcePlatform, String defaultValue) {
+        return StringUtils.hasText(sourcePlatform)
+                ? sourcePlatform.trim().toUpperCase(Locale.ROOT)
+                : defaultValue;
     }
 
     private String normalize(String value) {

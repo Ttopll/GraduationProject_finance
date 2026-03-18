@@ -31,6 +31,22 @@ public final class TransactionRecordApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            @NotNull Long accountId,
+            Long targetAccountId,
+            Long categoryId,
+            Long createdByMemberId,
+            @NotBlank @Size(max = 20) String transactionType,
+            @NotNull @Positive BigDecimal amount,
+            @NotNull LocalDateTime transactionTime,
+            @Size(max = 100) String merchantName,
+            @Size(max = 100) String counterpartyName,
+            @Size(max = 20) String sourcePlatform,
+            @Size(max = 64) String externalTradeNo,
+            @Size(max = 255) String note
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,
