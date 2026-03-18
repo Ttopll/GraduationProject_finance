@@ -550,6 +550,44 @@ button {
     color: var(--danger);
 }
 
+.inline-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.summary-card {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(32, 48, 48, 0.08);
+}
+
+.summary-card p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.notification-item.unread {
+    border-color: rgba(19, 111, 99, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(19, 111, 99, 0.12);
+}
+
+.item-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.meta-text {
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
 .muted {
     color: var(--muted);
 }

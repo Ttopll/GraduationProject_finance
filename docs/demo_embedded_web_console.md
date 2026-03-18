@@ -20,6 +20,8 @@ presentation layer.
 4. Show financial dashboard from `GET /api/financial-analysis/dashboard`
 5. Create, edit, and delete transaction records
 6. Create, edit, clear, delete debts, and record repayments
+7. Create rule definitions and run manual rule evaluation
+8. View generated notifications and mark them as read
 
 ## Suggested Defense Script
 
@@ -28,6 +30,8 @@ presentation layer.
 3. Explain asset snapshot and key indicators.
 4. Show one quick transaction create/update/delete flow.
 5. Show one debt create/repay/clear flow.
+6. Create one rule and execute manual evaluation for the current month.
+7. Open the notification panel and explain the generated alerts.
 
 ## Notes
 

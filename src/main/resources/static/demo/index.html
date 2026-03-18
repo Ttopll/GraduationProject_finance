@@ -333,6 +333,101 @@
                 </div>
             </article>
         </section>
+
+        <section class="workspace-grid">
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Rule Engine</p>
+                        <h3>规则定义与评估</h3>
+                    </div>
+                    <div class="header-actions">
+                        <button id="evaluateRulesButton" type="button" class="secondary-button">评估本月规则</button>
+                        <button id="ruleResetButton" type="button" class="ghost-button">重置规则表单</button>
+                    </div>
+                </div>
+
+                <form id="ruleForm" class="form-grid">
+                    <label class="field">
+                        <span>规则名称</span>
+                        <input id="ruleNameInput" type="text" maxlength="100" placeholder="例如 食品支出预警" required>
+                    </label>
+                    <label class="field">
+                        <span>规则类型</span>
+                        <select id="ruleTypeSelect" required>
+                            <option value="THRESHOLD">THRESHOLD</option>
+                            <option value="CONSECUTIVE_THRESHOLD">CONSECUTIVE_THRESHOLD</option>
+                            <option value="TREND_ANOMALY">TREND_ANOMALY</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>指标类型</span>
+                        <select id="ruleMetricTypeSelect" required>
+                            <option value="CATEGORY_EXPENSE">CATEGORY_EXPENSE</option>
+                            <option value="FAMILY_EXPENSE">FAMILY_EXPENSE</option>
+                        </select>
+                    </label>
+                    <label id="ruleCategoryField" class="field">
+                        <span>目标分类</span>
+                        <select id="ruleCategorySelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>时间范围</span>
+                        <select id="ruleTimeScopeSelect" required>
+                            <option value="MONTH">MONTH</option>
+                            <option value="YEAR">YEAR</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>运算符</span>
+                        <select id="ruleOperatorSelect" required>
+                            <option value="GT">GT</option>
+                            <option value="GTE">GTE</option>
+                            <option value="LT">LT</option>
+                            <option value="LTE">LTE</option>
+                            <option value="EQ">EQ</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>阈值</span>
+                        <input id="ruleThresholdInput" type="number" min="0.01" step="0.01" placeholder="例如 2000 或 0.30" required>
+                    </label>
+                    <label id="ruleWindowField" class="field">
+                        <span id="ruleWindowLabel">窗口参数</span>
+                        <input id="ruleWindowInput" type="number" min="1" step="1" placeholder="连续月数或基线月数">
+                    </label>
+                    <label class="field">
+                        <span>创建成员</span>
+                        <select id="ruleCreatorSelect"></select>
+                    </label>
+                    <label class="field">
+                        <span>优先级</span>
+                        <input id="rulePriorityInput" type="number" min="1" step="1" value="100">
+                    </label>
+                    <label class="field field-wide">
+                        <span>消息模板</span>
+                        <input id="ruleMessageTemplateInput" type="text" maxlength="255" placeholder="例如 本月食品支出超过预设阈值" required>
+                    </label>
+                    <div class="form-actions">
+                        <button id="ruleSubmitButton" type="submit" class="primary-button">新增规则</button>
+                    </div>
+                </form>
+
+                <div id="ruleEvaluateSummary" class="stack-list"></div>
+                <div id="ruleList" class="stack-list"></div>
+            </article>
+
+            <article class="surface panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="panel-eyebrow">Notifications</p>
+                        <h3>通知中心</h3>
+                    </div>
+                    <button id="refreshNotificationsButton" type="button" class="ghost-button">刷新通知</button>
+                </div>
+                <div id="notificationList" class="stack-list"></div>
+            </article>
+        </section>
     </main>
 </div>
 </body>

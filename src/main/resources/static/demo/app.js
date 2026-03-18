@@ -18,6 +18,9 @@ const state = {
     transactions: [],
     debts: [],
     repayments: [],
+    rules: [],
+    notifications: [],
+    lastRuleEvaluation: null,
     selectedFamilyId: null,
     selectedMemberId: null,
     selectedRepaymentDebtId: null,
@@ -101,6 +104,28 @@ function cacheRefs() {
         "repaymentNoteInput",
         "debtCardList",
         "repaymentHistory",
+        "ruleForm",
+        "ruleNameInput",
+        "ruleTypeSelect",
+        "ruleMetricTypeSelect",
+        "ruleCategoryField",
+        "ruleCategorySelect",
+        "ruleTimeScopeSelect",
+        "ruleOperatorSelect",
+        "ruleThresholdInput",
+        "ruleWindowField",
+        "ruleWindowLabel",
+        "ruleWindowInput",
+        "ruleCreatorSelect",
+        "rulePriorityInput",
+        "ruleMessageTemplateInput",
+        "ruleSubmitButton",
+        "ruleResetButton",
+        "evaluateRulesButton",
+        "ruleEvaluateSummary",
+        "ruleList",
+        "refreshNotificationsButton",
+        "notificationList",
         "workspaceControls"
     ];
 
@@ -126,6 +151,13 @@ function bindEvents() {
     refs.debtCardList.addEventListener("click", onDebtCardClick);
     refs.repaymentDebtSelect.addEventListener("change", onRepaymentDebtChange);
     refs.repaymentForm.addEventListener("submit", onRepaymentSubmit);
+    refs.ruleTypeSelect.addEventListener("change", onRuleTypeChange);
+    refs.ruleMetricTypeSelect.addEventListener("change", onRuleMetricTypeChange);
+    refs.ruleForm.addEventListener("submit", onRuleSubmit);
+    refs.ruleResetButton.addEventListener("click", resetRuleForm);
+    refs.evaluateRulesButton.addEventListener("click", onEvaluateRules);
+    refs.refreshNotificationsButton.addEventListener("click", onRefreshNotifications);
+    refs.notificationList.addEventListener("click", onNotificationListClick);
 }
 
 function hydrateState() {
@@ -140,6 +172,7 @@ function hydrateState() {
     refs.transactionTimeInput.value = currentDateTimeLocal();
     refs.repaymentTimeInput.value = currentDateTimeLocal();
     refs.transactionSourcePlatformInput.value = "MANUAL";
+    resetRuleForm();
 }
 
 async function onLoginSubmit(event) {
@@ -201,6 +234,9 @@ async function refreshFamilyScopedData() {
         state.transactions = [];
         state.debts = [];
         state.repayments = [];
+        state.rules = [];
+        state.notifications = [];
+        state.lastRuleEvaluation = null;
         renderAll();
         return;
     }
@@ -212,13 +248,15 @@ async function refreshFamilyScopedData() {
         trendMonths: String(state.trendMonths)
     });
 
-    const [members, accounts, categories, dashboard, transactions, debts] = await Promise.all([
+    const [members, accounts, categories, dashboard, transactions, debts, rules, notifications] = await Promise.all([
         api(`/api/families/${familyId}/members`),
         api(`/api/accounts?familyId=${familyId}`),
         api(`/api/categories?familyId=${familyId}`),
         api(`/api/financial-analysis/dashboard?${query.toString()}`),
         api(`/api/transaction-records?familyId=${familyId}`),
-        api(`/api/debts?familyId=${familyId}`)
+        api(`/api/debts?familyId=${familyId}`),
+        api(`/api/rules?familyId=${familyId}`),
+        api(`/api/notifications?familyId=${familyId}`)
     ]);
 
     state.members = members || [];
@@ -227,6 +265,9 @@ async function refreshFamilyScopedData() {
     state.dashboard = dashboard;
     state.transactions = (transactions || []).slice().sort(sortTransactionsDesc);
     state.debts = debts || [];
+    state.rules = rules || [];
+    state.notifications = notifications || [];
+    state.lastRuleEvaluation = null;
 
     resolveSelectedMember();
     syncRepaymentDebtSelection();
@@ -528,6 +569,118 @@ async function onRepaymentSubmit(event) {
     }).catch(handleAsyncError);
 }
 
+function onRuleTypeChange() {
+    toggleRuleFormFields();
+}
+
+function onRuleMetricTypeChange() {
+    populateRuleSelects();
+    toggleRuleFormFields();
+}
+
+async function onRuleSubmit(event) {
+    event.preventDefault();
+    if (!state.selectedFamilyId) {
+        setFlash("请先选择家庭。", "warning");
+        return;
+    }
+
+    const ruleType = refs.ruleTypeSelect.value;
+    const metricType = refs.ruleMetricTypeSelect.value;
+    const categoryId = metricType === "CATEGORY_EXPENSE"
+            ? parseRequiredNumber(refs.ruleCategorySelect.value, "请选择规则分类")
+            : null;
+
+    const payload = {
+        familyId: state.selectedFamilyId,
+        categoryId,
+        createdByMemberId: normalizeNullableNumber(refs.ruleCreatorSelect.value),
+        ruleName: normalizeRequiredText(refs.ruleNameInput.value, "请输入规则名称"),
+        ruleType,
+        metricType,
+        timeScope: resolveRuleTimeScope(ruleType),
+        operatorType: resolveRuleOperator(ruleType),
+        thresholdValue: parseRequiredDecimal(refs.ruleThresholdInput.value, "请输入规则阈值"),
+        thresholdJson: buildRuleThresholdJson(ruleType, refs.ruleWindowInput.value),
+        actionType: "NOTIFY",
+        messageTemplate: normalizeRequiredText(refs.ruleMessageTemplateInput.value, "请输入消息模板"),
+        priority: normalizeNullableInteger(refs.rulePriorityInput.value) || 100
+    };
+
+    await withLoading("正在创建规则...", async () => {
+        await api("/api/rules", {
+            method: "POST",
+            body: payload
+        });
+        resetRuleForm();
+        await refreshFamilyScopedData();
+        setFlash("规则已创建。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function onEvaluateRules() {
+    if (!state.selectedFamilyId) {
+        setFlash("请先选择家庭。", "warning");
+        return;
+    }
+
+    await withLoading("正在执行规则评估...", async () => {
+        state.lastRuleEvaluation = await api(`/api/rules/evaluate?familyId=${state.selectedFamilyId}&month=${state.month}`, {
+            method: "POST"
+        });
+        await refreshNotifications(false);
+        renderRulesPanel();
+        renderNotifications();
+        setFlash("规则评估已完成。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function onRefreshNotifications() {
+    await withLoading("正在刷新通知列表...", async () => {
+        await refreshNotifications(false);
+        renderNotifications();
+        setFlash("通知列表已刷新。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function onNotificationListClick(event) {
+    const button = event.target.closest("button[data-action]");
+    if (!button) {
+        return;
+    }
+
+    const action = button.dataset.action;
+    if (action !== "read-notification") {
+        return;
+    }
+
+    const notificationId = parseStoredNumber(button.dataset.id);
+    if (!notificationId) {
+        return;
+    }
+
+    await withLoading("正在标记通知为已读...", async () => {
+        await api(`/api/notifications/${notificationId}/read`, { method: "POST" });
+        await refreshNotifications(false);
+        renderNotifications();
+        setFlash("通知已标记为已读。", "success");
+    }).catch(handleAsyncError);
+}
+
+async function refreshNotifications(shouldRender = true) {
+    if (!state.selectedFamilyId) {
+        state.notifications = [];
+        if (shouldRender) {
+            renderNotifications();
+        }
+        return;
+    }
+    state.notifications = await api(`/api/notifications?familyId=${state.selectedFamilyId}`);
+    if (shouldRender) {
+        renderNotifications();
+    }
+}
+
 function onLogout() {
     localStorage.removeItem(STORAGE_KEYS.token);
     localStorage.removeItem(STORAGE_KEYS.familyId);
@@ -543,6 +696,9 @@ function onLogout() {
     state.transactions = [];
     state.debts = [];
     state.repayments = [];
+    state.rules = [];
+    state.notifications = [];
+    state.lastRuleEvaluation = null;
     state.selectedFamilyId = null;
     state.selectedMemberId = null;
     state.selectedRepaymentDebtId = null;
@@ -561,10 +717,14 @@ function renderAll() {
     populateAccountSelects();
     populateCategorySelect(refs.transactionCategorySelect, refs.transactionTypeSelect.value, refs.transactionCategorySelect.value);
     populateRepaymentDebtSelect();
+    populateRuleSelects();
     renderTransactionsTable();
     renderDebtCards();
     renderRepaymentHistory();
+    renderRulesPanel();
+    renderNotifications();
     toggleTransactionTargetField();
+    toggleRuleFormFields();
 }
 
 function renderAuthState() {
@@ -592,6 +752,11 @@ function renderAuthState() {
     refs.repaymentForm.querySelectorAll("input, select, textarea, button").forEach((element) => {
         element.disabled = disabled;
     });
+    refs.ruleForm.querySelectorAll("input, select, textarea, button").forEach((element) => {
+        element.disabled = disabled;
+    });
+    refs.evaluateRulesButton.disabled = disabled;
+    refs.refreshNotificationsButton.disabled = disabled;
 
     refs.loginButton.disabled = state.loading;
 }
@@ -845,6 +1010,82 @@ function renderRepaymentHistory() {
     }).join("");
 }
 
+function renderRulesPanel() {
+    refs.ruleEvaluateSummary.innerHTML = state.lastRuleEvaluation
+            ? renderRuleEvaluationSummary(state.lastRuleEvaluation)
+            : emptyState("点击“评估本月规则”后显示规则评估结果。");
+
+    if (!state.rules.length) {
+        refs.ruleList.innerHTML = emptyState("当前家庭暂无规则定义。");
+        return;
+    }
+
+    refs.ruleList.innerHTML = state.rules.map((rule) => {
+        const ruleCategoryText = rule.metricType === "FAMILY_EXPENSE"
+                ? "Family Total"
+                : findCategoryName(rule.categoryId);
+        return `
+            <div class="stack-item">
+                <strong>${escapeHtml(rule.ruleName || "Unnamed Rule")}</strong>
+                <span>${escapeHtml(translateRuleType(rule.ruleType))} · ${escapeHtml(translateMetricType(rule.metricType))} · ${escapeHtml(rule.timeScope || "-")}</span>
+                <span>Operator ${escapeHtml(rule.operatorType || "-")} · Threshold ${escapeHtml(formatDecimal(rule.thresholdValue))} · Priority ${escapeHtml(safeText(rule.priority))}</span>
+                <span>Category ${escapeHtml(ruleCategoryText)} · Creator ${escapeHtml(findMemberName(rule.createdByMemberId))}</span>
+                <span>Extra Config ${escapeHtml(describeRuleThresholdJson(rule.thresholdJson))}</span>
+                <span>Message ${escapeHtml(rule.messageTemplate || "-")}</span>
+                <div class="inline-pills">
+                    <span class="pill ${rule.enabled === 1 ? "success" : "warning"}">${rule.enabled === 1 ? "Enabled" : "Disabled"}</span>
+                    <span class="pill warning">${escapeHtml(rule.actionType || "NOTIFY")}</span>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderNotifications() {
+    if (!state.notifications.length) {
+        refs.notificationList.innerHTML = emptyState("当前暂无通知。");
+        return;
+    }
+
+    refs.notificationList.innerHTML = state.notifications.map((notification) => {
+        const unreadClass = notification.readStatus === 1 ? "" : " unread";
+        const button = notification.readStatus === 1
+                ? ""
+                : `<button type="button" class="row-button" data-action="read-notification" data-id="${notification.id}">标记已读</button>`;
+        return `
+            <div class="stack-item notification-item${unreadClass}">
+                <strong>${escapeHtml(notification.title || "Notification")}</strong>
+                <span>${escapeHtml(notification.content || "-")}</span>
+                <div class="inline-pills">
+                    <span class="pill ${notification.readStatus === 1 ? "success" : "warning"}">${notification.readStatus === 1 ? "READ" : "UNREAD"}</span>
+                    <span class="pill ${notification.levelCode === "WARN" ? "warning" : "success"}">${escapeHtml(notification.levelCode || "INFO")}</span>
+                    <span class="pill warning">${escapeHtml(notification.sourceType || "-")}</span>
+                </div>
+                <p class="meta-text">
+                    Source #${escapeHtml(safeText(notification.sourceId))} ·
+                    Target ${escapeHtml(findMemberName(notification.targetMemberId))} ·
+                    Created ${escapeHtml(formatDateTime(notification.createdAt))}
+                </p>
+                <div class="item-actions">${button}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderRuleEvaluationSummary(result) {
+    const details = (result.details || []).length
+            ? (result.details || []).map((detail) => `<div class="stack-item">${escapeHtml(detail)}</div>`).join("")
+            : '<div class="stack-item">No details generated in this evaluation.</div>';
+
+    return `
+        <div class="summary-card">
+            <strong>Latest Evaluation ${escapeHtml(result.month || state.month)}</strong>
+            <p>Budget Alerts ${escapeHtml(safeText(result.budgetAlertCount))} · Triggered Rules ${escapeHtml(safeText(result.triggeredRuleCount))} · Notifications ${escapeHtml(safeText(result.generatedNotificationCount))}</p>
+            <div class="stack-list">${details}</div>
+        </div>
+    `;
+}
+
 function populateMemberSelects() {
     const options = state.members.map((member) => ({
         value: member.memberId,
@@ -862,6 +1103,28 @@ function populateMemberSelects() {
     setSelectOptions(refs.repaymentCreatorSelect, options, {
         placeholder: "不指定",
         value: defaultMember
+    });
+}
+
+function populateRuleSelects() {
+    const creatorOptions = state.members.map((member) => ({
+        value: member.memberId,
+        label: member.memberName || member.nickname || member.username || `成员 #${member.memberId}`
+    }));
+    setSelectOptions(refs.ruleCreatorSelect, creatorOptions, {
+        placeholder: "不指定",
+        value: refs.ruleCreatorSelect.value || state.selectedMemberId
+    });
+
+    const categoryOptions = state.categories
+            .filter((category) => category.categoryType === "EXPENSE")
+            .map((category) => ({
+                value: category.id,
+                label: `${category.categoryName}${category.enabled === 1 ? "" : " (停用)"}`
+            }));
+    setSelectOptions(refs.ruleCategorySelect, categoryOptions, {
+        placeholder: "请选择支出分类",
+        value: refs.ruleCategorySelect.value
     });
 }
 
@@ -1004,6 +1267,73 @@ function resetDebtForm() {
     refs.debtRemarkInput.value = "";
     refs.debtSubmitText.textContent = "新增债务";
     populateMemberSelects();
+}
+
+function resetRuleForm() {
+    refs.ruleNameInput.value = "";
+    refs.ruleTypeSelect.value = "THRESHOLD";
+    refs.ruleMetricTypeSelect.value = "CATEGORY_EXPENSE";
+    refs.ruleTimeScopeSelect.value = "MONTH";
+    refs.ruleOperatorSelect.value = "GT";
+    refs.ruleThresholdInput.value = "";
+    refs.ruleWindowInput.value = "";
+    refs.rulePriorityInput.value = "100";
+    refs.ruleMessageTemplateInput.value = "规则触发，请关注当前家庭财务波动";
+    if (refs.ruleCreatorSelect) {
+        refs.ruleCreatorSelect.value = "";
+    }
+    toggleRuleFormFields();
+}
+
+function toggleRuleFormFields() {
+    const ruleType = refs.ruleTypeSelect.value;
+    const metricType = refs.ruleMetricTypeSelect.value;
+    const needsCategory = metricType === "CATEGORY_EXPENSE";
+    const needsWindow = ruleType !== "THRESHOLD";
+
+    refs.ruleCategoryField.classList.toggle("hidden", !needsCategory);
+    refs.ruleCategorySelect.disabled = !needsCategory || !state.token || state.loading;
+    refs.ruleCategorySelect.required = needsCategory;
+
+    refs.ruleWindowField.classList.toggle("hidden", !needsWindow);
+    refs.ruleWindowInput.disabled = !needsWindow || !state.token || state.loading;
+    refs.ruleWindowInput.required = needsWindow;
+    refs.ruleWindowLabel.textContent = ruleType === "TREND_ANOMALY" ? "Baseline Months" : "Consecutive Months";
+
+    refs.ruleTimeScopeSelect.disabled = ruleType !== "THRESHOLD" || !state.token || state.loading;
+    if (ruleType !== "THRESHOLD") {
+        refs.ruleTimeScopeSelect.value = "MONTH";
+    }
+
+    if (ruleType === "TREND_ANOMALY" && !["GT", "GTE"].includes(refs.ruleOperatorSelect.value)) {
+        refs.ruleOperatorSelect.value = "GTE";
+    }
+}
+
+function buildRuleThresholdJson(ruleType, windowValue) {
+    if (ruleType === "THRESHOLD") {
+        return null;
+    }
+    const months = normalizeNullableInteger(windowValue);
+    if (!months || months < 1) {
+        throw new Error("请输入有效的规则窗口参数。");
+    }
+    if (ruleType === "TREND_ANOMALY") {
+        return JSON.stringify({ baselineMonths: months });
+    }
+    return JSON.stringify({ consecutiveMonths: months });
+}
+
+function resolveRuleTimeScope(ruleType) {
+    return ruleType === "THRESHOLD" ? refs.ruleTimeScopeSelect.value : "MONTH";
+}
+
+function resolveRuleOperator(ruleType) {
+    const operator = refs.ruleOperatorSelect.value;
+    if (ruleType === "TREND_ANOMALY" && !["GT", "GTE"].includes(operator)) {
+        throw new Error("TREND_ANOMALY 规则仅支持 GT 或 GTE。");
+    }
+    return operator;
 }
 
 async function withLoading(message, task) {
@@ -1196,6 +1526,44 @@ function translateDebtType(type) {
             return "房贷";
         default:
             return type || "-";
+    }
+}
+
+function translateRuleType(type) {
+    switch (type) {
+        case "THRESHOLD":
+            return "Threshold";
+        case "CONSECUTIVE_THRESHOLD":
+            return "Consecutive Threshold";
+        case "TREND_ANOMALY":
+            return "Trend Anomaly";
+        default:
+            return type || "-";
+    }
+}
+
+function translateMetricType(type) {
+    switch (type) {
+        case "CATEGORY_EXPENSE":
+            return "Category Expense";
+        case "FAMILY_EXPENSE":
+            return "Family Expense";
+        default:
+            return type || "-";
+    }
+}
+
+function describeRuleThresholdJson(thresholdJson) {
+    if (!thresholdJson) {
+        return "None";
+    }
+    try {
+        const parsed = JSON.parse(thresholdJson);
+        return Object.entries(parsed)
+                .map(([key, value]) => `${key}=${value}`)
+                .join(", ");
+    } catch (error) {
+        return thresholdJson;
     }
 }
 
