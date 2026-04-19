@@ -20,6 +20,16 @@ public final class CategoryApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            Long parentId,
+            @NotBlank @Size(max = 50) String categoryName,
+            @NotBlank @Size(max = 20) String categoryType,
+            @Size(max = 20) String scopeType,
+            @Size(max = 50) String iconCode,
+            Integer sortOrder
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,

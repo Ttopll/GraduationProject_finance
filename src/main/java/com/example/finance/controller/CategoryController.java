@@ -6,8 +6,11 @@ import com.example.finance.security.FamilyAccessService;
 import com.example.finance.service.CategoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,6 +44,38 @@ public class CategoryController {
         return categoryService.listByFamilyId(familyId).stream()
                 .map(CategoryController::toResponse)
                 .toList();
+    }
+
+    @PutMapping("/{categoryId}")
+    public CategoryApiModels.Response update(
+            @PathVariable Long categoryId,
+            @Valid @RequestBody CategoryApiModels.UpdateRequest request
+    ) {
+        Category category = categoryService.getById(categoryId);
+        familyAccessService.requireFamilyOwner(category.getFamilyId());
+        return toResponse(categoryService.update(categoryId, request));
+    }
+
+    @PostMapping("/{categoryId}/enable")
+    public CategoryApiModels.Response enable(@PathVariable Long categoryId) {
+        Category category = categoryService.getById(categoryId);
+        familyAccessService.requireFamilyOwner(category.getFamilyId());
+        return toResponse(categoryService.changeEnabled(categoryId, true));
+    }
+
+    @PostMapping("/{categoryId}/disable")
+    public CategoryApiModels.Response disable(@PathVariable Long categoryId) {
+        Category category = categoryService.getById(categoryId);
+        familyAccessService.requireFamilyOwner(category.getFamilyId());
+        return toResponse(categoryService.changeEnabled(categoryId, false));
+    }
+
+    @DeleteMapping("/{categoryId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long categoryId) {
+        Category category = categoryService.getById(categoryId);
+        familyAccessService.requireFamilyOwner(category.getFamilyId());
+        categoryService.delete(categoryId);
     }
 
     private static CategoryApiModels.Response toResponse(Category category) {

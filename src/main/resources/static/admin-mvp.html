@@ -1,0 +1,107 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin MVP - Real Data Ops</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; background: #f3f6fb; margin: 0; color: #0f172a; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 8px 30px rgba(2,6,23,.08); margin-bottom: 16px; }
+    h1 { margin: 0 0 12px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    input, button { padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; }
+    button { cursor: pointer; background: #0f172a; color: #fff; border: none; }
+    button.secondary { background: #1d4ed8; }
+    pre { background: #0b1220; color: #dbeafe; padding: 12px; border-radius: 8px; overflow: auto; }
+    .hint { color: #475569; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Admin MVP</h1>
+      <div class="hint">目标: 登录 -> 导入真实数据 -> 查看 retail-overview</div>
+    </div>
+
+    <div class="card">
+      <h3>1) 登录</h3>
+      <div class="row">
+        <input id="username" placeholder="username" />
+        <input id="password" type="password" placeholder="password" />
+        <button onclick="login()">登录</button>
+      </div>
+      <div id="loginStatus" class="hint">未登录</div>
+    </div>
+
+    <div class="card">
+      <h3>2) 导入真实数据</h3>
+      <div class="row">
+        <button class="secondary" onclick="importData()">执行导入</button>
+      </div>
+      <pre id="importOut">(import result)</pre>
+    </div>
+
+    <div class="card">
+      <h3>3) 查询零售总览</h3>
+      <div class="row">
+        <button class="secondary" onclick="loadRetailOverview()">查询 retail-overview</button>
+      </div>
+      <pre id="retailOut">(retail overview)</pre>
+    </div>
+  </div>
+
+  <script>
+    let token = "";
+
+    async function api(path, method = "GET", body = null, auth = true) {
+      const res = await fetch(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(auth && token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: body ? JSON.stringify(body) : null
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+      return res.json();
+    }
+
+    async function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        const res = await api("/api/auth/login", "POST", { username, password }, false);
+        token = res.accessToken || "";
+        document.getElementById("loginStatus").textContent = token ? `已登录: ${res.user?.username}` : "登录失败";
+      } catch (e) {
+        document.getElementById("loginStatus").textContent = `登录失败: ${e.message}`;
+      }
+    }
+
+    async function importData() {
+      const out = document.getElementById("importOut");
+      out.textContent = "importing...";
+      try {
+        const res = await api("/api/real-data-analysis/import?processedDir=data/processed&truncateBeforeImport=true&batchSize=5000", "POST");
+        out.textContent = JSON.stringify(res, null, 2);
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    }
+
+    async function loadRetailOverview() {
+      const out = document.getElementById("retailOut");
+      out.textContent = "loading...";
+      try {
+        const res = await api("/api/real-data-analysis/retail-overview?topCountries=10", "GET");
+        out.textContent = JSON.stringify(res, null, 2);
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    }
+  </script>
+</body>
+</html>

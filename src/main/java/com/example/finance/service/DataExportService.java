@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,6 +81,23 @@ public class DataExportService {
     public DataExportLog getById(Long exportId) {
         return dataExportLogRepository.findById(exportId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "data export log not found"));
+    }
+
+    public DataExportApiModels.Response getResponseById(Long exportId) {
+        return toResponse(getById(exportId));
+    }
+
+    public void delete(Long exportId) {
+        DataExportLog exportLog = getById(exportId);
+        Path filePath = resolveFilePathForDelete(exportLog.getFilePath());
+        if (filePath != null) {
+            try {
+                Files.deleteIfExists(filePath);
+            } catch (IOException ignored) {
+                // Keep log deletion resilient even if file cleanup fails.
+            }
+        }
+        dataExportLogRepository.delete(exportLog);
     }
 
     public DataExportApiModels.ExportResponse exportTransactions(Long familyId, Long requestedByMemberId, String monthText) {
@@ -239,6 +257,21 @@ public class DataExportService {
         Path targetFile = directory.resolve(fileName).normalize();
         Files.writeString(targetFile, content, StandardCharsets.UTF_8);
         return exportBasePath.relativize(targetFile).toString().replace('\\', '/');
+    }
+
+    private Path resolveFilePathForDelete(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            return null;
+        }
+        try {
+            Path resolvedPath = exportBasePath.resolve(relativePath).normalize();
+            if (!resolvedPath.startsWith(exportBasePath)) {
+                return null;
+            }
+            return resolvedPath;
+        } catch (InvalidPathException exception) {
+            return null;
+        }
     }
 
     private DataExportLog createPendingLog(Long familyId, Long requestedByMemberId, String exportType) {

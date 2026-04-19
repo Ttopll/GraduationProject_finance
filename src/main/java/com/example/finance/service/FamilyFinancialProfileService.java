@@ -5,6 +5,7 @@ import com.example.finance.entity.FamilyFinancialProfile;
 import com.example.finance.repository.FamilyFinancialProfileRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -48,6 +49,12 @@ public class FamilyFinancialProfileService {
         profile.setEmergencyFundMonths(request.emergencyFundMonths());
         profile.setInvestmentPreferenceJson(normalize(request.investmentPreferenceJson()));
         return familyFinancialProfileRepository.save(profile);
+    }
+
+    @Transactional
+    public long deleteByFamilyId(Long familyId) {
+        familyService.getById(familyId);
+        return familyFinancialProfileRepository.deleteByFamilyId(familyId);
     }
 
     private FamilyFinancialProfile buildDefaultProfile(Long familyId) {

@@ -6,6 +6,7 @@ import com.example.finance.security.FamilyAccessService;
 import com.example.finance.service.BudgetService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -79,6 +80,14 @@ public class BudgetController {
         BudgetPlan budgetPlan = budgetService.getBudget(budgetId);
         familyAccessService.requireFamilyRead(budgetPlan.getFamilyId());
         return toResponse(budgetService.changeEnabled(budgetId, false));
+    }
+
+    @DeleteMapping("/{budgetId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long budgetId) {
+        BudgetPlan budgetPlan = budgetService.getBudget(budgetId);
+        familyAccessService.requireFamilyRead(budgetPlan.getFamilyId());
+        budgetService.delete(budgetId);
     }
 
     @GetMapping("/usage")

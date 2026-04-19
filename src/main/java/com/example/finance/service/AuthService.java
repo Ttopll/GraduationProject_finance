@@ -77,6 +77,19 @@ public class AuthService {
         );
     }
 
+    @Transactional
+    public void changePassword(AuthApiModels.ChangePasswordRequest request) {
+        SysUser currentUser = currentUserService.requireCurrentUserEntity();
+        if (!PasswordHashUtil.matches(request.oldPassword(), currentUser.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "旧密码错误");
+        }
+        if (request.oldPassword().equals(request.newPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "新密码不能与旧密码相同");
+        }
+        currentUser.setPasswordHash(PasswordHashUtil.sha256(request.newPassword()));
+        sysUserRepository.save(currentUser);
+    }
+
     private List<AuthApiModels.Membership> listMemberships(Long userId) {
         List<FamilyMember> memberships = familyMemberRepository.findByUserIdAndStatusOrderByJoinedAtDescIdDesc(
                 userId,

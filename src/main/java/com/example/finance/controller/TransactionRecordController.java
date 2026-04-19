@@ -114,6 +114,26 @@ public class TransactionRecordController {
                 .toList();
     }
 
+    @GetMapping("/search")
+    public TransactionRecordApiModels.SearchPageResponse search(
+            @RequestParam Long familyId,
+            @RequestParam(required = false) String transactionType,
+            @RequestParam(required = false) java.time.LocalDateTime startTime,
+            @RequestParam(required = false) java.time.LocalDateTime endTime,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
+    ) {
+        familyAccessService.requireFamilyRead(familyId);
+        return transactionRecordService.searchByFamilyId(
+                familyId,
+                transactionType,
+                startTime,
+                endTime,
+                page,
+                size
+        );
+    }
+
     @GetMapping("/family/{familyId}/monthly-summary")
     public List<TransactionRecordApiModels.MonthlySummaryResponse> monthlySummary(
             @PathVariable Long familyId,

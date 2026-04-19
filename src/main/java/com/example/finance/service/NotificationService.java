@@ -1,5 +1,6 @@
 package com.example.finance.service;
 
+import com.example.finance.dto.NotificationApiModels;
 import com.example.finance.entity.Notification;
 import com.example.finance.repository.NotificationRepository;
 import com.example.finance.security.CurrentUserService;
@@ -7,10 +8,12 @@ import com.example.finance.security.FamilyAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class NotificationService {
@@ -53,16 +56,98 @@ public class NotificationService {
                 .toList();
     }
 
+    public NotificationApiModels.SearchPageResponse search(
+            Long familyId,
+            Long targetMemberId,
+            Integer readStatus,
+            String sourceType,
+            Integer page,
+            Integer size
+    ) {
+        if (readStatus != null && readStatus != 0 && readStatus != 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "readStatus only supports 0 or 1");
+        }
+        String normalizedSourceType = StringUtils.hasText(sourceType)
+                ? sourceType.trim().toUpperCase(Locale.ROOT)
+                : null;
+        List<Notification> notifications = list(familyId, targetMemberId);
+
+        List<Notification> filtered = notifications.stream()
+                .filter(notification -> readStatus == null || readStatus.equals(notification.getReadStatus()))
+                .filter(notification -> normalizedSourceType == null
+                        || normalizedSourceType.equalsIgnoreCase(notification.getSourceType()))
+                .toList();
+
+        int safePage = (page == null || page < 0) ? 0 : page;
+        int safeSize = (size == null || size < 1) ? 20 : Math.min(size, 200);
+        int fromIndex = Math.min(safePage * safeSize, filtered.size());
+        int toIndex = Math.min(fromIndex + safeSize, filtered.size());
+
+        List<NotificationApiModels.Response> items = filtered.subList(fromIndex, toIndex).stream()
+                .map(NotificationService::toResponse)
+                .toList();
+        int totalPages = filtered.isEmpty() ? 0 : (int) Math.ceil(filtered.size() * 1.0 / safeSize);
+        return new NotificationApiModels.SearchPageResponse(
+                items,
+                safePage,
+                safeSize,
+                (long) filtered.size(),
+                totalPages
+        );
+    }
+
     @Transactional
     public Notification markRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "消息不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "notification not found"));
         familyAccessService.requireNotificationAccess(notification);
         notification.setReadStatus(1);
         if (notification.getSentAt() == null) {
             notification.setSentAt(LocalDateTime.now());
         }
         return notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public int markAllRead(Long familyId, Long targetMemberId) {
+        List<Notification> notifications = list(familyId, targetMemberId);
+        int affectedCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+        for (Notification notification : notifications) {
+            if (Integer.valueOf(1).equals(notification.getReadStatus())) {
+                continue;
+            }
+            notification.setReadStatus(1);
+            if (notification.getSentAt() == null) {
+                notification.setSentAt(now);
+            }
+            affectedCount++;
+        }
+        if (affectedCount > 0) {
+            notificationRepository.saveAll(notifications);
+        }
+        return affectedCount;
+    }
+
+    @Transactional
+    public void delete(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "notification not found"));
+        familyAccessService.requireNotificationAccess(notification);
+        notificationRepository.delete(notification);
+    }
+
+    @Transactional
+    public int deleteRead(Long familyId, Long targetMemberId) {
+        List<Notification> notifications = list(familyId, targetMemberId);
+        List<Notification> readNotifications = notifications.stream()
+                .filter(notification -> Integer.valueOf(1).equals(notification.getReadStatus()))
+                .toList();
+        if (readNotifications.isEmpty()) {
+            return 0;
+        }
+        notificationRepository.deleteAll(readNotifications);
+        return readNotifications.size();
     }
 
     @Transactional
@@ -100,5 +185,21 @@ public class NotificationService {
         notification.setReadStatus(0);
         notification.setSentAt(LocalDateTime.now());
         return notificationRepository.save(notification);
+    }
+
+    private static NotificationApiModels.Response toResponse(Notification notification) {
+        return new NotificationApiModels.Response(
+                notification.getId(),
+                notification.getFamilyId(),
+                notification.getTargetMemberId(),
+                notification.getSourceType(),
+                notification.getSourceId(),
+                notification.getTitle(),
+                notification.getContent(),
+                notification.getLevelCode(),
+                notification.getReadStatus(),
+                notification.getSentAt(),
+                notification.getCreatedAt()
+        );
     }
 }

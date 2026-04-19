@@ -24,11 +24,13 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -182,5 +184,38 @@ class DataExportServiceTests {
         assertTrue(content.contains("BudgetId,BudgetName,CategoryName"));
         assertTrue(content.contains("Food Budget"));
         assertTrue(content.contains("0.6400"));
+    }
+
+    @Test
+    void deleteShouldRemoveExportFileAndLog() throws Exception {
+        Long exportId = 10L;
+        Long familyId = 1L;
+        Path file = Files.createDirectories(tempDir.resolve("transactions"))
+                .resolve("to-delete.csv");
+        Files.writeString(file, "header\r\n");
+
+        DataExportLog exportLog = new DataExportLog();
+        exportLog.setId(exportId);
+        exportLog.setFamilyId(familyId);
+        exportLog.setFilePath(tempDir.relativize(file).toString().replace('\\', '/'));
+        exportLog.setStatus("SUCCESS");
+
+        when(dataExportLogRepository.findById(exportId)).thenReturn(Optional.of(exportLog));
+
+        DataExportService dataExportService = new DataExportService(
+                dataExportLogRepository,
+                transactionRecordRepository,
+                accountRepository,
+                categoryRepository,
+                familyMemberRepository,
+                budgetService,
+                familyService,
+                tempDir.toString()
+        );
+
+        dataExportService.delete(exportId);
+
+        assertTrue(Files.notExists(file));
+        verify(dataExportLogRepository).delete(exportLog);
     }
 }

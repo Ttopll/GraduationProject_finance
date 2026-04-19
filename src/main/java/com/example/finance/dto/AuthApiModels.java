@@ -1,6 +1,7 @@
 package com.example.finance.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,6 +52,12 @@ public final class AuthApiModels {
     public record MeResponse(
             UserProfile user,
             List<Membership> memberships
+    ) {
+    }
+
+    public record ChangePasswordRequest(
+            @NotBlank String oldPassword,
+            @NotBlank @Size(min = 8, max = 64) String newPassword
     ) {
     }
 }

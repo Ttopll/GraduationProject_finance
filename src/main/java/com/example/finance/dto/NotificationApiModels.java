@@ -1,6 +1,7 @@
 package com.example.finance.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class NotificationApiModels {
 
@@ -19,6 +20,20 @@ public final class NotificationApiModels {
             Integer readStatus,
             LocalDateTime sentAt,
             LocalDateTime createdAt
+    ) {
+    }
+
+    public record BulkActionResponse(
+            Integer affectedCount
+    ) {
+    }
+
+    public record SearchPageResponse(
+            List<Response> items,
+            Integer page,
+            Integer size,
+            Long totalElements,
+            Integer totalPages
     ) {
     }
 }

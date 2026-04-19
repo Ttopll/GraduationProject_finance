@@ -5,7 +5,9 @@ import com.example.finance.entity.Account;
 import com.example.finance.entity.Family;
 import com.example.finance.entity.FamilyMember;
 import com.example.finance.repository.AccountRepository;
+import com.example.finance.repository.DebtRepaymentRepository;
 import com.example.finance.repository.FamilyMemberRepository;
+import com.example.finance.repository.TransactionRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +36,12 @@ class AccountServiceTests {
 
     @Mock
     private FamilyMemberRepository familyMemberRepository;
+
+    @Mock
+    private TransactionRecordRepository transactionRecordRepository;
+
+    @Mock
+    private DebtRepaymentRepository debtRepaymentRepository;
 
     @InjectMocks
     private AccountService accountService;
@@ -197,5 +206,53 @@ class AccountServiceTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertEquals("billingDay must be between 1 and 31", exception.getReason());
+    }
+
+    @Test
+    void deleteShouldRejectWhenAccountReferencedByTransactionRecords() {
+        Long familyId = 1L;
+        Long accountId = 10L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setFamilyId(familyId);
+
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(transactionRecordRepository.existsByFamilyIdAndAccountId(familyId, accountId)).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> accountService.delete(accountId)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals("account is referenced by transaction records", exception.getReason());
+    }
+
+    @Test
+    void deleteShouldRemoveAccountWhenNoReferences() {
+        Long familyId = 1L;
+        Long accountId = 10L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        Account account = new Account();
+        account.setId(accountId);
+        account.setFamilyId(familyId);
+
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(transactionRecordRepository.existsByFamilyIdAndAccountId(familyId, accountId)).thenReturn(false);
+        when(transactionRecordRepository.existsByFamilyIdAndTargetAccountId(familyId, accountId)).thenReturn(false);
+        when(debtRepaymentRepository.existsByFamilyIdAndPayAccountId(familyId, accountId)).thenReturn(false);
+
+        accountService.delete(accountId);
+
+        verify(accountRepository).delete(account);
     }
 }

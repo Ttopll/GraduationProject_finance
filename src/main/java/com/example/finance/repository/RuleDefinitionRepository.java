@@ -10,4 +10,6 @@ public interface RuleDefinitionRepository extends JpaRepository<RuleDefinition, 
     List<RuleDefinition> findByFamilyIdOrderByPriorityAscIdAsc(Long familyId);
 
     List<RuleDefinition> findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(Long familyId, Integer enabled);
+
+    boolean existsByFamilyIdAndCategoryId(Long familyId, Long categoryId);
 }

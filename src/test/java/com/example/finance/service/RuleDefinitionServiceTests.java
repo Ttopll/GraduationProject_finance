@@ -21,6 +21,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -120,7 +121,7 @@ class RuleDefinitionServiceTests {
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("CONSECUTIVE_THRESHOLD 规则仅支持 MONTH 时间范围", exception.getReason());
+        assertEquals("CONSECUTIVE_THRESHOLD only supports MONTH timeScope", exception.getReason());
     }
 
     @Test
@@ -202,6 +203,101 @@ class RuleDefinitionServiceTests {
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("TREND_ANOMALY 规则仅支持 GT 或 GTE 运算符", exception.getReason());
+        assertEquals("TREND_ANOMALY only supports GT or GTE operatorType", exception.getReason());
+    }
+
+    @Test
+    void updateShouldChangeRuleFields() {
+        Long familyId = 1L;
+        Long ruleId = 100L;
+        Long categoryId = 2L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(ruleId);
+        rule.setFamilyId(familyId);
+        rule.setRuleType("THRESHOLD");
+        rule.setMetricType("CATEGORY_EXPENSE");
+        rule.setTimeScope("MONTH");
+        rule.setOperatorType("GTE");
+        rule.setThresholdValue(new BigDecimal("100.00"));
+        rule.setEnabled(1);
+        rule.setPriority(100);
+
+        Category category = new Category();
+        category.setId(categoryId);
+        category.setFamilyId(familyId);
+
+        when(ruleDefinitionRepository.findById(ruleId)).thenReturn(Optional.of(rule));
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
+        when(ruleDefinitionRepository.save(any(RuleDefinition.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RuleDefinition updated = ruleDefinitionService.update(
+                ruleId,
+                new RuleDefinitionApiModels.UpdateRequest(
+                        categoryId,
+                        null,
+                        "Updated Rule",
+                        "THRESHOLD",
+                        "CATEGORY_EXPENSE",
+                        "MONTH",
+                        "GT",
+                        new BigDecimal("200.00"),
+                        null,
+                        "NOTIFY",
+                        "updated template",
+                        5
+                )
+        );
+
+        assertEquals("Updated Rule", updated.getRuleName());
+        assertEquals("GT", updated.getOperatorType());
+        assertEquals(new BigDecimal("200.00"), updated.getThresholdValue());
+        assertEquals(Integer.valueOf(5), updated.getPriority());
+    }
+
+    @Test
+    void changeEnabledShouldDisableRule() {
+        Long familyId = 1L;
+        Long ruleId = 100L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(ruleId);
+        rule.setFamilyId(familyId);
+        rule.setEnabled(1);
+
+        when(ruleDefinitionRepository.findById(ruleId)).thenReturn(Optional.of(rule));
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(ruleDefinitionRepository.save(any(RuleDefinition.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RuleDefinition disabled = ruleDefinitionService.changeEnabled(ruleId, false);
+
+        assertEquals(0, disabled.getEnabled());
+    }
+
+    @Test
+    void deleteShouldRemoveRule() {
+        Long familyId = 1L;
+        Long ruleId = 100L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        RuleDefinition rule = new RuleDefinition();
+        rule.setId(ruleId);
+        rule.setFamilyId(familyId);
+
+        when(ruleDefinitionRepository.findById(ruleId)).thenReturn(Optional.of(rule));
+        when(familyService.getById(familyId)).thenReturn(family);
+
+        ruleDefinitionService.delete(ruleId);
+
+        verify(ruleDefinitionRepository).delete(rule);
     }
 }

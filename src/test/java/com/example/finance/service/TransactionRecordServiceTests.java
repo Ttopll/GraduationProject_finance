@@ -13,11 +13,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -194,5 +199,57 @@ class TransactionRecordServiceTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertEquals("account is inactive", exception.getReason());
+    }
+
+    @Test
+    void searchShouldReturnPagedFilteredResult() {
+        Long familyId = 1L;
+        Family family = new Family();
+        family.setId(familyId);
+        when(familyService.getById(familyId)).thenReturn(family);
+
+        TransactionRecord record = new TransactionRecord();
+        record.setId(201L);
+        record.setFamilyId(familyId);
+        record.setAccountId(10L);
+        record.setTransactionType("EXPENSE");
+        record.setAmount(new BigDecimal("88.00"));
+        record.setTransactionTime(LocalDateTime.of(2026, 4, 1, 12, 0));
+        record.setStatus(1);
+
+        when(transactionRecordRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(record), PageRequest.of(0, 10), 1));
+
+        TransactionRecordApiModels.SearchPageResponse response = transactionRecordService.searchByFamilyId(
+                familyId,
+                "expense",
+                LocalDateTime.of(2026, 4, 1, 0, 0),
+                LocalDateTime.of(2026, 4, 30, 23, 59),
+                0,
+                10
+        );
+
+        assertEquals(1, response.items().size());
+        assertEquals("EXPENSE", response.items().get(0).transactionType());
+        assertEquals(1L, response.totalElements());
+        assertEquals(1, response.totalPages());
+    }
+
+    @Test
+    void searchShouldRejectInvalidTimeRange() {
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> transactionRecordService.searchByFamilyId(
+                        1L,
+                        null,
+                        LocalDateTime.of(2026, 4, 10, 0, 0),
+                        LocalDateTime.of(2026, 4, 1, 0, 0),
+                        0,
+                        20
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("startTime cannot be later than endTime", exception.getReason());
     }
 }

@@ -11,7 +11,15 @@ public final class BillParseRuleApiModels {
     }
 
     public record CreateRequest(
-            Long familyId,
+            @NotNull Long familyId,
+            @NotNull Long categoryId,
+            @Size(max = 100) String merchantKeyword,
+            @Size(max = 255) String regexPattern,
+            Integer priority
+    ) {
+    }
+
+    public record UpdateRequest(
             @NotNull Long categoryId,
             @Size(max = 100) String merchantKeyword,
             @Size(max = 255) String regexPattern,

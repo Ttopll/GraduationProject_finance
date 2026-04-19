@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
 @Service
 public class BillParseRuleService {
 
+    private static final int ENABLED = 1;
+    private static final int DISABLED = 0;
+
     private final BillParseRuleRepository billParseRuleRepository;
     private final CategoryRepository categoryRepository;
     private final FamilyService familyService;
@@ -40,25 +43,9 @@ public class BillParseRuleService {
 
     @Transactional
     public BillParseRule create(BillParseRuleApiModels.CreateRequest request) {
-        if (request.familyId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "familyId 不能为空");
-        }
         familyService.getById(request.familyId());
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "归类分类不存在"));
-        if (!request.familyId().equals(category.getFamilyId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "归类分类不属于当前家庭");
-        }
-        if (!StringUtils.hasText(request.merchantKeyword()) && !StringUtils.hasText(request.regexPattern())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "商户关键词和正则表达式至少填写一个");
-        }
-        if (StringUtils.hasText(request.regexPattern())) {
-            try {
-                Pattern.compile(request.regexPattern().trim());
-            } catch (PatternSyntaxException exception) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "正则表达式不合法");
-            }
-        }
+        validateCategoryBelongsToFamily(request.familyId(), request.categoryId());
+        validateMatcher(request.merchantKeyword(), request.regexPattern());
 
         BillParseRule rule = new BillParseRule();
         rule.setFamilyId(request.familyId());
@@ -66,9 +53,51 @@ public class BillParseRuleService {
         rule.setMerchantKeyword(normalize(request.merchantKeyword()));
         rule.setRegexPattern(normalize(request.regexPattern()));
         rule.setPriority(request.priority() == null ? 100 : request.priority());
-        rule.setEnabled(1);
+        rule.setEnabled(ENABLED);
         rule.setHitCount(0);
         return billParseRuleRepository.save(rule);
+    }
+
+    @Transactional
+    public BillParseRule update(Long ruleId, BillParseRuleApiModels.UpdateRequest request) {
+        BillParseRule rule = getById(ruleId);
+        familyService.getById(rule.getFamilyId());
+        validateCategoryBelongsToFamily(rule.getFamilyId(), request.categoryId());
+        validateMatcher(request.merchantKeyword(), request.regexPattern());
+
+        rule.setCategoryId(request.categoryId());
+        rule.setMerchantKeyword(normalize(request.merchantKeyword()));
+        rule.setRegexPattern(normalize(request.regexPattern()));
+        rule.setPriority(request.priority() == null ? 100 : request.priority());
+        return billParseRuleRepository.save(rule);
+    }
+
+    @Transactional
+    public BillParseRule changeEnabled(Long ruleId, boolean enabled) {
+        BillParseRule rule = getById(ruleId);
+        familyService.getById(rule.getFamilyId());
+        rule.setEnabled(enabled ? ENABLED : DISABLED);
+        return billParseRuleRepository.save(rule);
+    }
+
+    @Transactional
+    public void delete(Long ruleId) {
+        BillParseRule rule = getById(ruleId);
+        familyService.getById(rule.getFamilyId());
+        billParseRuleRepository.delete(rule);
+    }
+
+    public BillParseRule getById(Long ruleId) {
+        return billParseRuleRepository.findById(ruleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "bill parse rule not found"));
+    }
+
+    public BillParseRuleApiModels.Response getResponseById(Long ruleId) {
+        BillParseRule rule = getById(ruleId);
+        String categoryName = categoryRepository.findById(rule.getCategoryId())
+                .map(Category::getCategoryName)
+                .orElse(null);
+        return toResponse(rule, categoryName);
     }
 
     public List<BillParseRuleApiModels.Response> list(Long familyId) {
@@ -76,18 +105,7 @@ public class BillParseRuleService {
         Map<Long, String> categoryNameMap = categoryRepository.findByFamilyIdOrderBySortOrderAscIdAsc(familyId).stream()
                 .collect(Collectors.toMap(Category::getId, Category::getCategoryName));
         return billParseRuleRepository.findByFamilyIdOrderByPriorityAscIdAsc(familyId).stream()
-                .map(rule -> new BillParseRuleApiModels.Response(
-                        rule.getId(),
-                        rule.getFamilyId(),
-                        rule.getCategoryId(),
-                        categoryNameMap.get(rule.getCategoryId()),
-                        rule.getMerchantKeyword(),
-                        rule.getRegexPattern(),
-                        rule.getPriority(),
-                        rule.getEnabled(),
-                        rule.getHitCount(),
-                        rule.getLastHitAt()
-                ))
+                .map(rule -> toResponse(rule, categoryNameMap.get(rule.getCategoryId())))
                 .toList();
     }
 
@@ -97,8 +115,8 @@ public class BillParseRuleService {
         }
         String normalizedMerchant = merchantName.trim();
         List<BillParseRule> candidates = new ArrayList<>();
-        candidates.addAll(billParseRuleRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, 1));
-        candidates.addAll(billParseRuleRepository.findByFamilyIdIsNullAndEnabledOrderByPriorityAscIdAsc(1));
+        candidates.addAll(billParseRuleRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, ENABLED));
+        candidates.addAll(billParseRuleRepository.findByFamilyIdIsNullAndEnabledOrderByPriorityAscIdAsc(ENABLED));
         candidates.sort(Comparator
                 .comparing((BillParseRule rule) -> rule.getFamilyId() == null ? 1 : 0)
                 .thenComparing(BillParseRule::getPriority)
@@ -125,7 +143,7 @@ public class BillParseRuleService {
             return null;
         }
         String normalizedKeyword = merchantKeyword.trim();
-        for (BillParseRule existingRule : billParseRuleRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, 1)) {
+        for (BillParseRule existingRule : billParseRuleRepository.findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(familyId, ENABLED)) {
             if (categoryId.equals(existingRule.getCategoryId())
                     && normalizedKeyword.equalsIgnoreCase(normalize(existingRule.getMerchantKeyword()))
                     && !StringUtils.hasText(existingRule.getRegexPattern())) {
@@ -143,6 +161,30 @@ public class BillParseRuleService {
         return create(request);
     }
 
+    private void validateCategoryBelongsToFamily(Long familyId, Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "bill parse category not found"));
+        if (!familyId.equals(category.getFamilyId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "bill parse category does not belong to family");
+        }
+    }
+
+    private void validateMatcher(String merchantKeyword, String regexPattern) {
+        if (!StringUtils.hasText(merchantKeyword) && !StringUtils.hasText(regexPattern)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "merchantKeyword and regexPattern cannot both be empty"
+            );
+        }
+        if (StringUtils.hasText(regexPattern)) {
+            try {
+                Pattern.compile(regexPattern.trim());
+            } catch (PatternSyntaxException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid regexPattern");
+            }
+        }
+    }
+
     private boolean matches(BillParseRule rule, String merchantName) {
         if (StringUtils.hasText(rule.getMerchantKeyword())
                 && merchantName.toLowerCase(Locale.ROOT).contains(rule.getMerchantKeyword().trim().toLowerCase(Locale.ROOT))) {
@@ -154,6 +196,21 @@ public class BillParseRuleService {
                     .find();
         }
         return false;
+    }
+
+    private BillParseRuleApiModels.Response toResponse(BillParseRule rule, String categoryName) {
+        return new BillParseRuleApiModels.Response(
+                rule.getId(),
+                rule.getFamilyId(),
+                rule.getCategoryId(),
+                categoryName,
+                rule.getMerchantKeyword(),
+                rule.getRegexPattern(),
+                rule.getPriority(),
+                rule.getEnabled(),
+                rule.getHitCount(),
+                rule.getLastHitAt()
+        );
     }
 
     private String normalize(String value) {

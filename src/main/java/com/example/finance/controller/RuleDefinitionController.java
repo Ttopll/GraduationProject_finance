@@ -7,8 +7,11 @@ import com.example.finance.service.RuleDefinitionService;
 import com.example.finance.service.RuleEvaluationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,12 +60,71 @@ public class RuleDefinitionController {
         return toResponse(ruleDefinitionService.create(normalizedRequest));
     }
 
+    @GetMapping("/{ruleId}")
+    public RuleDefinitionApiModels.Response get(@PathVariable Long ruleId) {
+        RuleDefinition ruleDefinition = ruleDefinitionService.getById(ruleId);
+        familyAccessService.requireFamilyRead(ruleDefinition.getFamilyId());
+        return toResponse(ruleDefinition);
+    }
+
     @GetMapping
     public List<RuleDefinitionApiModels.Response> list(@RequestParam Long familyId) {
         familyAccessService.requireFamilyRead(familyId);
         return ruleDefinitionService.listByFamilyId(familyId).stream()
                 .map(RuleDefinitionController::toResponse)
                 .toList();
+    }
+
+    @PutMapping("/{ruleId}")
+    public RuleDefinitionApiModels.Response update(
+            @PathVariable Long ruleId,
+            @Valid @RequestBody RuleDefinitionApiModels.UpdateRequest request
+    ) {
+        RuleDefinition ruleDefinition = ruleDefinitionService.getById(ruleId);
+        familyAccessService.requireFamilyOwner(ruleDefinition.getFamilyId());
+        RuleDefinitionApiModels.UpdateRequest normalizedRequest = new RuleDefinitionApiModels.UpdateRequest(
+                request.categoryId(),
+                request.createdByMemberId() == null
+                        ? null
+                        : familyAccessService.resolveManagedMemberId(
+                        ruleDefinition.getFamilyId(),
+                        request.createdByMemberId(),
+                        false
+                ),
+                request.ruleName(),
+                request.ruleType(),
+                request.metricType(),
+                request.timeScope(),
+                request.operatorType(),
+                request.thresholdValue(),
+                request.thresholdJson(),
+                request.actionType(),
+                request.messageTemplate(),
+                request.priority()
+        );
+        return toResponse(ruleDefinitionService.update(ruleId, normalizedRequest));
+    }
+
+    @PostMapping("/{ruleId}/enable")
+    public RuleDefinitionApiModels.Response enable(@PathVariable Long ruleId) {
+        RuleDefinition ruleDefinition = ruleDefinitionService.getById(ruleId);
+        familyAccessService.requireFamilyOwner(ruleDefinition.getFamilyId());
+        return toResponse(ruleDefinitionService.changeEnabled(ruleId, true));
+    }
+
+    @PostMapping("/{ruleId}/disable")
+    public RuleDefinitionApiModels.Response disable(@PathVariable Long ruleId) {
+        RuleDefinition ruleDefinition = ruleDefinitionService.getById(ruleId);
+        familyAccessService.requireFamilyOwner(ruleDefinition.getFamilyId());
+        return toResponse(ruleDefinitionService.changeEnabled(ruleId, false));
+    }
+
+    @DeleteMapping("/{ruleId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long ruleId) {
+        RuleDefinition ruleDefinition = ruleDefinitionService.getById(ruleId);
+        familyAccessService.requireFamilyOwner(ruleDefinition.getFamilyId());
+        ruleDefinitionService.delete(ruleId);
     }
 
     @PostMapping("/evaluate")

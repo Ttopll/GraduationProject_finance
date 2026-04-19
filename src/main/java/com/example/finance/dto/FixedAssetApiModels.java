@@ -27,6 +27,18 @@ public final class FixedAssetApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            Long ownerMemberId,
+            @NotBlank @Size(max = 100) String assetName,
+            @NotBlank @Size(max = 20) String assetType,
+            @NotNull @DecimalMin(value = "0.01") BigDecimal purchaseAmount,
+            LocalDate purchaseDate,
+            @DecimalMin(value = "0.00") BigDecimal valuationAmount,
+            LocalDate valuationDate,
+            @Size(max = 255) String remark
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,

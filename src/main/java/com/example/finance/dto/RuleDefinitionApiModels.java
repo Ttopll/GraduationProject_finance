@@ -30,6 +30,22 @@ public final class RuleDefinitionApiModels {
     ) {
     }
 
+    public record UpdateRequest(
+            Long categoryId,
+            Long createdByMemberId,
+            @NotBlank @Size(max = 100) String ruleName,
+            @NotBlank @Size(max = 30) String ruleType,
+            @NotBlank @Size(max = 30) String metricType,
+            @NotBlank @Size(max = 20) String timeScope,
+            @NotBlank @Size(max = 10) String operatorType,
+            @NotNull @Positive BigDecimal thresholdValue,
+            @Size(max = 1000) String thresholdJson,
+            @NotBlank @Size(max = 20) String actionType,
+            @NotBlank @Size(max = 255) String messageTemplate,
+            Integer priority
+    ) {
+    }
+
     public record Response(
             Long id,
             Long familyId,

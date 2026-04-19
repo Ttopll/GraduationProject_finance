@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# local generated datasets
+data/raw/*.csv
+data/raw/*.json
+data/processed/*.csv
+tmp_proposal_extract_*/

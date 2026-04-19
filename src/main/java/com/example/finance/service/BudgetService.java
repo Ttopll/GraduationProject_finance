@@ -106,6 +106,13 @@ public class BudgetService {
         return budgetPlanRepository.save(budgetPlan);
     }
 
+    @Transactional
+    public void delete(Long budgetId) {
+        BudgetPlan budgetPlan = getBudget(budgetId);
+        familyService.getById(budgetPlan.getFamilyId());
+        budgetPlanRepository.delete(budgetPlan);
+    }
+
     public BudgetPlan getBudget(Long budgetId) {
         return budgetPlanRepository.findById(budgetId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "budget not found"));

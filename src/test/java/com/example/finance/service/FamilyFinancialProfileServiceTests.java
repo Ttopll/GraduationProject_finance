@@ -99,4 +99,30 @@ class FamilyFinancialProfileServiceTests {
         assertEquals(familyId, profile.getFamilyId());
         assertEquals("LOW", profile.getRiskPreference());
     }
+
+    @Test
+    void deleteByFamilyIdShouldReturnAffectedCount() {
+        Long familyId = 1L;
+        Family family = new Family();
+        family.setId(familyId);
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(familyFinancialProfileRepository.deleteByFamilyId(familyId)).thenReturn(1L);
+
+        long affectedCount = familyFinancialProfileService.deleteByFamilyId(familyId);
+
+        assertEquals(1L, affectedCount);
+    }
+
+    @Test
+    void deleteByFamilyIdShouldAllowNoExistingProfile() {
+        Long familyId = 1L;
+        Family family = new Family();
+        family.setId(familyId);
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(familyFinancialProfileRepository.deleteByFamilyId(familyId)).thenReturn(0L);
+
+        long affectedCount = familyFinancialProfileService.deleteByFamilyId(familyId);
+
+        assertEquals(0L, affectedCount);
+    }
 }

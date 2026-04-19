@@ -9,6 +9,11 @@ import com.example.finance.repository.AccountRepository;
 import com.example.finance.repository.CategoryRepository;
 import com.example.finance.repository.FamilyMemberRepository;
 import com.example.finance.repository.TransactionRecordRepository;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -213,6 +218,55 @@ public class TransactionRecordService {
         return transactionRecordRepository.findByFamilyIdOrderByTransactionTimeDescIdDesc(familyId);
     }
 
+    public TransactionRecordApiModels.SearchPageResponse searchByFamilyId(
+            Long familyId,
+            String transactionType,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Integer page,
+            Integer size
+    ) {
+        familyService.getById(familyId);
+        if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startTime cannot be later than endTime");
+        }
+
+        int safePage = (page == null || page < 0) ? 0 : page;
+        int safeSize = (size == null || size < 1) ? 20 : Math.min(size, 200);
+        String normalizedType = StringUtils.hasText(transactionType)
+                ? normalizeTransactionType(transactionType)
+                : null;
+        PageRequest pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by(Sort.Direction.DESC, "transactionTime").and(Sort.by(Sort.Direction.DESC, "id"))
+        );
+
+        Specification<TransactionRecord> specification = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("familyId"), familyId));
+            if (normalizedType != null) {
+                predicates.add(criteriaBuilder.equal(root.get("transactionType"), normalizedType));
+            }
+            if (startTime != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("transactionTime"), startTime));
+            }
+            if (endTime != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("transactionTime"), endTime));
+            }
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+
+        Page<TransactionRecord> pageResult = transactionRecordRepository.findAll(specification, pageable);
+        return new TransactionRecordApiModels.SearchPageResponse(
+                pageResult.getContent().stream().map(TransactionRecordService::toResponse).toList(),
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages()
+        );
+    }
+
     public List<TransactionRecordApiModels.MonthlySummaryResponse> monthlySummary(Long familyId, Integer months) {
         familyService.getById(familyId);
         int safeMonths = (months == null || months < 1) ? 6 : Math.min(months, 24);
@@ -364,6 +418,27 @@ public class TransactionRecordService {
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private static TransactionRecordApiModels.Response toResponse(TransactionRecord record) {
+        return new TransactionRecordApiModels.Response(
+                record.getId(),
+                record.getFamilyId(),
+                record.getAccountId(),
+                record.getTargetAccountId(),
+                record.getCategoryId(),
+                record.getCreatedByMemberId(),
+                record.getSourceBatchId(),
+                record.getTransactionType(),
+                record.getAmount(),
+                record.getTransactionTime(),
+                record.getMerchantName(),
+                record.getCounterpartyName(),
+                record.getSourcePlatform(),
+                record.getExternalTradeNo(),
+                record.getNote(),
+                record.getStatus()
+        );
     }
 
     private static class SummaryBucket {

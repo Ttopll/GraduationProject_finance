@@ -31,4 +31,10 @@ public final class FamilyFinancialProfileApiModels {
             String investmentPreferenceJson
     ) {
     }
+
+    public record DeleteResponse(
+            Long familyId,
+            Long affectedCount
+    ) {
+    }
 }

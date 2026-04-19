@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -230,5 +231,30 @@ class BudgetServiceTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertEquals("budget creator member does not belong to family", exception.getReason());
+    }
+
+    @Test
+    void deleteShouldRemoveBudgetAndExcludeItFromList() {
+        Long familyId = 1L;
+        Long budgetId = 10L;
+
+        Family family = new Family();
+        family.setId(familyId);
+
+        BudgetPlan budget = new BudgetPlan();
+        budget.setId(budgetId);
+        budget.setFamilyId(familyId);
+        budget.setEnabled(1);
+
+        when(familyService.getById(familyId)).thenReturn(family);
+        when(budgetPlanRepository.findById(budgetId)).thenReturn(Optional.of(budget));
+        when(budgetPlanRepository.findByFamilyIdOrderByIdDesc(familyId))
+                .thenAnswer(invocation -> List.of());
+
+        budgetService.delete(budgetId);
+        List<BudgetPlan> budgets = budgetService.listByFamilyId(familyId);
+
+        verify(budgetPlanRepository).delete(budget);
+        assertTrue(budgets.isEmpty());
     }
 }

@@ -8,4 +8,6 @@ import java.util.List;
 public interface DebtRepaymentRepository extends JpaRepository<DebtRepayment, Long> {
 
     List<DebtRepayment> findByDebtIdOrderByRepaymentTimeDescIdDesc(Long debtId);
+
+    boolean existsByFamilyIdAndPayAccountId(Long familyId, Long payAccountId);
 }

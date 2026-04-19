@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class TransactionRecordApiModels {
 
@@ -72,6 +73,15 @@ public final class TransactionRecordApiModels {
             BigDecimal income,
             BigDecimal expense,
             BigDecimal netAmount
+    ) {
+    }
+
+    public record SearchPageResponse(
+            List<Response> items,
+            Integer page,
+            Integer size,
+            Long totalElements,
+            Integer totalPages
     ) {
     }
 }

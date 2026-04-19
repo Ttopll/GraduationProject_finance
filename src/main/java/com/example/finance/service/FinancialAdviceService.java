@@ -17,6 +17,7 @@ import com.example.finance.security.FamilyAccessService;
 import com.example.finance.util.PeriodRangeUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -80,12 +81,31 @@ public class FinancialAdviceService {
         );
     }
 
-    public FinancialAdvice markRead(Long adviceId) {
+    public FinancialAdvice getById(Long adviceId) {
         FinancialAdvice advice = financialAdviceRepository.findById(adviceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "financial advice not found"));
         familyAccessService.requireFamilyRead(advice.getFamilyId());
+        return advice;
+    }
+
+    @Transactional
+    public FinancialAdvice markRead(Long adviceId) {
+        FinancialAdvice advice = getById(adviceId);
         advice.setStatus("READ");
         return financialAdviceRepository.save(advice);
+    }
+
+    @Transactional
+    public FinancialAdvice markUnread(Long adviceId) {
+        FinancialAdvice advice = getById(adviceId);
+        advice.setStatus("UNREAD");
+        return financialAdviceRepository.save(advice);
+    }
+
+    @Transactional
+    public void delete(Long adviceId) {
+        FinancialAdvice advice = getById(adviceId);
+        financialAdviceRepository.delete(advice);
     }
 
     public FinancialAdviceApiModels.GenerateResponse generate(Long familyId, String monthText) {

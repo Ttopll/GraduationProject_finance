@@ -4,7 +4,9 @@ import com.example.finance.dto.AccountApiModels;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.FamilyMember;
 import com.example.finance.repository.AccountRepository;
+import com.example.finance.repository.DebtRepaymentRepository;
 import com.example.finance.repository.FamilyMemberRepository;
+import com.example.finance.repository.TransactionRecordRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,15 +24,21 @@ public class AccountService {
     private static final int INACTIVE_STATUS = 0;
 
     private final AccountRepository accountRepository;
+    private final TransactionRecordRepository transactionRecordRepository;
+    private final DebtRepaymentRepository debtRepaymentRepository;
     private final FamilyService familyService;
     private final FamilyMemberRepository familyMemberRepository;
 
     public AccountService(
             AccountRepository accountRepository,
+            TransactionRecordRepository transactionRecordRepository,
+            DebtRepaymentRepository debtRepaymentRepository,
             FamilyService familyService,
             FamilyMemberRepository familyMemberRepository
     ) {
         this.accountRepository = accountRepository;
+        this.transactionRecordRepository = transactionRecordRepository;
+        this.debtRepaymentRepository = debtRepaymentRepository;
         this.familyService = familyService;
         this.familyMemberRepository = familyMemberRepository;
     }
@@ -88,6 +96,22 @@ public class AccountService {
         familyService.getById(account.getFamilyId());
         account.setStatus(active ? ACTIVE_STATUS : INACTIVE_STATUS);
         return accountRepository.save(account);
+    }
+
+    @Transactional
+    public void delete(Long accountId) {
+        Account account = getById(accountId);
+        familyService.getById(account.getFamilyId());
+
+        Long familyId = account.getFamilyId();
+        if (transactionRecordRepository.existsByFamilyIdAndAccountId(familyId, accountId)
+                || transactionRecordRepository.existsByFamilyIdAndTargetAccountId(familyId, accountId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "account is referenced by transaction records");
+        }
+        if (debtRepaymentRepository.existsByFamilyIdAndPayAccountId(familyId, accountId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "account is referenced by debt repayments");
+        }
+        accountRepository.delete(account);
     }
 
     public List<Account> listByFamilyId(Long familyId) {

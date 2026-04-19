@@ -8,6 +8,7 @@ import com.example.finance.security.FamilyAccessService;
 import com.example.finance.service.AccountService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -95,6 +96,14 @@ public class AccountController {
         Account account = accountService.getById(accountId);
         requireAccountManagePermission(account);
         return toResponse(accountService.changeStatus(accountId, false));
+    }
+
+    @DeleteMapping("/{accountId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long accountId) {
+        Account account = accountService.getById(accountId);
+        requireAccountManagePermission(account);
+        accountService.delete(accountId);
     }
 
     @GetMapping

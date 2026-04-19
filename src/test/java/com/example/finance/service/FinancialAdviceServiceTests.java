@@ -20,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,9 +32,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -144,5 +148,53 @@ class FinancialAdviceServiceTests {
         assertTrue(response.advices().stream().anyMatch(advice -> "EMERGENCY_FUND".equals(advice.adviceType())));
         assertTrue(response.advices().stream().anyMatch(advice -> "DEBT".equals(advice.adviceType())));
         assertTrue(response.advices().stream().anyMatch(advice -> "CONSUMPTION".equals(advice.adviceType())));
+    }
+
+    @Test
+    void markUnreadShouldSetStatusToUnread() {
+        Long adviceId = 10L;
+        Long familyId = 1L;
+
+        FinancialAdvice advice = new FinancialAdvice();
+        advice.setId(adviceId);
+        advice.setFamilyId(familyId);
+        advice.setStatus("READ");
+
+        when(financialAdviceRepository.findById(adviceId)).thenReturn(Optional.of(advice));
+        when(financialAdviceRepository.save(any(FinancialAdvice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        FinancialAdvice updated = financialAdviceService.markUnread(adviceId);
+
+        assertEquals("UNREAD", updated.getStatus());
+    }
+
+    @Test
+    void deleteShouldRemoveAdvice() {
+        Long adviceId = 11L;
+        Long familyId = 1L;
+
+        FinancialAdvice advice = new FinancialAdvice();
+        advice.setId(adviceId);
+        advice.setFamilyId(familyId);
+
+        when(financialAdviceRepository.findById(adviceId)).thenReturn(Optional.of(advice));
+
+        financialAdviceService.delete(adviceId);
+
+        verify(financialAdviceRepository).delete(advice);
+    }
+
+    @Test
+    void getByIdShouldThrowWhenAdviceMissing() {
+        Long adviceId = 12L;
+        when(financialAdviceRepository.findById(adviceId)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> financialAdviceService.getById(adviceId)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals("financial advice not found", exception.getReason());
     }
 }

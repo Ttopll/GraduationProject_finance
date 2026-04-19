@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface FamilyFinancialProfileRepository extends JpaRepository<FamilyFinancialProfile, Long> {
 
     Optional<FamilyFinancialProfile> findByFamilyId(Long familyId);
+
+    long deleteByFamilyId(Long familyId);
 }

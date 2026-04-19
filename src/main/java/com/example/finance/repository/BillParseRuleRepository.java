@@ -12,4 +12,6 @@ public interface BillParseRuleRepository extends JpaRepository<BillParseRule, Lo
     List<BillParseRule> findByFamilyIdAndEnabledOrderByPriorityAscIdAsc(Long familyId, Integer enabled);
 
     List<BillParseRule> findByFamilyIdIsNullAndEnabledOrderByPriorityAscIdAsc(Integer enabled);
+
+    boolean existsByFamilyIdAndCategoryId(Long familyId, Long categoryId);
 }

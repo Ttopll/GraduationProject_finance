@@ -11,6 +11,7 @@ import com.example.finance.repository.FamilyMemberRepository;
 import com.example.finance.repository.FixedAssetRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -62,6 +63,44 @@ public class FixedAssetService {
         fixedAsset.setRemark(normalize(request.remark()));
         fixedAsset.setStatus(ACTIVE_STATUS);
         return fixedAssetRepository.save(fixedAsset);
+    }
+
+    @Transactional
+    public FixedAsset update(Long assetId, FixedAssetApiModels.UpdateRequest request) {
+        FixedAsset fixedAsset = getById(assetId);
+        familyService.getById(fixedAsset.getFamilyId());
+        validateOwnerMember(fixedAsset.getFamilyId(), request.ownerMemberId());
+        validateValuation(request.valuationAmount(), request.valuationDate());
+
+        fixedAsset.setOwnerMemberId(request.ownerMemberId());
+        fixedAsset.setAssetName(request.assetName().trim());
+        fixedAsset.setAssetType(request.assetType().trim().toUpperCase(Locale.ROOT));
+        fixedAsset.setPurchaseAmount(request.purchaseAmount());
+        fixedAsset.setPurchaseDate(request.purchaseDate());
+        fixedAsset.setValuationAmount(request.valuationAmount());
+        fixedAsset.setValuationDate(request.valuationAmount() == null ? null : request.valuationDate());
+        fixedAsset.setRemark(normalize(request.remark()));
+        return fixedAssetRepository.save(fixedAsset);
+    }
+
+    @Transactional
+    public FixedAsset changeStatus(Long assetId, boolean active) {
+        FixedAsset fixedAsset = getById(assetId);
+        familyService.getById(fixedAsset.getFamilyId());
+        fixedAsset.setStatus(active ? ACTIVE_STATUS : 0);
+        return fixedAssetRepository.save(fixedAsset);
+    }
+
+    @Transactional
+    public void delete(Long assetId) {
+        FixedAsset fixedAsset = getById(assetId);
+        familyService.getById(fixedAsset.getFamilyId());
+        fixedAssetRepository.delete(fixedAsset);
+    }
+
+    public FixedAsset getById(Long assetId) {
+        return fixedAssetRepository.findById(assetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "fixed asset not found"));
     }
 
     public List<FixedAsset> listByFamilyId(Long familyId, Integer status) {

@@ -1,0 +1,9 @@
+﻿<view class="container">
+  <view class="card">
+    <view class="title">Mini Program MVP Login</view>
+    <input placeholder="用户名" bindinput="onUsernameInput" value="{{username}}" />
+    <input placeholder="密码" password="true" bindinput="onPasswordInput" value="{{password}}" />
+    <button type="primary" loading="{{loading}}" bindtap="submitLogin">登录</button>
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+  </view>
+</view>

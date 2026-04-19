@@ -8,4 +8,6 @@ import java.util.List;
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     List<Category> findByFamilyIdOrderBySortOrderAscIdAsc(Long familyId);
+
+    boolean existsByFamilyIdAndParentId(Long familyId, Long parentId);
 }
