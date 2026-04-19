@@ -38,6 +38,10 @@ Page({
     }
   },
 
+  gotoWorldBank() {
+    wx.navigateTo({ url: "/pages/worldbank/worldbank" });
+  },
+
   logout() {
     wx.removeStorageSync("accessToken");
     wx.redirectTo({ url: "/pages/login/login" });

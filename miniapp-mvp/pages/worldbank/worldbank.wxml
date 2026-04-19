@@ -1,0 +1,26 @@
+﻿<view class="container">
+  <view class="card">
+    <view class="title">World Bank Trend</view>
+    <view class="row-inline">
+      <input placeholder="国家ISO3，如 CHN" value="{{countryIso3}}" bindinput="onCountryInput" />
+      <button size="mini" type="primary" loading="{{loading}}" bindtap="loadTrend">查询</button>
+      <button size="mini" bindtap="gotoFred">查看FRED</button>
+    </view>
+
+    <view wx:if="{{countryName}}">国家: {{countryName}} ({{countryIso3}})</view>
+    <view wx:if="{{pointCount}}">数据点: {{pointCount}}</view>
+
+    <view wx:if="{{firstPoint}}" class="summary-block">
+      <view>起始年份: {{firstPoint.year}}</view>
+      <view>起始值: {{firstPoint.value}}</view>
+    </view>
+
+    <view wx:if="{{lastPoint}}" class="summary-block">
+      <view>最新年份: {{lastPoint.year}}</view>
+      <view>最新值: {{lastPoint.value}}</view>
+      <view>最新同比: {{lastPoint.yearOnYearGrowthRatio}}</view>
+    </view>
+
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+  </view>
+</view>

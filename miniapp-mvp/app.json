@@ -1,7 +1,9 @@
 ﻿{
   "pages": [
     "pages/login/login",
-    "pages/retail/retail"
+    "pages/retail/retail",
+    "pages/worldbank/worldbank",
+    "pages/fred/fred"
   ],
   "window": {
     "navigationBarTitleText": "Finance Mini MVP",

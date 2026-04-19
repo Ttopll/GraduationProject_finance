@@ -2,6 +2,7 @@
   <view class="card">
     <view class="title">Retail Overview (Top 5)</view>
     <button size="mini" bindtap="loadRetailOverview" loading="{{loading}}">刷新</button>
+    <button size="mini" type="primary" bindtap="gotoWorldBank">查看国家趋势</button>
     <button size="mini" type="warn" bindtap="logout">退出</button>
 
     <view wx:if="{{summary}}" class="summary">

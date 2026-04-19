@@ -6,7 +6,7 @@
   <title>Admin MVP - Real Data Ops</title>
   <style>
     body { font-family: "Segoe UI", sans-serif; background: #f3f6fb; margin: 0; color: #0f172a; }
-    .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .wrap { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
     .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 8px 30px rgba(2,6,23,.08); margin-bottom: 16px; }
     h1 { margin: 0 0 12px; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -15,13 +15,14 @@
     button.secondary { background: #1d4ed8; }
     pre { background: #0b1220; color: #dbeafe; padding: 12px; border-radius: 8px; overflow: auto; }
     .hint { color: #475569; font-size: 13px; }
+    .conclusion { background: #eef6ff; border-left: 4px solid #1d4ed8; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Admin MVP</h1>
-      <div class="hint">目标: 登录 -> 导入真实数据 -> 查看 retail-overview</div>
+      <div class="hint">目标: 登录 -> 导入真实数据 -> 查询 3 个分析接口 -> 自动生成答辩结论</div>
     </div>
 
     <div class="card">
@@ -43,16 +44,31 @@
     </div>
 
     <div class="card">
-      <h3>3) 查询零售总览</h3>
+      <h3>3) 查询分析接口</h3>
       <div class="row">
-        <button class="secondary" onclick="loadRetailOverview()">查询 retail-overview</button>
+        <button class="secondary" onclick="loadRetailOverview()">retail-overview</button>
+        <input id="countryIso3" value="CHN" style="width:120px" />
+        <button class="secondary" onclick="loadWorldBankTrend()">world-bank-trend</button>
+        <input id="seriesId" value="PCE" style="width:120px" />
+        <button class="secondary" onclick="loadFredSeries()">fred-series</button>
       </div>
       <pre id="retailOut">(retail overview)</pre>
+      <pre id="worldBankOut">(world bank trend)</pre>
+      <pre id="fredOut">(fred series)</pre>
+    </div>
+
+    <div class="card">
+      <h3>4) 自动生成答辩结论</h3>
+      <button class="secondary" onclick="generateConclusion()">生成结论</button>
+      <div id="conclusion" class="conclusion">(waiting)</div>
     </div>
   </div>
 
   <script>
     let token = "";
+    let latestRetail = null;
+    let latestWorldBank = null;
+    let latestFred = null;
 
     async function api(path, method = "GET", body = null, auth = true) {
       const res = await fetch(path, {
@@ -96,11 +112,72 @@
       const out = document.getElementById("retailOut");
       out.textContent = "loading...";
       try {
-        const res = await api("/api/real-data-analysis/retail-overview?topCountries=10", "GET");
-        out.textContent = JSON.stringify(res, null, 2);
+        latestRetail = await api("/api/real-data-analysis/retail-overview?topCountries=10", "GET");
+        out.textContent = JSON.stringify(latestRetail, null, 2);
       } catch (e) {
         out.textContent = e.message;
       }
+    }
+
+    async function loadWorldBankTrend() {
+      const out = document.getElementById("worldBankOut");
+      out.textContent = "loading...";
+      const iso3 = (document.getElementById("countryIso3").value || "CHN").trim().toUpperCase();
+      try {
+        latestWorldBank = await api(`/api/real-data-analysis/world-bank-trend?countryIso3=${iso3}`, "GET");
+        out.textContent = JSON.stringify(latestWorldBank, null, 2);
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    }
+
+    async function loadFredSeries() {
+      const out = document.getElementById("fredOut");
+      out.textContent = "loading...";
+      const seriesId = (document.getElementById("seriesId").value || "PCE").trim().toUpperCase();
+      try {
+        latestFred = await api(`/api/real-data-analysis/fred-series?seriesId=${seriesId}`, "GET");
+        out.textContent = JSON.stringify(latestFred, null, 2);
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    }
+
+    function toNumber(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function pct(v) {
+      return `${(toNumber(v) * 100).toFixed(2)}%`;
+    }
+
+    function generateConclusion() {
+      const c = document.getElementById("conclusion");
+      if (!latestRetail || !latestWorldBank) {
+        c.textContent = "请先查询 retail-overview 和 world-bank-trend 后再生成。";
+        return;
+      }
+
+      const top1 = (latestRetail.topCountries || [])[0];
+      const totalAmount = toNumber(latestRetail.totalAmount);
+      const topAmount = top1 ? toNumber(top1.totalAmount) : 0;
+      const share = totalAmount > 0 ? topAmount / totalAmount : 0;
+
+      const points = latestWorldBank.points || [];
+      const first = points[0];
+      const last = points[points.length - 1];
+      const growth = first && last && toNumber(first.value) > 0
+        ? (toNumber(last.value) / toNumber(first.value) - 1)
+        : null;
+
+      const fredCount = latestFred && latestFred.points ? latestFred.points.length : 0;
+
+      c.textContent = [
+        `国家趋势结论：${latestWorldBank.countryName || latestWorldBank.countryIso3} 在 ${first ? first.year : "-"} 到 ${last ? last.year : "-"} 期间，居民消费指标从 ${first ? first.value : "-"} 变为 ${last ? last.value : "-"}，累计变化 ${growth === null ? "-" : pct(growth)}。`,
+        `交易结构结论：${top1 ? top1.country : "-"} 交易额占比约 ${pct(share)}，显示交易结构集中。`,
+        `FRED 数据状态：当前 ${latestFred ? latestFred.seriesId : "PCE"} 点数为 ${fredCount}。${fredCount === 0 ? "可说明为网络抓取软降级。" : "可用于宏观时间序列展示。"}`
+      ].join("\n\n");
     }
   </script>
 </body>

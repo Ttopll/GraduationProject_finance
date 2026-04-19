@@ -1,0 +1,17 @@
+﻿.row-inline {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 12rpx;
+}
+.row-inline input {
+  flex: 1;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 14rpx;
+}
+.summary-block {
+  margin-top: 12rpx;
+  border-top: 1rpx solid #e2e8f0;
+  padding-top: 10rpx;
+}
