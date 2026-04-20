@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -199,17 +199,17 @@
             <div class="summary-item highlight-item">
               <div class="summary-kicker">默认目录</div>
               <strong>data/processed</strong>
-              <div>对接 `POST /api/real-data-analysis/import`，支持清空后重导。</div>
+              <div>对接 <code>POST /api/real-data-analysis/import</code>，支持清空后重导。</div>
             </div>
             <div class="summary-item highlight-item">
               <div class="summary-kicker">目标表</div>
               <strong>3 张真实数据表</strong>
-              <div>`external_retail_transaction` / `external_world_bank_consumption` / `external_fred_series`</div>
+              <div><code>external_retail_transaction</code> / <code>external_world_bank_consumption</code> / <code>external_fred_series</code></div>
             </div>
             <div class="summary-item highlight-item">
               <div class="summary-kicker">操作建议</div>
               <strong>先导入，再刷新分析</strong>
-              <div>导入记录会进入本地历史，支持一键回看参数与结果。</div>
+              <div>导入记录已持久化到数据库，可在后台持续回看参数与结果。</div>
             </div>
           </div>
         </section>
@@ -246,7 +246,7 @@
             </div>
             <div class="action-row">
               <button id="syncAnalysisParamsBtn" class="ghost-btn" type="button">同步到分析面板</button>
-              <button id="clearImportHistoryBtn" class="ghost-btn" type="button">清空本地历史</button>
+              <button id="clearImportHistoryBtn" class="ghost-btn" type="button">刷新导入历史</button>
             </div>
           </div>
           <div id="importStatusMirror" class="inline-status">等待操作</div>
@@ -270,7 +270,7 @@
               <p class="panel-eyebrow">History</p>
               <h2>导入历史</h2>
             </div>
-            <div class="table-hint">仅保存在当前页面内存，用于后台操作回看。</div>
+            <div class="table-hint">数据来自后端持久化导入日志，刷新页面后仍可查看。</div>
           </div>
           <div id="importHistoryList" class="table-board empty-board">
             <div class="empty-state">暂无导入历史</div>
