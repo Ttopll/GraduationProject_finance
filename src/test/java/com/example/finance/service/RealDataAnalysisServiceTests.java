@@ -1,10 +1,12 @@
-package com.example.finance.service;
+﻿package com.example.finance.service;
 
 import com.example.finance.entity.ExternalWorldBankConsumption;
-import com.example.finance.repository.ExternalRetailTransactionRepository.CountryAmountRow;
+import com.example.finance.entity.RealDataImportBatch;
 import com.example.finance.repository.ExternalFredSeriesRepository;
 import com.example.finance.repository.ExternalRetailTransactionRepository;
+import com.example.finance.repository.ExternalRetailTransactionRepository.CountryAmountRow;
 import com.example.finance.repository.ExternalWorldBankConsumptionRepository;
+import com.example.finance.repository.RealDataImportBatchRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -21,6 +23,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +38,9 @@ class RealDataAnalysisServiceTests {
 
     @Mock
     private ExternalFredSeriesRepository externalFredSeriesRepository;
+
+    @Mock
+    private RealDataImportBatchRepository realDataImportBatchRepository;
 
     @InjectMocks
     private RealDataAnalysisService realDataAnalysisService;
@@ -91,7 +97,7 @@ class RealDataAnalysisServiceTests {
         when(top1.getCountry()).thenReturn("United Kingdom");
         when(top1.getRecordCount()).thenReturn(2L);
         when(top1.getTotalAmount()).thenReturn(new BigDecimal("160.00"));
-        when(externalRetailTransactionRepository.topCountryRows(org.mockito.ArgumentMatchers.any()))
+        when(externalRetailTransactionRepository.topCountryRows(any()))
                 .thenReturn(List.of(top1));
 
         ExternalWorldBankConsumption y2022 = new ExternalWorldBankConsumption();
@@ -116,5 +122,28 @@ class RealDataAnalysisServiceTests {
         assertTrue(response.conclusions().get(0).contains("国家趋势结论"));
         assertTrue(response.conclusions().get(1).contains("交易结构结论"));
         assertTrue(response.conclusions().get(2).contains("FRED状态结论"));
+    }
+
+    @Test
+    void importHistoryShouldMapSavedBatches() {
+        RealDataImportBatch batch = new RealDataImportBatch();
+        batch.setProcessedDir("C:/data/processed");
+        batch.setBatchSize(5000);
+        batch.setTruncatedBeforeImport(true);
+        batch.setRetailImported(530000);
+        batch.setWorldBankImported(138);
+        batch.setFredImported(0);
+        batch.setImportStatus("SUCCESS");
+        batch.setImportedAt(LocalDateTime.parse("2026-04-20T13:00:00"));
+        batch.setCreatedAt(LocalDateTime.parse("2026-04-20T13:00:00"));
+
+        when(realDataImportBatchRepository.findTop20ByOrderByCreatedAtDescIdDesc())
+                .thenReturn(List.of(batch));
+
+        var items = realDataAnalysisService.importHistory();
+        assertEquals(1, items.size());
+        assertEquals("C:/data/processed", items.get(0).processedDir());
+        assertEquals(5000, items.get(0).batchSize());
+        assertTrue(items.get(0).truncatedBeforeImport());
     }
 }

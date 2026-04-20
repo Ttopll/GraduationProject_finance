@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/real-data-analysis")
 public class RealDataAnalysisController {
@@ -25,6 +27,11 @@ public class RealDataAnalysisController {
             @RequestParam(defaultValue = "5000") Integer batchSize
     ) {
         return realDataAnalysisService.importProcessedData(processedDir, truncateBeforeImport, batchSize);
+    }
+
+    @GetMapping("/imports")
+    public List<RealDataAnalysisApiModels.ImportHistoryItem> importHistory() {
+        return realDataAnalysisService.importHistory();
     }
 
     @GetMapping("/retail-overview")

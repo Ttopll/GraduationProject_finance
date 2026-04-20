@@ -4,9 +4,11 @@ import com.example.finance.dto.RealDataAnalysisApiModels;
 import com.example.finance.entity.ExternalFredSeries;
 import com.example.finance.entity.ExternalRetailTransaction;
 import com.example.finance.entity.ExternalWorldBankConsumption;
+import com.example.finance.entity.RealDataImportBatch;
 import com.example.finance.repository.ExternalFredSeriesRepository;
 import com.example.finance.repository.ExternalRetailTransactionRepository;
 import com.example.finance.repository.ExternalWorldBankConsumptionRepository;
+import com.example.finance.repository.RealDataImportBatchRepository;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.CSVReaderHeaderAwareBuilder;
 import org.springframework.data.domain.PageRequest;
@@ -39,15 +41,18 @@ public class RealDataAnalysisService {
     private final ExternalRetailTransactionRepository externalRetailTransactionRepository;
     private final ExternalWorldBankConsumptionRepository externalWorldBankConsumptionRepository;
     private final ExternalFredSeriesRepository externalFredSeriesRepository;
+    private final RealDataImportBatchRepository realDataImportBatchRepository;
 
     public RealDataAnalysisService(
             ExternalRetailTransactionRepository externalRetailTransactionRepository,
             ExternalWorldBankConsumptionRepository externalWorldBankConsumptionRepository,
-            ExternalFredSeriesRepository externalFredSeriesRepository
+            ExternalFredSeriesRepository externalFredSeriesRepository,
+            RealDataImportBatchRepository realDataImportBatchRepository
     ) {
         this.externalRetailTransactionRepository = externalRetailTransactionRepository;
         this.externalWorldBankConsumptionRepository = externalWorldBankConsumptionRepository;
         this.externalFredSeriesRepository = externalFredSeriesRepository;
+        this.realDataImportBatchRepository = realDataImportBatchRepository;
     }
 
     @Transactional
@@ -70,13 +75,44 @@ public class RealDataAnalysisService {
         int retailImported = importRetail(dir.resolve("online_retail_transactions.csv"), safeBatchSize);
         int worldBankImported = importWorldBank(dir.resolve("world_bank_household_consumption.csv"), safeBatchSize);
         int fredImported = importFred(dir.resolve("fred_macro_series.csv"), safeBatchSize);
+        RealDataImportBatch batch = new RealDataImportBatch();
+        batch.setProcessedDir(dir.toAbsolutePath().toString());
+        batch.setTruncatedBeforeImport(truncateBeforeImport);
+        batch.setBatchSize(safeBatchSize);
+        batch.setRetailImported(retailImported);
+        batch.setWorldBankImported(worldBankImported);
+        batch.setFredImported(fredImported);
+        batch.setImportStatus("SUCCESS");
+        batch.setImportedAt(LocalDateTime.now());
+        RealDataImportBatch savedBatch = realDataImportBatchRepository.save(batch);
         return new RealDataAnalysisApiModels.ImportResponse(
+                savedBatch.getId(),
                 dir.toAbsolutePath().toString(),
+                safeBatchSize,
                 truncateBeforeImport,
                 retailImported,
                 worldBankImported,
-                fredImported
+                fredImported,
+                savedBatch.getImportStatus(),
+                savedBatch.getImportedAt()
         );
+    }
+
+    public List<RealDataAnalysisApiModels.ImportHistoryItem> importHistory() {
+        return realDataImportBatchRepository.findTop20ByOrderByCreatedAtDescIdDesc().stream()
+                .map(batch -> new RealDataAnalysisApiModels.ImportHistoryItem(
+                        batch.getId(),
+                        batch.getProcessedDir(),
+                        batch.getBatchSize(),
+                        Boolean.TRUE.equals(batch.getTruncatedBeforeImport()),
+                        batch.getRetailImported(),
+                        batch.getWorldBankImported(),
+                        batch.getFredImported(),
+                        batch.getImportStatus(),
+                        batch.getImportedAt(),
+                        batch.getCreatedAt()
+                ))
+                .toList();
     }
 
     public RealDataAnalysisApiModels.RetailOverviewResponse retailOverview(Integer topCountries) {

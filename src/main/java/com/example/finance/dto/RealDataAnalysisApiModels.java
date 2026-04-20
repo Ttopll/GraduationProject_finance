@@ -11,11 +11,29 @@ public final class RealDataAnalysisApiModels {
     }
 
     public record ImportResponse(
+            Long importBatchId,
             String processedDir,
+            Integer batchSize,
             boolean truncatedBeforeImport,
             Integer retailImported,
             Integer worldBankImported,
-            Integer fredImported
+            Integer fredImported,
+            String importStatus,
+            LocalDateTime importedAt
+    ) {
+    }
+
+    public record ImportHistoryItem(
+            Long id,
+            String processedDir,
+            Integer batchSize,
+            boolean truncatedBeforeImport,
+            Integer retailImported,
+            Integer worldBankImported,
+            Integer fredImported,
+            String importStatus,
+            LocalDateTime importedAt,
+            LocalDateTime createdAt
     ) {
     }
 

@@ -169,12 +169,37 @@ function renderLatestImport(result) {
   host.innerHTML = `
     <div class="summary-item">处理目录：<strong>${escapeHtml(result.processedDir)}</strong></div>
     <div class="detail-grid">
+      <div class="detail-item">importBatchId：${formatNumber(result.importBatchId)}</div>
+      <div class="detail-item">batchSize：${formatNumber(result.batchSize)}</div>
       <div class="detail-item">retailImported：${formatNumber(result.retailImported)}</div>
       <div class="detail-item">worldBankImported：${formatNumber(result.worldBankImported)}</div>
       <div class="detail-item">fredImported：${formatNumber(result.fredImported)}</div>
-      <div class="detail-item">batchSize：${formatNumber(result.batchSize ?? "-")}</div>
+      <div class="detail-item">importStatus：${escapeHtml(result.importStatus)}</div>
     </div>
   `;
+}
+
+function normalizeImportHistory(items) {
+  return (items || []).map((item) => ({
+    id: item.id ?? item.importBatchId,
+    createdAt: item.createdAt || item.importedAt,
+    params: {
+      processedDir: item.processedDir,
+      truncateBeforeImport: item.truncatedBeforeImport,
+      batchSize: item.batchSize
+    },
+    result: {
+      importBatchId: item.id ?? item.importBatchId,
+      processedDir: item.processedDir,
+      batchSize: item.batchSize,
+      truncatedBeforeImport: item.truncatedBeforeImport,
+      retailImported: item.retailImported,
+      worldBankImported: item.worldBankImported,
+      fredImported: item.fredImported,
+      importStatus: item.importStatus,
+      importedAt: item.importedAt
+    }
+  }));
 }
 
 function renderImportHistory() {
@@ -211,6 +236,7 @@ function renderImportHistoryDetail() {
   host.innerHTML = `
     <div class="summary-item"><strong>导入时间</strong><div>${formatDateTime(record.createdAt)}</div></div>
     <div class="detail-grid">
+      <div class="detail-item">importBatchId：${formatNumber(record.result?.importBatchId)}</div>
       <div class="detail-item">processedDir：${escapeHtml(record.params.processedDir)}</div>
       <div class="detail-item">truncateBeforeImport：${record.params.truncateBeforeImport ? "true" : "false"}</div>
       <div class="detail-item">batchSize：${formatNumber(record.params.batchSize)}</div>
@@ -224,6 +250,23 @@ function renderImportHistoryDetail() {
       <button class="mini-btn" type="button" data-action="show-import-payload" data-history-id="${record.id}">查看导入回执</button>
     </div>
   `;
+}
+
+async function loadImportHistory() {
+  try {
+    const items = await api("/api/real-data-analysis/imports", "GET", null, false);
+    importHistory = normalizeImportHistory(items);
+    if (!selectedImportHistoryId && importHistory.length > 0) {
+      selectedImportHistoryId = importHistory[0].id;
+    }
+    if (selectedImportHistoryId && !importHistory.some((item) => item.id === selectedImportHistoryId)) {
+      selectedImportHistoryId = importHistory[0]?.id ?? null;
+    }
+    renderImportHistory();
+    renderImportHistoryDetail();
+  } catch (error) {
+    setImportStatuses(`导入历史加载失败：${error.message}`);
+  }
 }
 
 function getCurrentFamilyId() {
@@ -385,19 +428,6 @@ function renderSummary(summary) {
   renderRaw(summary);
 }
 
-function appendImportHistory(params, result) {
-  const record = {
-    id: Date.now() + Math.random(),
-    createdAt: new Date().toISOString(),
-    params,
-    result
-  };
-  importHistory = [record, ...importHistory].slice(0, 12);
-  selectedImportHistoryId = record.id;
-  renderImportHistory();
-  renderImportHistoryDetail();
-}
-
 function applyHistoryParams(record) {
   byId("processedDirInput").value = record.params.processedDir;
   byId("truncateBeforeImportInput").checked = !!record.params.truncateBeforeImport;
@@ -432,11 +462,14 @@ async function importData() {
       truncateBeforeImport: String(params.truncateBeforeImport),
       batchSize: String(params.batchSize)
     });
-    const result = await api(`/api/real-data-analysis/import?${query.toString()}`, "POST");
-    latestImport = { ...result, batchSize: params.batchSize };
-    renderLatestImport(latestImport);
-    appendImportHistory(params, latestImport);
-    renderRaw(latestImport);
+    const result = await api(`/api/real-data-analysis/import?${query.toString()}`, "POST", null, false);
+    latestImport = result;
+    renderLatestImport(result);
+    renderRaw(result);
+    await loadImportHistory();
+    selectedImportHistoryId = result.importBatchId ?? selectedImportHistoryId;
+    renderImportHistory();
+    renderImportHistoryDetail();
     setImportStatuses(`导入完成：retail=${formatNumber(result.retailImported)}，worldBank=${formatNumber(result.worldBankImported)}，fred=${formatNumber(result.fredImported)}`);
     return result;
   } catch (error) {
@@ -454,7 +487,7 @@ async function loadDefenseSummary() {
       seriesId: params.seriesId,
       topCountries: String(params.topCountries)
     });
-    const summary = await api(`/api/real-data-analysis/defense-summary?${query.toString()}`, "GET");
+    const summary = await api(`/api/real-data-analysis/defense-summary?${query.toString()}`, "GET", null, false);
     renderSummary(summary);
     setImportStatuses("汇总加载完成");
     return summary;
@@ -623,7 +656,8 @@ function clearImportHistory() {
   selectedImportHistoryId = null;
   renderImportHistory();
   renderImportHistoryDetail();
-  setImportStatuses("本地导入历史已清空");
+  setImportStatuses("本地展示历史已清空，再次加载将从后端重新读取");
+  loadImportHistory();
 }
 
 function switchView(viewName) {
@@ -647,6 +681,10 @@ function switchView(viewName) {
   byId("pageTitle").textContent = target.title;
   byId("pageEyebrow").textContent = target.eyebrow;
   byId("pageBreadcrumb").textContent = target.breadcrumb;
+
+  if (viewName === "imports") {
+    loadImportHistory();
+  }
 }
 
 function handleImportHistoryAction(action, historyId) {
@@ -776,4 +814,5 @@ document.addEventListener("DOMContentLoaded", () => {
   renderRules([]);
   renderNotifications([]);
   switchView("analysis");
+  loadImportHistory();
 });
