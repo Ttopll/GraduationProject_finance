@@ -12,6 +12,17 @@ let filteredRules = [];
 let notificationsPage = [];
 let selectedRuleId = null;
 let selectedNotificationId = null;
+let accounts = [];
+let categories = [];
+let budgets = [];
+let budgetUsage = [];
+let transactionItems = [];
+let transactionMonthlySummary = [];
+let transactionTotalElements = 0;
+let selectedAccountId = null;
+let selectedCategoryId = null;
+let selectedBudgetId = null;
+let selectedTransactionId = null;
 let activeView = "analysis";
 
 function byId(id) {
@@ -108,15 +119,32 @@ function clearSession() {
   allRules = [];
   filteredRules = [];
   notificationsPage = [];
+  accounts = [];
+  categories = [];
+  budgets = [];
+  budgetUsage = [];
+  transactionItems = [];
+  transactionMonthlySummary = [];
+  transactionTotalElements = 0;
   selectedRuleId = null;
   selectedNotificationId = null;
+  selectedAccountId = null;
+  selectedCategoryId = null;
+  selectedBudgetId = null;
+  selectedTransactionId = null;
   localStorage.removeItem(STORAGE_TOKEN_KEY);
   localStorage.removeItem(STORAGE_SESSION_KEY);
   renderSession(null);
   renderMemberships([]);
   renderRules([]);
   renderNotifications([]);
+  renderAccounts([]);
+  renderCategories([]);
+  renderBudgets([]);
+  renderTransactions([]);
+  renderTransactionMonthlySummary([]);
   setRulesStatus("请先登录后再加载规则与通知。", true);
+  setBusinessStatus("请先登录后再加载业务模块。", true);
 }
 
 function restoreSession() {
@@ -162,6 +190,10 @@ function setImportStatuses(message, isError = false) {
 
 function setRulesStatus(message, isError = false) {
   setStatus("rulesStatus", message, isError);
+}
+
+function setBusinessStatus(message, isError = false) {
+  setStatus("businessStatus", message, isError);
 }
 
 function renderMetric(id, value) {
@@ -417,9 +449,10 @@ function renderRuleDetail(item) {
   }
   const statusText = Number(item.enabled) === 1 ? "启用中" : "已停用";
   host.innerHTML = `
-    <div class="detail-panel">
+    <div class="detail-panel rule-detail-panel">
       <div class="detail-header">
-        <div>
+        <div class="detail-header-main">
+          <div class="detail-kicker">Rule Profile</div>
           <h3 class="detail-title">${escapeHtml(item.ruleName)}</h3>
           <div class="detail-subtitle">规则定义详情，包含指标、阈值、动作和启停状态。</div>
         </div>
@@ -542,9 +575,10 @@ function renderNotificationDetail(item) {
   }
   const readText = Number(item.readStatus) === 1 ? "已读" : "未读";
   host.innerHTML = `
-    <div class="detail-panel">
+    <div class="detail-panel notification-detail-panel">
       <div class="detail-header">
-        <div>
+        <div class="detail-header-main">
+          <div class="detail-kicker">Notification Profile</div>
           <h3 class="detail-title">${escapeHtml(item.title)}</h3>
           <div class="detail-subtitle">通知详情，展示来源、等级、目标成员和发送状态。</div>
         </div>
@@ -576,6 +610,534 @@ function renderNotificationDetail(item) {
       </div>
     </div>
   `;
+}
+
+function renderBusinessMetrics() {
+  renderMetric("metricAccountCount", formatNumber(accounts.length, 0));
+  renderMetric("metricCategoryCount", formatNumber(categories.length, 0));
+  renderMetric("metricBudgetCount", formatNumber(budgets.length, 0));
+  renderMetric("metricTransactionCount", formatNumber(transactionTotalElements, 0));
+}
+
+function updateAccountsStats(items) {
+  const total = items.length;
+  const enabled = items.filter((item) => Number(item.status) === 1).length;
+  const shared = items.filter((item) => Number(item.isShared) === 1).length;
+  byId("accountsStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">启用：${formatNumber(enabled, 0)}</div>
+    <div class="stats-pill">共享：${formatNumber(shared, 0)}</div>
+  `;
+}
+
+function renderAccountDetail(item) {
+  const host = byId("accountDetailPanel");
+  if (!item) {
+    host.innerHTML = '<div class="summary-item">点击左侧账户查看详情</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div class="detail-header-main">
+          <div class="detail-kicker">Account Profile</div>
+          <h3 class="detail-title">${escapeHtml(item.accountName)}</h3>
+          <div class="detail-subtitle">账户基础信息、余额、账单日和共享设置。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip ${Number(item.status) === 1 ? "enabled" : "disabled"}">${Number(item.status) === 1 ? "启用中" : "已停用"}</span>
+          <span class="status-chip muted">${escapeHtml(item.accountType)}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">账户属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "账户类型", value: item.accountType },
+            { label: "所属成员", value: formatNumber(item.ownerMemberId, 0) },
+            { label: "余额", value: formatNumber(item.currentBalance) },
+            { label: "信用额度", value: formatNumber(item.creditLimit) },
+            { label: "账单日", value: formatNumber(item.billingDay, 0) },
+            { label: "还款日", value: formatNumber(item.repaymentDay, 0) },
+            { label: "共享账户", value: Number(item.isShared) === 1 ? "是" : "否" },
+            { label: "卡号掩码", value: item.accountNoMask || "-" }
+          ])}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">机构与备注</div>
+        <div class="detail-section-body">${escapeHtml(item.institutionName || "-")} / ${escapeHtml(item.remark || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAccounts(items) {
+  const host = byId("accountList");
+  if (!items || items.length === 0) {
+    updateAccountsStats([]);
+    renderEmptyBoard("accountList", token ? "当前家庭暂无账户数据" : "请先登录并选择家庭");
+    renderAccountDetail(null);
+    renderBusinessMetrics();
+    return;
+  }
+  host.classList.remove("empty-board");
+  updateAccountsStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header accounts-table-header">
+        <div>账户名称</div>
+        <div>类型</div>
+        <div>余额</div>
+        <div>状态</div>
+      </div>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row accounts-table-row ${item.id === selectedAccountId ? "is-active" : ""}" data-action="select-account" data-account-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">账户名称</span>
+              <span class="data-cell-value">${escapeHtml(item.accountName)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">类型</span>
+              <span class="data-cell-value">${escapeHtml(item.accountType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">余额</span>
+              <span class="data-cell-value">${formatNumber(item.currentBalance)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">状态</span>
+              <span class="status-chip ${Number(item.status) === 1 ? "enabled" : "disabled"}">${Number(item.status) === 1 ? "启用" : "停用"}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  const selected = items.find((item) => item.id === selectedAccountId) || items[0];
+  selectedAccountId = selected?.id ?? null;
+  renderAccountDetail(selected || null);
+  renderBusinessMetrics();
+}
+
+function updateCategoriesStats(items) {
+  const total = items.length;
+  const enabled = items.filter((item) => Number(item.enabled) === 1).length;
+  const expense = items.filter((item) => String(item.categoryType).toUpperCase().includes("EXPENSE")).length;
+  byId("categoriesStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">启用：${formatNumber(enabled, 0)}</div>
+    <div class="stats-pill">支出：${formatNumber(expense, 0)}</div>
+  `;
+}
+
+function renderCategoryDetail(item) {
+  const host = byId("categoryDetailPanel");
+  if (!item) {
+    host.innerHTML = '<div class="summary-item">点击左侧分类查看详情</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div class="detail-header-main">
+          <div class="detail-kicker">Category Profile</div>
+          <h3 class="detail-title">${escapeHtml(item.categoryName)}</h3>
+          <div class="detail-subtitle">分类层级、作用域和图标配置。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用中" : "已停用"}</span>
+          <span class="status-chip muted">${escapeHtml(item.categoryType)}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">分类属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "分类类型", value: item.categoryType },
+            { label: "作用域", value: item.scopeType || "-" },
+            { label: "父分类", value: formatNumber(item.parentId, 0) },
+            { label: "排序", value: formatNumber(item.sortOrder, 0) },
+            { label: "图标", value: item.iconCode || "-" },
+            { label: "启用状态", value: Number(item.enabled) === 1 ? "启用中" : "已停用" }
+          ])}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCategories(items) {
+  const host = byId("categoryList");
+  if (!items || items.length === 0) {
+    updateCategoriesStats([]);
+    renderEmptyBoard("categoryList", token ? "当前家庭暂无分类数据" : "请先登录并选择家庭");
+    renderCategoryDetail(null);
+    renderBusinessMetrics();
+    return;
+  }
+  host.classList.remove("empty-board");
+  updateCategoriesStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header categories-table-header">
+        <div>分类名称</div>
+        <div>类型</div>
+        <div>作用域</div>
+        <div>状态</div>
+      </div>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row categories-table-row ${item.id === selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-category-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">分类名称</span>
+              <span class="data-cell-value">${escapeHtml(item.categoryName)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">类型</span>
+              <span class="data-cell-value">${escapeHtml(item.categoryType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">作用域</span>
+              <span class="data-cell-value">${escapeHtml(item.scopeType || "-")}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">状态</span>
+              <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用" : "停用"}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  const selected = items.find((item) => item.id === selectedCategoryId) || items[0];
+  selectedCategoryId = selected?.id ?? null;
+  renderCategoryDetail(selected || null);
+  renderBusinessMetrics();
+}
+
+function getBudgetUsageItem(budgetId) {
+  return budgetUsage.find((item) => item.budgetId === budgetId) || null;
+}
+
+function updateBudgetsStats(items) {
+  const total = items.length;
+  const enabled = items.filter((item) => Number(item.enabled) === 1).length;
+  const alerts = budgetUsage.filter((item) => item.alertTriggered || item.exceeded).length;
+  byId("budgetsStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">启用：${formatNumber(enabled, 0)}</div>
+    <div class="stats-pill">预警：${formatNumber(alerts, 0)}</div>
+  `;
+}
+
+function renderBudgetDetail(item) {
+  const host = byId("budgetDetailPanel");
+  if (!item) {
+    host.innerHTML = '<div class="summary-item">点击左侧预算查看详情</div>';
+    return;
+  }
+  const usage = getBudgetUsageItem(item.id);
+  host.innerHTML = `
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div class="detail-header-main">
+          <div class="detail-kicker">Budget Profile</div>
+          <h3 class="detail-title">${escapeHtml(item.budgetName)}</h3>
+          <div class="detail-subtitle">预算金额、周期、预警比率与执行状态。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用中" : "已停用"}</span>
+          <span class="status-chip ${usage?.alertTriggered || usage?.exceeded ? "warning" : "muted"}">${usage?.exceeded ? "已超支" : usage?.alertTriggered ? "已预警" : "正常"}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">预算属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "周期类型", value: item.periodType },
+            { label: "预算金额", value: formatNumber(item.amount) },
+            { label: "预警比例", value: formatNumber(item.alertRatio) },
+            { label: "开始日期", value: item.startDate || "-" },
+            { label: "结束日期", value: item.endDate || "-" },
+            { label: "分类 ID", value: formatNumber(item.categoryId, 0) },
+            { label: "创建成员", value: formatNumber(item.createdByMemberId, 0) },
+            { label: "备注", value: item.remark || "-" }
+          ])}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">预算使用情况</div>
+        <div class="business-summary-grid">
+          <div class="business-summary-item"><strong>预算</strong><div>${formatNumber(usage?.budgetAmount ?? item.amount)}</div></div>
+          <div class="business-summary-item"><strong>已支出</strong><div>${formatNumber(usage?.spentAmount)}</div></div>
+          <div class="business-summary-item"><strong>剩余额度</strong><div>${formatNumber(usage?.remainingAmount)}</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBudgets(items) {
+  const host = byId("budgetList");
+  if (!items || items.length === 0) {
+    updateBudgetsStats([]);
+    renderEmptyBoard("budgetList", token ? "当前家庭暂无预算数据" : "请先登录并选择家庭");
+    renderBudgetDetail(null);
+    renderBusinessMetrics();
+    return;
+  }
+  host.classList.remove("empty-board");
+  updateBudgetsStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header budgets-table-header">
+        <div>预算名称</div>
+        <div>周期</div>
+        <div>预算金额</div>
+        <div>状态</div>
+      </div>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row budgets-table-row ${item.id === selectedBudgetId ? "is-active" : ""}" data-action="select-budget" data-budget-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">预算名称</span>
+              <span class="data-cell-value">${escapeHtml(item.budgetName)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">周期</span>
+              <span class="data-cell-value">${escapeHtml(item.periodType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">预算金额</span>
+              <span class="data-cell-value">${formatNumber(item.amount)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">状态</span>
+              <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用" : "停用"}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  const selected = items.find((item) => item.id === selectedBudgetId) || items[0];
+  selectedBudgetId = selected?.id ?? null;
+  renderBudgetDetail(selected || null);
+  renderBusinessMetrics();
+}
+
+function updateTransactionsStats(items) {
+  const income = items.filter((item) => String(item.transactionType).toUpperCase() === "INCOME").length;
+  const expense = items.filter((item) => String(item.transactionType).toUpperCase() === "EXPENSE").length;
+  byId("transactionsStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(transactionTotalElements, 0)}</div>
+    <div class="stats-pill">收入：${formatNumber(income, 0)}</div>
+    <div class="stats-pill">支出：${formatNumber(expense, 0)}</div>
+  `;
+}
+
+function renderTransactionMonthlySummary(items) {
+  const host = byId("transactionMonthlySummary");
+  if (!items || items.length === 0) {
+    host.innerHTML = '<div class="summary-item">月度收支摘要暂无数据</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-title">近月收支摘要</div>
+      <div class="business-summary-grid">
+        ${items.slice(0, 3).map((item) => `
+          <div class="business-summary-item">
+            <strong>${escapeHtml(item.month)}</strong>
+            <div>收入：${formatNumber(item.income)}</div>
+            <div>支出：${formatNumber(item.expense)}</div>
+            <div>净额：${formatNumber(item.netAmount)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderTransactionDetail(item) {
+  const host = byId("transactionDetailPanel");
+  if (!item) {
+    host.innerHTML = '<div class="summary-item">点击左侧交易查看详情</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div class="detail-header-main">
+          <div class="detail-kicker">Transaction Profile</div>
+          <h3 class="detail-title">${escapeHtml(item.merchantName || item.counterpartyName || "交易记录")}</h3>
+          <div class="detail-subtitle">交易类型、金额、账户、来源平台和备注。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip muted">${escapeHtml(item.transactionType)}</span>
+          <span class="status-chip ${Number(item.status) === 1 ? "enabled" : "disabled"}">${Number(item.status) === 1 ? "有效" : "停用"}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">交易属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "金额", value: formatNumber(item.amount) },
+            { label: "交易时间", value: formatDateTime(item.transactionTime) },
+            { label: "账户 ID", value: formatNumber(item.accountId, 0) },
+            { label: "目标账户 ID", value: formatNumber(item.targetAccountId, 0) },
+            { label: "分类 ID", value: formatNumber(item.categoryId, 0) },
+            { label: "创建成员", value: formatNumber(item.createdByMemberId, 0) },
+            { label: "来源平台", value: item.sourcePlatform || "-" },
+            { label: "外部单号", value: item.externalTradeNo || "-" }
+          ])}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">备注</div>
+        <div class="detail-section-body">${escapeHtml(item.note || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTransactions(items) {
+  const host = byId("transactionList");
+  if (!items || items.length === 0) {
+    updateTransactionsStats([]);
+    renderEmptyBoard("transactionList", token ? "当前筛选条件下暂无交易数据" : "请先登录并选择家庭");
+    renderTransactionDetail(null);
+    renderBusinessMetrics();
+    return;
+  }
+  host.classList.remove("empty-board");
+  updateTransactionsStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header transactions-table-header">
+        <div>交易对象</div>
+        <div>类型</div>
+        <div>金额</div>
+        <div>时间</div>
+      </div>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row transactions-table-row ${item.id === selectedTransactionId ? "is-active" : ""}" data-action="select-transaction" data-transaction-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">交易对象</span>
+              <span class="data-cell-value">${escapeHtml(item.merchantName || item.counterpartyName || `交易#${item.id}`)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">类型</span>
+              <span class="data-cell-value">${escapeHtml(item.transactionType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">金额</span>
+              <span class="data-cell-value">${formatNumber(item.amount)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">时间</span>
+              <span class="data-cell-value">${formatDateTime(item.transactionTime)}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  const selected = items.find((item) => item.id === selectedTransactionId) || items[0];
+  selectedTransactionId = selected?.id ?? null;
+  renderTransactionDetail(selected || null);
+  renderBusinessMetrics();
+}
+
+async function loadTransactions() {
+  const familyId = getCurrentFamilyId();
+  if (!token) {
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    setBusinessStatus("请先登录后再加载交易模块。", true);
+    return;
+  }
+  if (!familyId) {
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    setBusinessStatus("请先选择家庭。", true);
+    return;
+  }
+  try {
+    setBusinessStatus("加载交易与月报中...");
+    const transactionType = byId("transactionTypeFilter").value;
+    const size = Number(byId("transactionPageSize").value || 8);
+    const [page, summary] = await Promise.all([
+      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: 0, size })}`),
+      api(`/api/transaction-records/family/${familyId}/monthly-summary${buildQuery({ months: 6 })}`)
+    ]);
+    transactionItems = page.items || [];
+    transactionTotalElements = page.totalElements || transactionItems.length;
+    transactionMonthlySummary = summary || [];
+    if (selectedTransactionId && !transactionItems.some((item) => item.id === selectedTransactionId)) {
+      selectedTransactionId = null;
+    }
+    renderTransactions(transactionItems);
+    renderTransactionMonthlySummary(transactionMonthlySummary);
+    setBusinessStatus(`交易模块已刷新，本页 ${formatNumber(transactionItems.length, 0)} 条，总计 ${formatNumber(transactionTotalElements, 0)} 条。`);
+  } catch (error) {
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    setBusinessStatus(`交易模块加载失败：${error.message}`, true);
+  }
+}
+
+async function loadBusinessOverview() {
+  const familyId = getCurrentFamilyId();
+  if (!token) {
+    renderAccounts([]);
+    renderCategories([]);
+    renderBudgets([]);
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    setBusinessStatus("请先登录后再加载业务模块。", true);
+    return;
+  }
+  if (!familyId) {
+    renderAccounts([]);
+    renderCategories([]);
+    renderBudgets([]);
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    setBusinessStatus("请先选择家庭。", true);
+    return;
+  }
+  try {
+    setBusinessStatus("正在加载业务模块...");
+    const transactionType = byId("transactionTypeFilter").value;
+    const size = Number(byId("transactionPageSize").value || 8);
+    const [accountData, categoryData, budgetData, budgetUsageData, transactionPage, summary] = await Promise.all([
+      api(`/api/accounts${buildQuery({ familyId })}`),
+      api(`/api/categories${buildQuery({ familyId })}`),
+      api(`/api/budgets${buildQuery({ familyId })}`),
+      api(`/api/budgets/usage${buildQuery({ familyId })}`),
+      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: 0, size })}`),
+      api(`/api/transaction-records/family/${familyId}/monthly-summary${buildQuery({ months: 6 })}`)
+    ]);
+    accounts = accountData || [];
+    categories = categoryData || [];
+    budgets = budgetData || [];
+    budgetUsage = budgetUsageData || [];
+    transactionItems = transactionPage.items || [];
+    transactionTotalElements = transactionPage.totalElements || transactionItems.length;
+    transactionMonthlySummary = summary || [];
+    renderAccounts(accounts);
+    renderCategories(categories);
+    renderBudgets(budgets);
+    renderTransactions(transactionItems);
+    renderTransactionMonthlySummary(transactionMonthlySummary);
+    setBusinessStatus(`业务模块加载完成：账户 ${formatNumber(accounts.length, 0)}，分类 ${formatNumber(categories.length, 0)}，预算 ${formatNumber(budgets.length, 0)}，交易 ${formatNumber(transactionTotalElements, 0)}。`);
+  } catch (error) {
+    setBusinessStatus(`业务模块加载失败：${error.message}`, true);
+  }
 }
 
 function updateNotificationsStats(items) {
@@ -704,6 +1266,11 @@ function updateViewMeta(view) {
       eyebrow: "Import Center",
       title: "导入管理中心",
       breadcrumb: "后台首页 / 导入管理"
+    },
+    business: {
+      eyebrow: "Business Modules",
+      title: "业务管理工作台",
+      breadcrumb: "后台首页 / 业务管理"
     },
     rules: {
       eyebrow: "Rules And Notifications",
@@ -1041,6 +1608,34 @@ function handleDocumentClick(event) {
       renderRuleDetail(item);
       break;
     }
+    case "select-account": {
+      selectedAccountId = Number(actionNode.dataset.accountId);
+      const item = accounts.find((account) => account.id === selectedAccountId) || null;
+      renderAccounts(accounts);
+      renderAccountDetail(item);
+      break;
+    }
+    case "select-category": {
+      selectedCategoryId = Number(actionNode.dataset.categoryId);
+      const item = categories.find((category) => category.id === selectedCategoryId) || null;
+      renderCategories(categories);
+      renderCategoryDetail(item);
+      break;
+    }
+    case "select-budget": {
+      selectedBudgetId = Number(actionNode.dataset.budgetId);
+      const item = budgets.find((budget) => budget.id === selectedBudgetId) || null;
+      renderBudgets(budgets);
+      renderBudgetDetail(item);
+      break;
+    }
+    case "select-transaction": {
+      selectedTransactionId = Number(actionNode.dataset.transactionId);
+      const item = transactionItems.find((transaction) => transaction.id === selectedTransactionId) || null;
+      renderTransactions(transactionItems);
+      renderTransactionDetail(item);
+      break;
+    }
     case "toggle-rule":
       event.stopPropagation();
       toggleRule(Number(actionNode.dataset.ruleId), Number(actionNode.dataset.enabled));
@@ -1074,6 +1669,8 @@ function bindEvents() {
   byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
   byId("syncAnalysisParamsBtn").addEventListener("click", syncImportParamsToAnalysis);
   byId("clearImportHistoryBtn").addEventListener("click", loadImportHistory);
+  byId("loadBusinessBtn").addEventListener("click", loadBusinessOverview);
+  byId("loadTransactionsBtn").addEventListener("click", loadTransactions);
   byId("loadRulesBtn").addEventListener("click", loadRules);
   byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
   byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
@@ -1082,7 +1679,11 @@ function bindEvents() {
   byId("familySelect").addEventListener("change", async () => {
     updateMemberOptions();
     if (token) {
-      await Promise.all([loadRules(), loadNotifications()]);
+      const jobs = [loadRules(), loadNotifications()];
+      if (activeView === "business") {
+        jobs.push(loadBusinessOverview());
+      }
+      await Promise.all(jobs);
     }
   });
   byId("memberSelect").addEventListener("change", () => {
@@ -1101,6 +1702,8 @@ function bindEvents() {
   byId("notificationReadFilter").addEventListener("change", loadNotifications);
   byId("notificationSourceFilter").addEventListener("input", loadNotifications);
   byId("notificationPageSize").addEventListener("change", loadNotifications);
+  byId("transactionTypeFilter").addEventListener("change", loadTransactions);
+  byId("transactionPageSize").addEventListener("change", loadTransactions);
   document.addEventListener("click", handleDocumentClick);
 }
 
@@ -1110,6 +1713,11 @@ async function init() {
   renderLatestImport(null);
   renderImportHistory();
   renderImportHistoryDetail();
+  renderAccounts([]);
+  renderCategories([]);
+  renderBudgets([]);
+  renderTransactions([]);
+  renderTransactionMonthlySummary([]);
   renderRules([]);
   renderNotifications([]);
   switchView(activeView);

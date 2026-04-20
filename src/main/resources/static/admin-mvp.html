@@ -20,6 +20,7 @@
       <nav class="menu">
         <button class="menu-item is-active" type="button" data-view="analysis">真实数据分析</button>
         <button class="menu-item" type="button" data-view="imports">导入管理</button>
+        <button class="menu-item" type="button" data-view="business">业务管理</button>
         <button class="menu-item" type="button" data-view="rules">规则与通知</button>
         <button class="menu-item" type="button" data-view="acceptance">系统验收</button>
       </nav>
@@ -56,6 +57,7 @@
       <div class="view-tabs">
         <button class="view-tab is-active" type="button" data-view="analysis">分析面板</button>
         <button class="view-tab" type="button" data-view="imports">导入中心</button>
+        <button class="view-tab" type="button" data-view="business">业务管理</button>
         <button class="view-tab" type="button" data-view="rules">规则通知</button>
         <button class="view-tab" type="button" data-view="acceptance">验收联通</button>
       </div>
@@ -286,6 +288,193 @@
           </div>
           <div id="importHistoryDetail" class="summary-board">
             <div class="summary-item">请选择左侧某次导入记录</div>
+          </div>
+        </section>
+      </section>
+
+      <section id="businessView" class="workspace-grid view-section">
+        <section class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Business Modules</p>
+              <h2>账户 / 分类 / 预算 / 交易管理</h2>
+            </div>
+            <div class="action-row compact-actions">
+              <button id="loadBusinessBtn" class="primary-btn" type="button">刷新业务数据</button>
+              <button id="loadTransactionsBtn" class="secondary-btn" type="button">刷新交易与月报</button>
+            </div>
+          </div>
+          <div class="toolbar-grid">
+            <div class="toolbar-card">
+              <div class="toolbar-title">账户模块</div>
+              <div>对接 <code>GET /api/accounts?familyId=...</code>，用于查看家庭账户存量、余额和共享情况。</div>
+            </div>
+            <div class="toolbar-card">
+              <div class="toolbar-title">分类模块</div>
+              <div>对接 <code>GET /api/categories?familyId=...</code>，用于查看收支分类结构和启用状态。</div>
+            </div>
+            <div class="toolbar-card">
+              <div class="toolbar-title">预算与交易模块</div>
+              <div>对接 <code>/api/budgets</code>、<code>/api/budgets/usage</code>、<code>/api/transaction-records/search</code>、<code>/monthly-summary</code>。</div>
+            </div>
+          </div>
+          <div id="businessStatus" class="inline-status">等待操作</div>
+        </section>
+
+        <section class="metrics-row business-metrics-row">
+          <article class="metric-card">
+            <p class="metric-label">账户数</p>
+            <div id="metricAccountCount" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">分类数</p>
+            <div id="metricCategoryCount" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">预算数</p>
+            <div id="metricBudgetCount" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">交易记录数</p>
+            <div id="metricTransactionCount" class="metric-value">-</div>
+          </article>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Accounts</p>
+              <h2>账户列表</h2>
+            </div>
+          </div>
+          <div id="accountsStats" class="stats-strip">
+            <div class="stats-pill">总数：-</div>
+            <div class="stats-pill">启用：-</div>
+            <div class="stats-pill">共享：-</div>
+          </div>
+          <div id="accountList" class="table-board empty-board">
+            <div class="empty-state">暂无账户数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Account Detail</p>
+              <h2>账户详情</h2>
+            </div>
+          </div>
+          <div id="accountDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧账户查看详情</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Categories</p>
+              <h2>分类列表</h2>
+            </div>
+          </div>
+          <div id="categoriesStats" class="stats-strip">
+            <div class="stats-pill">总数：-</div>
+            <div class="stats-pill">启用：-</div>
+            <div class="stats-pill">支出：-</div>
+          </div>
+          <div id="categoryList" class="table-board empty-board">
+            <div class="empty-state">暂无分类数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Category Detail</p>
+              <h2>分类详情</h2>
+            </div>
+          </div>
+          <div id="categoryDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧分类查看详情</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Budgets</p>
+              <h2>预算列表</h2>
+            </div>
+          </div>
+          <div id="budgetsStats" class="stats-strip">
+            <div class="stats-pill">总数：-</div>
+            <div class="stats-pill">启用：-</div>
+            <div class="stats-pill">预警：-</div>
+          </div>
+          <div id="budgetList" class="table-board empty-board">
+            <div class="empty-state">暂无预算数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Budget Detail</p>
+              <h2>预算详情</h2>
+            </div>
+          </div>
+          <div id="budgetDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧预算查看详情</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Transactions</p>
+              <h2>交易记录</h2>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="field-group compact-group">
+              <span>交易类型</span>
+              <select id="transactionTypeFilter" class="field-input">
+                <option value="">全部</option>
+                <option value="INCOME">收入</option>
+                <option value="EXPENSE">支出</option>
+                <option value="TRANSFER">转账</option>
+              </select>
+            </label>
+            <label class="field-group compact-group">
+              <span>每页条数</span>
+              <select id="transactionPageSize" class="field-input">
+                <option value="8">8</option>
+                <option value="12">12</option>
+                <option value="20">20</option>
+              </select>
+            </label>
+          </div>
+          <div id="transactionsStats" class="stats-strip">
+            <div class="stats-pill">总数：-</div>
+            <div class="stats-pill">收入：-</div>
+            <div class="stats-pill">支出：-</div>
+          </div>
+          <div id="transactionList" class="table-board empty-board">
+            <div class="empty-state">暂无交易数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Transaction Detail</p>
+              <h2>交易详情与月报</h2>
+            </div>
+          </div>
+          <div id="transactionDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧交易查看详情</div>
+          </div>
+          <div id="transactionMonthlySummary" class="summary-board">
+            <div class="summary-item">月度收支摘要将在加载交易后显示</div>
           </div>
         </section>
       </section>
