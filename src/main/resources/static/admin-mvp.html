@@ -17,13 +17,62 @@
         </div>
       </div>
 
-      <nav class="menu">
-        <button class="menu-item is-active" type="button" data-view="analysis">真实数据分析</button>
-        <button class="menu-item" type="button" data-view="imports">导入管理</button>
-        <button class="menu-item" type="button" data-view="business">业务管理</button>
-        <button class="menu-item" type="button" data-view="rules">规则与通知</button>
-        <button class="menu-item" type="button" data-view="acceptance">系统验收</button>
-      </nav>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">工作导航</div>
+        <nav class="menu">
+          <button class="menu-item is-active" type="button" data-view="analysis">
+            <span>真实数据分析</span>
+            <small>总控台与分析结论</small>
+          </button>
+          <button class="menu-item" type="button" data-view="imports">
+            <span>导入管理</span>
+            <small>批次、质量与异常定位</small>
+          </button>
+          <button class="menu-item" type="button" data-view="business">
+            <span>业务管理</span>
+            <small>账户、分类、预算、交易</small>
+          </button>
+          <button class="menu-item" type="button" data-view="rules">
+            <span>规则与通知</span>
+            <small>规则运营与通知联动</small>
+          </button>
+          <button class="menu-item" type="button" data-view="acceptance">
+            <span>系统验收</span>
+            <small>联通检查与结果确认</small>
+          </button>
+        </nav>
+      </div>
+
+      <section class="sidebar-panel sidebar-shortcuts">
+        <p class="panel-label">常用入口</p>
+        <div class="sidebar-shortcut-list">
+          <button class="menu-item shortcut-item" type="button" data-action="dashboard-refresh-summary">刷新分析汇总</button>
+          <button class="menu-item shortcut-item" type="button" data-action="dashboard-refresh-business">刷新业务数据</button>
+          <button class="menu-item shortcut-item" type="button" data-action="dashboard-evaluate-rules">执行规则评估</button>
+        </div>
+      </section>
+
+      <section class="sidebar-panel sidebar-status-panel">
+        <p class="panel-label">当前数据状态</p>
+        <div id="sidebarStatusBoard" class="sidebar-status-list">
+          <div class="sidebar-status-item">
+            <span>导入质量</span>
+            <strong>待确认</strong>
+          </div>
+          <div class="sidebar-status-item">
+            <span>预算异常</span>
+            <strong>0</strong>
+          </div>
+          <div class="sidebar-status-item">
+            <span>未读通知</span>
+            <strong>0</strong>
+          </div>
+          <div class="sidebar-status-item">
+            <span>高优先级规则</span>
+            <strong>0</strong>
+          </div>
+        </div>
+      </section>
 
       <section class="sidebar-panel">
         <p class="panel-label">当前目标</p>
@@ -33,12 +82,42 @@
 
     <main class="main-area">
       <header class="topbar">
-        <div>
+        <div class="topbar-main">
           <p id="pageEyebrow" class="eyebrow">数据治理与分析后台</p>
-          <h1 id="pageTitle">真实数据分析总控台</h1>
+          <div class="topbar-title-row">
+            <h1 id="pageTitle">真实数据分析总控台</h1>
+            <span id="pageWorkspaceTag" class="workspace-tag">分析工作区</span>
+          </div>
           <div id="pageBreadcrumb" class="breadcrumb">后台首页 / 真实数据分析</div>
+          <div class="topbar-meta-strip">
+            <div class="topbar-meta-card">
+              <span class="topbar-meta-label">当前职责</span>
+              <strong id="pageFocus">真实数据汇总、趋势判断、自动结论输出</strong>
+            </div>
+            <div class="topbar-meta-card">
+              <span class="topbar-meta-label">推荐动作</span>
+              <strong id="pageHint">先执行导入，再刷新分析汇总与首页总控台</strong>
+            </div>
+          </div>
         </div>
         <div class="topbar-controls">
+          <label class="field-group command-group">
+            <span>快捷命令</span>
+            <div class="command-bar">
+              <div class="command-panel">
+                <input id="globalCommandInput" class="field-input" placeholder="输入命令，如 导入异常 / 未读通知 / 一键验收" autocomplete="off" aria-expanded="false" aria-controls="globalCommandMenu">
+                <div id="globalCommandMenu" class="command-menu" hidden></div>
+              </div>
+              <button id="runGlobalCommandBtn" class="primary-btn" type="button">执行</button>
+            </div>
+            <div id="globalCommandHint" class="command-hint">支持输入中文关键词、命令别名，按 Enter 执行，按 / 快速聚焦。</div>
+            <div class="quick-tags command-tags">
+              <button class="tag-btn" type="button" data-action="run-global-command" data-command="imports-issues">导入异常</button>
+              <button class="tag-btn" type="button" data-action="run-global-command" data-command="business-alert-budgets">预算异常</button>
+              <button class="tag-btn" type="button" data-action="run-global-command" data-command="rules-unread">未读通知</button>
+              <button class="tag-btn" type="button" data-action="run-global-command" data-command="acceptance-run">一键验收</button>
+            </div>
+          </label>
           <label class="field-group compact-group">
             <span>家庭</span>
             <select id="familySelect" class="field-input"></select>
@@ -116,25 +195,37 @@
         </section>
 
         <section class="metrics-row">
-          <article class="metric-card">
+          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-country-list">
             <p class="metric-label">零售记录数</p>
             <div id="metricTotalRecords" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
+          </button>
+          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-dashboard">
             <p class="metric-label">零售总金额</p>
             <div id="metricTotalAmount" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
+          </button>
+          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-world-bank">
             <p class="metric-label">国家趋势点数</p>
             <div id="metricWorldBankPoints" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
+          </button>
+          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-fred">
             <p class="metric-label">FRED 点数</p>
             <div id="metricFredPoints" class="metric-value">-</div>
-          </article>
+          </button>
         </section>
 
-        <section class="panel panel-chart">
+        <section id="analysisDashboardPanel" class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Dashboard</p>
+              <h2>统一总控台</h2>
+            </div>
+          </div>
+          <div id="executiveDashboard" class="summary-board">
+            <div class="summary-item">登录并加载数据后，这里会汇总导入、分析、业务和规则通知状态。</div>
+          </div>
+        </section>
+
+        <section id="analysisCountryPanel" class="panel panel-chart">
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">Retail Mix</p>
@@ -144,7 +235,7 @@
           <div id="countryList" class="list-board"></div>
         </section>
 
-        <section class="panel panel-trend">
+        <section id="analysisWorldBankPanel" class="panel panel-trend">
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">World Bank</p>
@@ -154,7 +245,7 @@
           <div id="worldBankSummary" class="summary-board"></div>
         </section>
 
-        <section class="panel panel-fred">
+        <section id="analysisFredPanel" class="panel panel-fred">
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">FRED</p>
@@ -274,6 +365,28 @@
             </div>
             <div class="table-hint">数据来自后端持久化导入日志，刷新页面后仍可查看。</div>
           </div>
+          <div id="importHistoryStats" class="stats-strip">
+            <div class="stats-pill">总批次：0</div>
+            <div class="stats-pill">成功：0</div>
+            <div class="stats-pill">异常：0</div>
+            <div class="stats-pill">FRED 降级：0</div>
+          </div>
+          <div class="quick-tags">
+            <button id="importHistoryQuickAllBtn" class="tag-btn is-active" type="button">全部</button>
+            <button id="importHistoryQuickAbnormalBtn" class="tag-btn" type="button">异常</button>
+            <button id="importHistoryQuickDegradedBtn" class="tag-btn" type="button">FRED 降级</button>
+            <button id="importHistoryQuickSuccessBtn" class="tag-btn" type="button">成功</button>
+          </div>
+          <div class="form-row">
+            <label class="field-group compact-group">
+              <span>排序</span>
+              <select id="importHistorySort" class="field-input">
+                <option value="created-desc">最新优先</option>
+                <option value="issue-first">异常优先</option>
+                <option value="batch-desc">批次号倒序</option>
+              </select>
+            </label>
+          </div>
           <div id="importHistoryList" class="table-board empty-board">
             <div class="empty-state">暂无导入历史</div>
           </div>
@@ -338,6 +451,30 @@
             <p class="metric-label">交易记录数</p>
             <div id="metricTransactionCount" class="metric-value">-</div>
           </article>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Overview</p>
+              <h2>业务总览</h2>
+            </div>
+          </div>
+          <div id="businessOverviewBoard" class="summary-board">
+            <div class="summary-item">加载业务数据后显示账户、预算和交易的整体概况</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Focus</p>
+              <h2>待处理与最近动态</h2>
+            </div>
+          </div>
+          <div id="businessFocusBoard" class="summary-board">
+            <div class="summary-item">加载业务数据后显示异常预算和最近交易</div>
+          </div>
         </section>
 
         <section class="panel panel-half">
@@ -609,6 +746,10 @@
               <div class="action-row">
                 <button id="loadRulesBtn" class="secondary-btn" type="button">加载规则</button>
               </div>
+              <div class="quick-tags">
+                <button id="ruleQuickAllBtn" class="tag-btn is-active" type="button">全部规则</button>
+                <button id="ruleQuickHighBtn" class="tag-btn" type="button">高优先级</button>
+              </div>
             </div>
             <div class="toolbar-card">
               <div class="toolbar-title">通知筛选</div>
@@ -642,6 +783,30 @@
             </div>
           </div>
           <div id="rulesStatus" class="inline-status">等待操作</div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Rules Overview</p>
+              <h2>规则运营总览</h2>
+            </div>
+          </div>
+          <div id="rulesOverviewBoard" class="summary-board">
+            <div class="summary-item">加载规则后显示启用率、优先级和重点规则类型</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Notifications Overview</p>
+              <h2>通知运营总览</h2>
+            </div>
+          </div>
+          <div id="notificationsOverviewBoard" class="summary-board">
+            <div class="summary-item">加载通知后显示未读数量、来源分布和最近动态</div>
+          </div>
         </section>
 
         <section class="panel panel-half">

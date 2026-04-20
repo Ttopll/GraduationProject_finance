@@ -6,11 +6,15 @@ let latestSummary = null;
 let latestImport = null;
 let memberships = [];
 let importHistory = [];
+let importHistoryQuickFilter = "all";
+let importHistorySort = "created-desc";
 let selectedImportHistoryId = null;
 let allRules = [];
 let filteredRules = [];
 let notificationsPage = [];
+let selectedRuleIds = [];
 let selectedRuleId = null;
+let selectedNotificationIds = [];
 let selectedNotificationId = null;
 let accounts = [];
 let categories = [];
@@ -34,6 +38,7 @@ let budgetQuickFilter = "all";
 let budgetShowSelectedOnly = false;
 let selectedBudgetIds = [];
 let selectedBudgetId = null;
+let ruleQuickFilter = "all";
 let selectedTransactionId = null;
 let businessFormType = null;
 let businessFormMode = "create";
@@ -97,6 +102,372 @@ function formatTableMeta(...parts) {
 
 function includesKeyword(value, keyword) {
   return String(value ?? "").toUpperCase().includes(String(keyword ?? "").trim().toUpperCase());
+}
+
+function isImportFailed(status) {
+  const normalized = String(status ?? "").trim().toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+  return ["FAIL", "FAILED", "ERROR", "EXCEPTION"].some((keyword) => normalized.includes(keyword));
+}
+
+function isImportSuccessful(status) {
+  const normalized = String(status ?? "").trim().toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+  return ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE"].some((keyword) => normalized.includes(keyword));
+}
+
+function getImportHistoryTone(record) {
+  const status = record?.result?.importStatus || "";
+  if (isImportFailed(status)) {
+    return "danger";
+  }
+  if (!isImportSuccessful(status) || Number(record?.result?.fredImported || 0) === 0) {
+    return "warning";
+  }
+  return "success";
+}
+
+function getImportQualityConclusion(result) {
+  const status = result?.importStatus || "";
+  const retailImported = Number(result?.retailImported || 0);
+  const worldBankImported = Number(result?.worldBankImported || 0);
+  const fredImported = Number(result?.fredImported || 0);
+
+  if (isImportFailed(status) || retailImported === 0 || worldBankImported === 0) {
+    return {
+      label: "需重导",
+      tone: "danger",
+      detail: "核心数据未成功入库，不适合直接用于答辩展示。"
+    };
+  }
+  if (!isImportSuccessful(status) || fredImported === 0) {
+    return {
+      label: "仅软降级",
+      tone: "warning",
+      detail: "零售与世行数据可展示，但宏观序列或状态存在降级。"
+    };
+  }
+  return {
+    label: "可用于答辩",
+    tone: "info",
+    detail: "三类数据已形成可展示结果，适合继续分析与汇报。"
+  };
+}
+
+function buildTodoSummary(todoItems) {
+  const counters = todoItems.reduce((acc, item) => {
+    acc.total += 1;
+    acc[item.count] = (acc[item.count] || 0) + 1;
+    acc[item.tone] = (acc[item.tone] || 0) + 1;
+    return acc;
+  }, { total: 0, danger: 0, warning: 0, info: 0 });
+  return [
+    { label: "待处理总数", value: formatNumber(counters.total, 0), tone: counters.total > 0 ? "info" : "" },
+    { label: "高风险", value: formatNumber(counters.danger || 0, 0), tone: counters.danger > 0 ? "danger" : "" },
+    { label: "需跟进", value: formatNumber(counters.warning || 0, 0), tone: counters.warning > 0 ? "warning" : "" },
+    { label: "导入/分析", value: formatNumber((counters["导入"] || 0) + (counters["分析"] || 0), 0), tone: (counters["导入"] || 0) + (counters["分析"] || 0) > 0 ? "info" : "" },
+    { label: "业务/规则", value: formatNumber((counters["业务"] || 0) + (counters["通知"] || 0) + (counters["规则"] || 0), 0), tone: (counters["业务"] || 0) + (counters["通知"] || 0) + (counters["规则"] || 0) > 0 ? "info" : "" }
+  ];
+}
+
+function getFilteredImportHistory(items) {
+  return (items || []).filter((item) => {
+    const tone = getImportHistoryTone(item);
+    if (importHistoryQuickFilter === "abnormal") {
+      return tone === "danger";
+    }
+    if (importHistoryQuickFilter === "degraded") {
+      return Number(item.result?.fredImported || 0) === 0;
+    }
+    if (importHistoryQuickFilter === "success") {
+      return tone === "success";
+    }
+    return true;
+  });
+}
+
+function getSortedImportHistory(items) {
+  return applySort(items, importHistorySort, {
+    "created-desc": (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+    "batch-desc": (a, b) => Number(b.result?.importBatchId || 0) - Number(a.result?.importBatchId || 0),
+    "issue-first": (a, b) => {
+      const toneWeight = { danger: 3, warning: 2, success: 1 };
+      const toneDiff = (toneWeight[getImportHistoryTone(b)] || 0) - (toneWeight[getImportHistoryTone(a)] || 0);
+      if (toneDiff !== 0) {
+        return toneDiff;
+      }
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    },
+    default: (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  });
+}
+
+function applyImportHistoryQuickFilter(filter) {
+  importHistoryQuickFilter = filter;
+  updateQuickTagButtons({
+    all: "importHistoryQuickAllBtn",
+    abnormal: "importHistoryQuickAbnormalBtn",
+    degraded: "importHistoryQuickDegradedBtn",
+    success: "importHistoryQuickSuccessBtn"
+  }, importHistoryQuickFilter);
+  renderImportHistory();
+  renderImportHistoryDetail();
+}
+
+function focusImportHistory(filter = "all") {
+  applyImportHistoryQuickFilter(filter);
+  switchView("imports");
+}
+
+function focusRulesNotifications(mode = "unread") {
+  switchView("rules");
+  notificationsPageIndex = 0;
+  byId("notificationReadFilter").value = mode === "all" ? "" : "0";
+  byId("notificationSourceFilter").value = mode === "rule" ? "RULE" : "";
+  if (mode === "high-priority-rules") {
+    byId("ruleEnabledFilter").value = "1";
+    byId("ruleTypeFilter").value = "";
+    applyRuleQuickFilter("high");
+    return;
+  }
+  loadNotifications(0);
+}
+
+function focusBusinessArea(mode = "overview") {
+  switchView("business");
+  if (mode === "shared-accounts") {
+    byId("accountStatusFilter").value = "";
+    byId("accountTypeFilter").value = "";
+    byId("accountSortFilter").value = "name-asc";
+    applyAccountQuickFilter("shared");
+    return;
+  }
+  if (mode === "enabled-budgets") {
+    byId("budgetEnabledFilter").value = "1";
+    byId("budgetPeriodFilter").value = "";
+    byId("budgetSortFilter").value = "amount-desc";
+    applyBudgetQuickFilter("all");
+    return;
+  }
+  if (mode === "alert-budgets") {
+    byId("budgetEnabledFilter").value = "";
+    byId("budgetPeriodFilter").value = "";
+    byId("budgetSortFilter").value = "amount-desc";
+    applyBudgetQuickFilter("alert");
+    return;
+  }
+  if (mode === "recent-transactions") {
+    transactionPageIndex = 0;
+    byId("transactionTypeFilter").value = "";
+    loadTransactions(0);
+  }
+}
+
+const GLOBAL_COMMANDS = [
+  { key: "analysis-summary", label: "打开分析总控台", aliases: ["分析总控台", "分析汇总", "分析面板", "summary", "analysis"] },
+  { key: "imports-issues", label: "查看导入异常", aliases: ["导入异常", "导入失败", "import issues", "imports"] },
+  { key: "imports-degraded", label: "查看 FRED 降级批次", aliases: ["fred 降级", "降级批次", "宏观降级", "fred"] },
+  { key: "business-shared", label: "查看共享账户", aliases: ["共享账户", "shared accounts", "shared"] },
+  { key: "business-alert-budgets", label: "查看预算异常", aliases: ["预算异常", "预警预算", "alert budgets", "budget"] },
+  { key: "rules-unread", label: "查看未读通知", aliases: ["未读通知", "通知未读", "unread notifications", "unread"] },
+  { key: "rules-high-priority", label: "查看高优先级规则", aliases: ["高优先级规则", "priority rules", "high priority"] },
+  { key: "acceptance-run", label: "执行一键验收", aliases: ["一键验收", "系统验收", "acceptance", "run acceptance"] }
+];
+let filteredGlobalCommands = [...GLOBAL_COMMANDS];
+let activeGlobalCommandIndex = 0;
+let globalCommandMenuOpen = false;
+
+function normalizeCommandText(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function openGlobalCommandMenu() {
+  const host = byId("globalCommandMenu");
+  const input = byId("globalCommandInput");
+  if (!host) {
+    return;
+  }
+  host.hidden = false;
+  globalCommandMenuOpen = true;
+  if (input) {
+    input.setAttribute("aria-expanded", "true");
+  }
+}
+
+function closeGlobalCommandMenu() {
+  const host = byId("globalCommandMenu");
+  const input = byId("globalCommandInput");
+  if (!host) {
+    return;
+  }
+  host.hidden = true;
+  globalCommandMenuOpen = false;
+  if (input) {
+    input.setAttribute("aria-expanded", "false");
+  }
+}
+
+function renderGlobalCommandOptions(filter = "") {
+  const host = byId("globalCommandMenu");
+  if (!host) {
+    return;
+  }
+  const keyword = normalizeCommandText(filter);
+  const commands = GLOBAL_COMMANDS.filter((item) => {
+    if (!keyword) {
+      return true;
+    }
+      return normalizeCommandText(item.label).includes(keyword)
+      || item.aliases.some((alias) => normalizeCommandText(alias).includes(keyword));
+  });
+  filteredGlobalCommands = commands;
+  activeGlobalCommandIndex = commands.length > 0 ? 0 : -1;
+  const optionsMarkup = commands.length > 0
+    ? commands.map((item, index) => `
+      <button
+        class="command-option ${index === activeGlobalCommandIndex ? "is-active" : ""}"
+        type="button"
+        data-action="select-global-command"
+        data-command="${item.key}"
+        data-command-index="${index}"
+      >
+        <span class="command-option-title">${escapeHtml(item.label)}</span>
+        <span class="command-option-meta">${escapeHtml(item.aliases.slice(0, 3).join(" / "))}</span>
+      </button>
+    `).join("")
+    : `
+      <div class="command-empty">
+        <strong>没有匹配命令</strong>
+        可继续输入中文关键词，或直接选择下方建议命令快速进入对应工作区。
+      </div>
+      ${GLOBAL_COMMANDS.slice(0, 4).map((item) => `
+        <button class="command-option" type="button" data-action="select-global-command" data-command="${item.key}">
+          <span class="command-option-title">${escapeHtml(item.label)}</span>
+          <span class="command-option-meta">${escapeHtml(item.aliases.slice(0, 2).join(" / "))}</span>
+        </button>
+      `).join("")}
+    `;
+  const summaryText = commands.length > 0
+    ? `共 ${formatNumber(commands.length, 0)} 条候选`
+    : `未找到“${escapeHtml(filter || "当前输入")}”对应命令`;
+  host.innerHTML = `
+    ${optionsMarkup}
+    <div class="command-menu-footer">
+      <span class="command-menu-summary">${summaryText}</span>
+      <div class="command-shortcuts">
+        <span class="command-shortcut-badge">/ 聚焦</span>
+        <span class="command-shortcut-badge">↑↓ 切换</span>
+        <span class="command-shortcut-badge">Enter 执行</span>
+        <span class="command-shortcut-badge">Esc 关闭</span>
+      </div>
+    </div>
+  `;
+  const hint = byId("globalCommandHint");
+  if (hint) {
+    hint.textContent = commands.length > 0
+      ? `可执行 ${formatNumber(commands.length, 0)} 条命令，当前建议：${commands.slice(0, 3).map((item) => item.label).join(" / ")}`
+      : "没有匹配命令，可输入 导入异常 / 预算异常 / 未读通知 / 一键验收 等关键词。";
+  }
+  if (document.activeElement?.id === "globalCommandInput") {
+    openGlobalCommandMenu();
+  } else {
+    closeGlobalCommandMenu();
+  }
+}
+
+function updateGlobalCommandActiveOption(nextIndex) {
+  if (filteredGlobalCommands.length === 0) {
+    activeGlobalCommandIndex = -1;
+    return;
+  }
+  const total = filteredGlobalCommands.length;
+  activeGlobalCommandIndex = ((nextIndex % total) + total) % total;
+  const host = byId("globalCommandMenu");
+  if (!host) {
+    return;
+  }
+  host.querySelectorAll(".command-option").forEach((node, index) => {
+    node.classList.toggle("is-active", index === activeGlobalCommandIndex);
+  });
+  const activeNode = host.querySelector(".command-option.is-active");
+  activeNode?.scrollIntoView({ block: "nearest" });
+}
+
+function resolveGlobalCommand(value) {
+  const keyword = normalizeCommandText(value);
+  if (!keyword) {
+    return GLOBAL_COMMANDS[0]?.key || "";
+  }
+  const exact = GLOBAL_COMMANDS.find((item) => normalizeCommandText(item.key) === keyword || normalizeCommandText(item.label) === keyword || item.aliases.some((alias) => normalizeCommandText(alias) === keyword));
+  if (exact) {
+    return exact.key;
+  }
+  const fuzzy = GLOBAL_COMMANDS.find((item) => normalizeCommandText(item.label).includes(keyword) || item.aliases.some((alias) => normalizeCommandText(alias).includes(keyword)));
+  return fuzzy?.key || "";
+}
+
+function executeGlobalCommand(commandInput) {
+  const command = resolveGlobalCommand(commandInput);
+  const commandInputNode = byId("globalCommandInput");
+  const matched = GLOBAL_COMMANDS.find((item) => item.key === command) || null;
+  if (commandInputNode && matched) {
+    commandInputNode.value = matched.label;
+  }
+  closeGlobalCommandMenu();
+  switch (command) {
+    case "analysis-summary":
+      switchView("analysis");
+      loadSummary();
+      break;
+    case "imports-issues":
+      focusImportHistory("abnormal");
+      break;
+    case "imports-degraded":
+      focusImportHistory("degraded");
+      break;
+    case "business-shared":
+      focusBusinessArea("shared-accounts");
+      break;
+    case "business-alert-budgets":
+      focusBusinessArea("alert-budgets");
+      break;
+    case "rules-unread":
+      focusRulesNotifications("unread");
+      break;
+    case "rules-high-priority":
+      focusRulesNotifications("high-priority-rules");
+      break;
+    case "acceptance-run":
+      switchView("acceptance");
+      runAcceptance();
+      break;
+    default:
+      {
+        const hint = byId("globalCommandHint");
+        if (hint) {
+          hint.textContent = "未识别该命令，可输入 导入异常 / 预算异常 / 未读通知 / 一键验收。";
+        }
+      }
+      break;
+  }
+}
+
+function focusAnalysisArea(target = "dashboard") {
+  switchView("analysis");
+  const mapping = {
+    dashboard: "analysisDashboardPanel",
+    countries: "analysisCountryPanel",
+    worldBank: "analysisWorldBankPanel",
+    fred: "analysisFredPanel"
+  };
+  const node = byId(mapping[target] || mapping.dashboard);
+  if (node) {
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function compareText(a, b) {
@@ -390,6 +761,16 @@ function applyBudgetQuickFilter(filter) {
   renderBudgets(getFilteredBudgets(budgets));
 }
 
+function applyRuleQuickFilter(filter) {
+  ruleQuickFilter = filter;
+  updateQuickTagButtons({
+    all: "ruleQuickAllBtn",
+    high: "ruleQuickHighBtn"
+  }, ruleQuickFilter);
+  filteredRules = getFilteredRules(allRules);
+  renderRules(filteredRules);
+}
+
 function exportCurrentAccounts() {
   const items = getFilteredAccounts(accounts);
   downloadCsv("accounts_current_view.csv", [
@@ -483,6 +864,34 @@ function renderAlertStrip(items) {
   `;
 }
 
+function renderRulesBatchToolbar(selectedCount, totalCount) {
+  return `
+    <div class="batch-toolbar">
+      <div class="batch-toolbar-info">已选 ${formatNumber(selectedCount, 0)} 条规则，当前列表 ${formatNumber(totalCount, 0)} 条</div>
+      <div class="batch-toolbar-actions">
+        <button class="mini-btn" type="button" data-action="rule-select-all">全选当前列表</button>
+        <button class="mini-btn" type="button" data-action="rule-clear-selection">清空选择</button>
+        <button class="mini-btn" type="button" data-action="rule-batch-enable" ${selectedCount === 0 ? "disabled" : ""}>批量启用</button>
+        <button class="mini-btn" type="button" data-action="rule-batch-disable" ${selectedCount === 0 ? "disabled" : ""}>批量停用</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderNotificationsBatchToolbar(selectedCount, totalCount) {
+  return `
+    <div class="batch-toolbar">
+      <div class="batch-toolbar-info">已选 ${formatNumber(selectedCount, 0)} 条通知，当前列表 ${formatNumber(totalCount, 0)} 条</div>
+      <div class="batch-toolbar-actions">
+        <button class="mini-btn" type="button" data-action="notification-select-all">全选当前列表</button>
+        <button class="mini-btn" type="button" data-action="notification-clear-selection">清空选择</button>
+        <button class="mini-btn" type="button" data-action="notification-batch-read" ${selectedCount === 0 ? "disabled" : ""}>批量已读</button>
+        <button class="mini-btn danger" type="button" data-action="notification-batch-delete" ${selectedCount === 0 ? "disabled" : ""}>批量删除</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderBusinessLists() {
   renderAccounts(getFilteredAccounts(accounts));
   renderCategories(getFilteredCategories(categories));
@@ -568,11 +977,14 @@ function clearSession() {
   renderMemberships([]);
   renderRules([]);
   renderNotifications([]);
+  renderRulesOverviewPanel();
   renderAccounts([]);
   renderCategories([]);
   renderBudgets([]);
   renderTransactions([]);
   renderTransactionMonthlySummary([]);
+  renderBusinessOverviewPanel();
+  renderSidebarStatusPanel();
   setRulesStatus("请先登录后再加载规则与通知。", true);
   setBusinessStatus("请先登录后再加载业务模块。", true);
 }
@@ -602,6 +1014,59 @@ function renderSession(user) {
   }
   const label = [user.nickname || user.realName || user.username, user.userType].filter(Boolean).join(" / ");
   status.textContent = label || "已登录";
+}
+
+function renderSidebarStatusPanel() {
+  const host = byId("sidebarStatusBoard");
+  if (!host) {
+    return;
+  }
+  const latestImportRecord = importHistory[0] || (latestImport ? { result: latestImport } : null);
+  const importQuality = latestImportRecord ? getImportQualityConclusion(latestImportRecord.result) : { label: "待确认", tone: "info" };
+  const budgetAlerts = budgetUsage.filter((item) => item.alertTriggered || item.exceeded).length;
+  const unreadNotifications = notificationsPage.filter((item) => Number(item.readStatus) !== 1).length;
+  const highPriorityRules = allRules.filter((item) => Number(item.priority || 0) >= 8).length;
+  const statusItems = [
+    {
+      label: "导入质量",
+      hint: latestImportRecord ? "跳转到导入中心查看最新批次" : "跳转到导入中心",
+      value: importQuality.label,
+      tone: importQuality.tone || "",
+      action: "dashboard-open-import-issues"
+    },
+    {
+      label: "预算异常",
+      hint: budgetAlerts > 0 ? "跳转到预算异常视图" : "跳转到预算管理",
+      value: formatNumber(budgetAlerts, 0),
+      tone: budgetAlerts > 0 ? "warning" : "",
+      action: "business-open-alert-budgets"
+    },
+    {
+      label: "未读通知",
+      hint: unreadNotifications > 0 ? "跳转到未读通知列表" : "跳转到通知中心",
+      value: formatNumber(unreadNotifications, 0),
+      tone: unreadNotifications > 0 ? "warning" : "",
+      action: "notifications-open-unread"
+    },
+    {
+      label: "高优先级规则",
+      hint: highPriorityRules > 0 ? "跳转到高优先级规则视图" : "跳转到规则列表",
+      value: formatNumber(highPriorityRules, 0),
+      tone: highPriorityRules > 0 ? "info" : "",
+      action: "rules-open-high-priority"
+    }
+  ];
+  host.innerHTML = `
+    ${statusItems.map((item) => `
+      <button class="sidebar-status-item ${item.tone}" type="button" data-action="${item.action}">
+        <span class="sidebar-status-copy">
+          <span>${escapeHtml(item.label)}</span>
+          <small>${escapeHtml(item.hint)}</small>
+        </span>
+        <strong>${escapeHtml(item.value)}</strong>
+      </button>
+    `).join("")}
+  `;
 }
 
 function setStatus(id, message, isError = false) {
@@ -761,13 +1226,39 @@ function renderRaw(payload) {
   byId("rawPayload").textContent = JSON.stringify(payload, null, 2);
 }
 
+function updateImportHistoryStats(items) {
+  const total = items?.length || 0;
+  const successful = (items || []).filter((item) => getImportHistoryTone(item) === "success").length;
+  const abnormal = (items || []).filter((item) => getImportHistoryTone(item) === "danger").length;
+  const degraded = (items || []).filter((item) => Number(item.result?.fredImported || 0) === 0).length;
+  const latestStatus = items?.[0]?.result?.importStatus || latestImport?.importStatus || "未执行";
+  const filteredCount = getFilteredImportHistory(items).length;
+  byId("importHistoryStats").innerHTML = `
+    <div class="stats-pill">总批次：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">当前筛选：${formatNumber(filteredCount, 0)}</div>
+    <div class="stats-pill">成功：${formatNumber(successful, 0)}</div>
+    <div class="stats-pill">异常：${formatNumber(abnormal, 0)}</div>
+    <div class="stats-pill">FRED 降级：${formatNumber(degraded, 0)}</div>
+    <div class="stats-pill">最近状态：${escapeHtml(latestStatus)}</div>
+  `;
+}
+
 function renderLatestImport(result) {
   const host = byId("latestImportResult");
   if (!result) {
     host.innerHTML = '<div class="summary-item">暂无导入结果</div>';
     return;
   }
+  const importTone = getImportHistoryTone({ result });
+  const qualityConclusion = getImportQualityConclusion(result);
   host.innerHTML = `
+    ${renderResultOverview([
+      { label: "导入状态", value: escapeHtml(result.importStatus || "未知"), meta: `批次 ${formatNumber(result.importBatchId, 0)}`, tone: importTone === "danger" ? "danger" : importTone === "warning" ? "warning" : "" },
+      { label: "零售导入", value: formatNumber(result.retailImported, 0), meta: "主交易明细" },
+      { label: "世行导入", value: formatNumber(result.worldBankImported, 0), meta: "国家趋势数据" },
+      { label: "FRED 导入", value: formatNumber(result.fredImported, 0), meta: Number(result.fredImported || 0) === 0 ? "当前为软降级" : "宏观序列已接通", tone: Number(result.fredImported || 0) === 0 ? "warning" : "" },
+      { label: "导入质量", value: qualityConclusion.label, meta: qualityConclusion.detail, tone: qualityConclusion.tone }
+    ])}
     <div class="summary-item"><strong>处理目录</strong><div>${escapeHtml(result.processedDir)}</div></div>
     <div class="detail-grid">
       <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(result.importBatchId, 0)}</div></div>
@@ -807,19 +1298,28 @@ function normalizeImportHistory(items) {
 
 function renderImportHistory() {
   const host = byId("importHistoryList");
-  if (importHistory.length === 0) {
-    renderEmptyBoard("importHistoryList", "暂无导入历史");
+  updateImportHistoryStats(importHistory);
+  const items = getSortedImportHistory(getFilteredImportHistory(importHistory));
+  if (items.length === 0) {
+    renderEmptyBoard("importHistoryList", importHistory.length > 0 ? "当前筛选条件下暂无导入记录" : "暂无导入历史");
     return;
   }
+  if (selectedImportHistoryId && !items.some((item) => item.id === selectedImportHistoryId)) {
+    selectedImportHistoryId = items[0]?.id ?? null;
+  }
+  if (!selectedImportHistoryId) {
+    selectedImportHistoryId = items[0]?.id ?? null;
+  }
   host.classList.remove("empty-board");
-  host.innerHTML = importHistory.map((item) => `
-    <div class="table-row ${item.id === selectedImportHistoryId ? "is-active" : ""}" data-action="select-import-history" data-history-id="${item.id}">
+  host.innerHTML = items.map((item) => `
+    <div class="table-row import-history-row import-history-row-${getImportHistoryTone(item)} ${item.id === selectedImportHistoryId ? "is-active" : ""}" data-action="select-import-history" data-history-id="${item.id}">
       <div class="table-main">
         <div class="table-title">${escapeHtml(item.params.processedDir)}</div>
-        <div class="table-meta">${item.params.truncateBeforeImport ? "清空后全量导入" : "增量导入"} / batchSize=${formatNumber(item.params.batchSize, 0)}</div>
+        <div class="table-meta">${item.params.truncateBeforeImport ? "清空后全量导入" : "增量导入"} / batchSize=${formatNumber(item.params.batchSize, 0)} / 批次 ${formatNumber(item.result?.importBatchId, 0)}</div>
         <div class="meta-line">${formatDateTime(item.createdAt)}</div>
       </div>
       <div class="table-side">
+        <span class="status-chip ${getImportHistoryTone(item)}">${escapeHtml(item.result?.importStatus || "状态未知")}</span>
         <span class="status-chip success">retail ${formatNumber(item.result?.retailImported, 0)}</span>
         <span class="status-chip success">world ${formatNumber(item.result?.worldBankImported, 0)}</span>
         <span class="status-chip ${Number(item.result?.fredImported || 0) > 0 ? "success" : "warning"}">fred ${formatNumber(item.result?.fredImported, 0)}</span>
@@ -835,7 +1335,19 @@ function renderImportHistoryDetail() {
     host.innerHTML = '<div class="summary-item">请选择左侧某次导入记录</div>';
     return;
   }
+  const qualityConclusion = getImportQualityConclusion(record.result);
+  const alerts = [
+    ...(isImportFailed(record.result?.importStatus) ? [{ text: `当前批次导入失败：${record.result?.importStatus || "状态未知"}`, tone: "danger" }] : []),
+    ...(!isImportFailed(record.result?.importStatus) && !isImportSuccessful(record.result?.importStatus) ? [{ text: `当前批次状态待确认：${record.result?.importStatus || "状态未知"}`, tone: "warning" }] : []),
+    ...(Number(record.result?.fredImported || 0) === 0 ? [{ text: "FRED 本批次导入为 0，前台宏观序列会以软降级方式展示。", tone: "warning" }] : []),
+    ...(Number(record.result?.worldBankImported || 0) === 0 ? [{ text: "World Bank 本批次导入为 0，国家趋势可能无法展示。", tone: "danger" }] : [])
+  ];
   host.innerHTML = `
+    ${renderAlertStrip(alerts)}
+    ${renderResultOverview([
+      { label: "导入质量结论", value: qualityConclusion.label, meta: qualityConclusion.detail, tone: qualityConclusion.tone },
+      { label: "导入状态", value: escapeHtml(record.result?.importStatus || "未知"), meta: `批次 ${formatNumber(record.result?.importBatchId, 0)}`, tone: getImportHistoryTone(record) === "danger" ? "danger" : getImportHistoryTone(record) === "warning" ? "warning" : "" }
+    ])}
     <div class="summary-item"><strong>导入时间</strong><div>${formatDateTime(record.createdAt)}</div></div>
     <div class="detail-grid">
       <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(record.result?.importBatchId, 0)}</div></div>
@@ -1501,23 +2013,34 @@ function getFilteredRules(items) {
   return (items || []).filter((item) => {
     const enabledMatched = enabledFilter === "all" || String(item.enabled) === enabledFilter;
     const typeMatched = !ruleTypeFilter || String(item.ruleType || "").toUpperCase().includes(ruleTypeFilter);
-    return enabledMatched && typeMatched;
+    const quickMatched = ruleQuickFilter !== "high" || Number(item.priority || 0) >= 8;
+    return enabledMatched && typeMatched && quickMatched;
   });
 }
 
 function renderRules(items) {
   const host = byId("rulesList");
+  selectedRuleIds = syncSelectionToVisible(selectedRuleIds, items);
   if (!items || items.length === 0) {
     updateRulesStats([]);
     renderEmptyBoard("rulesList", token ? "当前筛选条件下暂无规则" : "请先登录并选择家庭");
     renderRuleDetail(null);
+    renderRulesOverviewPanel();
     return;
   }
   host.classList.remove("empty-board");
   updateRulesStats(items);
+  const allSelected = items.length > 0 && items.every((item) => selectedRuleIds.includes(Number(item.id)));
   host.innerHTML = `
+    ${renderRulesBatchToolbar(selectedRuleIds.length, items.length)}
+    ${renderResultOverview([
+      { label: "启用规则", value: formatNumber(items.filter((item) => Number(item.enabled) === 1).length, 0), meta: `当前结果 ${formatNumber(items.length, 0)} 条` },
+      { label: "高优先级", value: formatNumber(items.filter((item) => Number(item.priority || 0) >= 8).length, 0), meta: "优先关注可能影响通知产出的规则", tone: items.some((item) => Number(item.priority || 0) >= 8) ? "warning" : "" },
+      { label: "停用规则", value: formatNumber(items.filter((item) => Number(item.enabled) !== 1).length, 0), meta: "可批量启停", tone: items.some((item) => Number(item.enabled) !== 1) ? "warning" : "" }
+    ])}
     <div class="data-table">
       <div class="data-table-header rules-table-header">
+        <div><input type="checkbox" data-action="rule-toggle-all" ${allSelected ? "checked" : ""}></div>
         <div>规则名称</div>
         <div>规则类型</div>
         <div>指标类型</div>
@@ -1528,6 +2051,9 @@ function renderRules(items) {
       <div class="data-table-body">
         ${items.map((item) => `
           <div class="data-table-row rules-table-row ${item.id === selectedRuleId ? "is-active" : ""}" data-action="select-rule" data-rule-id="${item.id}">
+            <div class="data-cell data-cell-checkbox">
+              <input type="checkbox" data-action="toggle-rule-select" data-rule-id="${item.id}" ${selectedRuleIds.includes(Number(item.id)) ? "checked" : ""}>
+            </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">规则名称</span>
               <span class="data-cell-value">${escapeHtml(item.ruleName)}</span>
@@ -1561,6 +2087,7 @@ function renderRules(items) {
   const selected = items.find((item) => item.id === selectedRuleId) || items[0];
   selectedRuleId = selected?.id ?? null;
   renderRuleDetail(selected || null);
+  renderRulesOverviewPanel();
 }
 
 function renderNotificationDetail(item) {
@@ -1613,6 +2140,394 @@ function renderBusinessMetrics() {
   renderMetric("metricCategoryCount", formatNumber(categories.length, 0));
   renderMetric("metricBudgetCount", formatNumber(budgets.length, 0));
   renderMetric("metricTransactionCount", formatNumber(transactionTotalElements, 0));
+}
+
+function renderBusinessOverviewPanel() {
+  const overviewHost = byId("businessOverviewBoard");
+  const focusHost = byId("businessFocusBoard");
+  if (!overviewHost || !focusHost) {
+    return;
+  }
+  if (!token || !getCurrentFamilyId()) {
+    overviewHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看业务总览</div>';
+    focusHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看待处理项</div>';
+    return;
+  }
+
+  const totalBalance = accounts.reduce((sum, item) => sum + Number(item.currentBalance || 0), 0);
+  const enabledBudgetCount = budgets.filter((item) => Number(item.enabled) === 1).length;
+  const alertBudgetItems = budgetUsage.filter((item) => item.alertTriggered || item.exceeded);
+  const sharedAccounts = accounts.filter((item) => Number(item.isShared) === 1).length;
+  const recentTransactions = [...transactionItems]
+    .sort((a, b) => new Date(b.transactionTime || 0).getTime() - new Date(a.transactionTime || 0).getTime())
+    .slice(0, 4);
+  const latestMonthly = (transactionMonthlySummary || [])[0] || null;
+
+  overviewHost.innerHTML = `
+    <div class="business-summary-grid">
+      <button class="business-summary-item overview-action-card" type="button" data-action="business-open-balance-overview">
+        <strong>账户总余额</strong>
+        <div>${formatNumber(totalBalance)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="business-open-shared-accounts">
+        <strong>共享账户</strong>
+        <div>${formatNumber(sharedAccounts, 0)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="business-open-enabled-budgets">
+        <strong>启用预算</strong>
+        <div>${formatNumber(enabledBudgetCount, 0)}</div>
+      </button>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">关键状态</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "分类规模", value: `${formatNumber(categories.length, 0)} 个分类` },
+          { label: "预算预警", value: `${formatNumber(alertBudgetItems.length, 0)} 项` },
+          { label: "交易总量", value: `${formatNumber(transactionTotalElements, 0)} 条` },
+          { label: "最近月净额", value: latestMonthly ? formatNumber(latestMonthly.netAmount) : "-" }
+        ])}
+      </div>
+    </div>
+  `;
+
+  focusHost.innerHTML = `
+    <button class="summary-item overview-action-card" type="button" data-action="business-open-alert-budgets">
+      <strong>待处理预算</strong>
+      <div>${alertBudgetItems.length > 0 ? `当前有 ${formatNumber(alertBudgetItems.length, 0)} 个预算处于预警/超支状态` : "当前没有预算异常项"}</div>
+    </button>
+    <button class="summary-item overview-action-card" type="button" data-action="business-open-recent-transactions">
+      <strong>最近交易</strong>
+      <div>
+        ${recentTransactions.length > 0 ? recentTransactions.map((item) => `
+          <div class="focus-line">
+            <span>${escapeHtml(item.merchantName || item.counterpartyName || `交易#${item.id}`)}</span>
+            <span>${formatNumber(item.amount)} / ${escapeHtml(item.transactionType)}</span>
+          </div>
+        `).join("") : "当前没有交易数据"}
+      </div>
+    </button>
+  `;
+  renderExecutiveDashboard();
+}
+
+function renderRulesOverviewPanel() {
+  const rulesHost = byId("rulesOverviewBoard");
+  const notificationsHost = byId("notificationsOverviewBoard");
+  if (!rulesHost || !notificationsHost) {
+    return;
+  }
+  if (!token || !getCurrentFamilyId()) {
+    rulesHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看规则总览</div>';
+    notificationsHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看通知总览</div>';
+    renderExecutiveDashboard();
+    return;
+  }
+  const enabledRules = allRules.filter((item) => Number(item.enabled) === 1).length;
+  const highPriorityRules = allRules.filter((item) => Number(item.priority || 0) >= 8).length;
+  const unreadNotifications = notificationsPage.filter((item) => Number(item.readStatus) !== 1).length;
+  const ruleSourceNotifications = notificationsPage.filter((item) => includesKeyword(item.sourceType, "RULE")).length;
+  const latestNotification = notificationsPage[0] || null;
+
+  rulesHost.innerHTML = `
+    <div class="business-summary-grid">
+      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-all">
+        <strong>规则总数</strong>
+        <div>${formatNumber(allRules.length, 0)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-enabled">
+        <strong>启用规则</strong>
+        <div>${formatNumber(enabledRules, 0)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-high-priority">
+        <strong>高优先级</strong>
+        <div>${formatNumber(highPriorityRules, 0)}</div>
+      </button>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">规则状态</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "当前筛选命中", value: `${formatNumber(filteredRules.length, 0)} 条` },
+          { label: "停用规则", value: `${formatNumber(allRules.length - enabledRules, 0)} 条` },
+          { label: "重点提示", value: highPriorityRules > 0 ? "建议优先复核高优先级规则" : "当前无高优先级堆积" }
+        ])}
+      </div>
+    </div>
+  `;
+
+  notificationsHost.innerHTML = `
+    <div class="business-summary-grid">
+      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-all">
+        <strong>当前页通知</strong>
+        <div>${formatNumber(notificationsPage.length, 0)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-unread">
+        <strong>未读通知</strong>
+        <div>${formatNumber(unreadNotifications, 0)}</div>
+      </button>
+      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-rule-source">
+        <strong>规则来源</strong>
+        <div>${formatNumber(ruleSourceNotifications, 0)}</div>
+      </button>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">最近动态</div>
+      <div class="detail-section-body">${latestNotification ? `${escapeHtml(latestNotification.title)} / ${escapeHtml(latestNotification.levelCode || "-")}` : "当前没有通知数据"}</div>
+    </div>
+  `;
+  renderExecutiveDashboard();
+}
+
+function renderExecutiveDashboard() {
+  const host = byId("executiveDashboard");
+  if (!host) {
+    return;
+  }
+  const retailOverview = latestSummary?.retailOverview || {};
+  const worldBankTrend = latestSummary?.worldBankTrend || {};
+  const fredSeries = latestSummary?.fredSeries || {};
+  const importReady = latestImport ? "最近一次导入已完成" : "尚未执行导入";
+  const budgetAlerts = budgetUsage.filter((item) => item.alertTriggered || item.exceeded).length;
+  const unreadNotifications = notificationsPage.filter((item) => Number(item.readStatus) !== 1).length;
+  const enabledRules = allRules.filter((item) => Number(item.enabled) === 1).length;
+  const recentImports = importHistory.slice(0, 3);
+  const alertBudgets = budgets
+    .map((item) => ({ budget: item, usage: getBudgetUsageItem(item.id) }))
+    .filter(({ usage }) => usage?.alertTriggered || usage?.exceeded)
+    .slice(0, 3);
+  const recentNotifications = notificationsPage.slice(0, 3);
+  const recentTransactions = [...transactionItems]
+    .sort((a, b) => new Date(b.transactionTime || 0).getTime() - new Date(a.transactionTime || 0).getTime())
+    .slice(0, 3);
+  const highPriorityRules = allRules.filter((item) => Number(item.priority || 0) >= 8);
+  const exceededBudgetItems = alertBudgets.filter(({ usage }) => usage?.exceeded);
+  const unreadTodoNotifications = notificationsPage.filter((item) => Number(item.readStatus) !== 1);
+  const latestImportRecord = importHistory[0] || (latestImport ? { id: latestImport.importBatchId, result: latestImport, createdAt: latestImport.importedAt } : null);
+  const latestImportStatus = latestImportRecord?.result?.importStatus || latestImport?.importStatus || "";
+  const latestImportQuality = latestImportRecord ? getImportQualityConclusion(latestImportRecord.result) : null;
+  const worldBankPoints = worldBankTrend.points?.length || 0;
+  const fredPoints = fredSeries.points?.length || 0;
+  const analysisIssues = [
+    ...(latestSummary && worldBankPoints === 0 ? [{
+      tone: "danger",
+      label: "分析异常",
+      text: "世行趋势结果为空",
+      meta: "World Bank 未返回可展示趋势点，请检查导入数据或国家参数。",
+      count: "分析",
+      action: "dashboard-open-analysis-anomalies"
+    }] : []),
+    ...(latestSummary && fredPoints === 0 ? [{
+      tone: "warning",
+      label: "分析降级",
+      text: `FRED 序列 ${fredSeries?.seriesId || "PCE"} 当前无数据点`,
+      meta: "属于已处理的软降级状态，但建议在答辩前补抓或说明。",
+      count: "分析",
+      action: "dashboard-open-analysis-anomalies"
+    }] : []),
+    ...(!latestSummary ? [{
+      tone: "warning",
+      label: "分析待刷新",
+      text: "分析汇总尚未执行",
+      meta: "首页指标仍未接入最新真实数据结果。",
+      count: "分析",
+      action: "dashboard-open-analysis-anomalies"
+    }] : [])
+  ];
+  const importIssues = [
+    ...(latestImportRecord && isImportFailed(latestImportStatus) ? [{
+      tone: "danger",
+      label: "导入失败",
+      text: `批次 ${formatNumber(latestImportRecord.result?.importBatchId, 0)} 状态异常`,
+      meta: `${latestImportStatus || "状态未知"} / ${formatDateTime(latestImportRecord.createdAt)}`,
+      count: "导入",
+      action: "dashboard-open-import-issues"
+    }] : []),
+    ...(latestImportRecord && !isImportFailed(latestImportStatus) && !isImportSuccessful(latestImportStatus) ? [{
+      tone: "warning",
+      label: "导入待确认",
+      text: `最近批次状态为 ${latestImportStatus || "未知"}`,
+      meta: "建议进入导入中心查看详细回执和各表导入量。",
+      count: "导入",
+      action: "dashboard-open-import-issues"
+    }] : []),
+    ...(latestImportRecord && Number(latestImportRecord.result?.fredImported || 0) === 0 ? [{
+      tone: "warning",
+      label: "导入降级",
+      text: "FRED 本次导入为 0",
+      meta: "当前系统可继续运行，但宏观序列展示会处于软降级状态。",
+      count: "导入",
+      action: "dashboard-open-import-issues"
+    }] : [])
+  ];
+  const todoItems = [
+    ...importIssues,
+    ...analysisIssues,
+    ...(exceededBudgetItems.map(({ budget, usage }) => ({
+      tone: "danger",
+      label: "预算超支",
+      text: budget.budgetName,
+      meta: `已用 ${formatNumber(usage?.usedAmount)} / 预算 ${formatNumber(budget.budgetAmount)}`,
+      count: "业务",
+      action: "dashboard-open-exceeded-budgets"
+    }))),
+    ...(unreadTodoNotifications.slice(0, 2).map((item) => ({
+      tone: "warning",
+      label: "未读通知",
+      text: item.title,
+      meta: `${formatDateTime(item.createdAt)} / ${item.sourceType || "来源未标记"}`,
+      count: "通知",
+      action: "dashboard-open-unread-notifications"
+    }))),
+    ...(highPriorityRules.slice(0, 2).map((item) => ({
+      tone: "info",
+      label: "高优先级规则",
+      text: item.ruleName,
+      meta: `${item.ruleType || "类型未标记"} / 优先级 ${formatNumber(item.priority, 0)}`,
+      count: "规则",
+      action: "dashboard-open-high-priority-rules"
+    })))
+  ]
+    .sort((a, b) => ({ danger: 3, warning: 2, info: 1 }[b.tone] - ({ danger: 3, warning: 2, info: 1 }[a.tone])))
+    .slice(0, 5);
+  const todoSummary = buildTodoSummary(todoItems);
+  const totalTodoCount = importIssues.length + analysisIssues.length + exceededBudgetItems.length + unreadTodoNotifications.length + highPriorityRules.length;
+  const hiddenTodoCount = Math.max(totalTodoCount - todoItems.length, 0);
+  renderSidebarStatusPanel();
+
+  host.innerHTML = `
+    <div class="result-overview dashboard-overview">
+      <button class="result-card dashboard-card-action ${latestImportQuality?.tone || ""}" type="button" data-action="dashboard-open-import-issues">
+        <div class="result-card-label">导入中心</div>
+        <div class="result-card-value">${latestImport ? formatNumber(latestImport.importBatchId, 0) : "-"}</div>
+        <div class="result-card-meta">${escapeHtml(latestImportQuality?.label || importReady)}</div>
+      </button>
+      <button class="result-card dashboard-card-action ${latestSummary ? "" : "warning"}" type="button" data-action="dashboard-open-analysis-anomalies">
+        <div class="result-card-label">真实分析</div>
+        <div class="result-card-value">${formatNumber(retailOverview.totalRecords, 0)}</div>
+        <div class="result-card-meta">零售记录 / 世行点数 ${formatNumber(worldBankTrend.points?.length || 0, 0)}</div>
+      </button>
+      <button class="result-card dashboard-card-action ${budgetAlerts > 0 ? "warning" : ""}" type="button" data-action="dashboard-open-exceeded-budgets">
+        <div class="result-card-label">业务状态</div>
+        <div class="result-card-value">${formatNumber(accounts.length + budgets.length + categories.length, 0)}</div>
+        <div class="result-card-meta">账户+分类+预算总量 / 预算预警 ${formatNumber(budgetAlerts, 0)}</div>
+      </button>
+      <button class="result-card dashboard-card-action ${unreadNotifications > 0 ? "warning" : ""}" type="button" data-action="dashboard-open-rule-notifications">
+        <div class="result-card-label">规则通知</div>
+        <div class="result-card-value">${formatNumber(enabledRules, 0)}</div>
+        <div class="result-card-meta">启用规则 / 当前页未读通知 ${formatNumber(unreadNotifications, 0)}</div>
+      </button>
+    </div>
+    <div class="toolbar-grid dashboard-grid">
+      <div class="toolbar-card">
+        <div class="toolbar-title">导入与分析</div>
+        <div>最近导入状态：${escapeHtml(latestImport?.importStatus || "未执行")}</div>
+        <div>导入质量：${escapeHtml(latestImportQuality?.label || "待确认")}</div>
+        <div>FRED 点数：${formatNumber(fredSeries.points?.length || 0, 0)}</div>
+        <div class="action-row">
+          <button class="mini-btn" type="button" data-view="imports">打开导入中心</button>
+          <button class="mini-btn" type="button" data-view="analysis">留在分析面板</button>
+        </div>
+      </div>
+      <div class="toolbar-card">
+        <div class="toolbar-title">业务与风控</div>
+        <div>共享账户：${formatNumber(accounts.filter((item) => Number(item.isShared) === 1).length, 0)}</div>
+        <div>预算异常：${formatNumber(budgetAlerts, 0)}</div>
+        <div class="action-row">
+          <button class="mini-btn" type="button" data-view="business">打开业务管理</button>
+          <button class="mini-btn" type="button" data-view="rules">打开规则通知</button>
+        </div>
+      </div>
+    </div>
+    <div class="dashboard-detail-grid">
+      <div class="summary-item">
+        <strong>最近导入记录</strong>
+        <div>
+          ${recentImports.length > 0 ? recentImports.map((item) => `
+            <div class="focus-line">
+              <span>${escapeHtml(item.params.processedDir)}</span>
+              <span>${formatDateTime(item.createdAt)}</span>
+            </div>
+          `).join("") : "暂无导入历史"}
+        </div>
+      </div>
+      <div class="summary-item">
+        <strong>异常预算</strong>
+        <div>
+          ${alertBudgets.length > 0 ? alertBudgets.map(({ budget, usage }) => `
+            <div class="focus-line">
+              <span>${escapeHtml(budget.budgetName)}</span>
+              <span>${usage?.exceeded ? "超支" : "预警"}</span>
+            </div>
+          `).join("") : "当前没有预算异常项"}
+        </div>
+      </div>
+      <div class="summary-item">
+        <strong>最近通知</strong>
+        <div>
+          ${recentNotifications.length > 0 ? recentNotifications.map((item) => `
+            <div class="focus-line">
+              <span>${escapeHtml(item.title)}</span>
+              <span>${Number(item.readStatus) === 1 ? "已读" : "未读"}</span>
+            </div>
+          `).join("") : "当前没有通知数据"}
+        </div>
+      </div>
+      <div class="summary-item">
+        <strong>最近交易</strong>
+        <div>
+          ${recentTransactions.length > 0 ? recentTransactions.map((item) => `
+            <div class="focus-line">
+              <span>${escapeHtml(item.merchantName || item.counterpartyName || `交易#${item.id}`)}</span>
+              <span>${formatNumber(item.amount)}</span>
+            </div>
+          `).join("") : "当前没有交易数据"}
+        </div>
+      </div>
+    </div>
+    <div class="summary-item">
+      <strong>首页快捷操作</strong>
+      <div class="action-row dashboard-actions">
+        <button class="mini-btn" type="button" data-action="dashboard-refresh-summary">刷新分析汇总</button>
+        <button class="mini-btn" type="button" data-action="dashboard-refresh-business">刷新业务数据</button>
+        <button class="mini-btn" type="button" data-action="dashboard-evaluate-rules">执行规则评估</button>
+        <button class="mini-btn" type="button" data-action="dashboard-run-acceptance">一键验收</button>
+      </div>
+    </div>
+    <div class="summary-item">
+      <strong>优先处理事项</strong>
+      <div class="todo-summary-strip">
+        ${todoSummary.map((item) => `
+          <div class="todo-summary-pill ${item.tone}">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+          </div>
+        `).join("")}
+      </div>
+      <div class="todo-list">
+        ${todoItems.length > 0 ? todoItems.map((item) => `
+          <button class="todo-item ${item.tone}" type="button" data-action="${item.action}">
+            <span class="todo-item-main">
+              <span class="todo-item-header">
+                <span class="todo-item-label">${escapeHtml(item.label)}</span>
+                <span class="todo-item-count">${escapeHtml(item.count)}</span>
+              </span>
+              <span class="todo-item-text">${escapeHtml(item.text)}</span>
+              <span class="todo-item-meta">${escapeHtml(item.meta)}</span>
+            </span>
+            <span class="todo-item-arrow">前往处理</span>
+          </button>
+        `).join("") : '<div class="todo-empty">当前没有需要优先处理的事项</div>'}
+      </div>
+      <div class="todo-footer">
+        <span>${hiddenTodoCount > 0 ? `当前仅展示前 ${formatNumber(todoItems.length, 0)} 项，另有 ${formatNumber(hiddenTodoCount, 0)} 项待处理。` : "当前展示的是全部优先事项。"}</span>
+        <div class="action-row">
+          <button class="mini-btn" type="button" data-action="dashboard-open-import-issues">查看更多导入/分析</button>
+          <button class="mini-btn" type="button" data-action="dashboard-open-rule-notifications">查看更多规则通知</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function updateAccountsStats(items) {
@@ -2333,6 +3248,7 @@ async function loadBusinessOverview() {
     renderBusinessLists();
     renderTransactions(transactionItems);
     renderTransactionMonthlySummary(transactionMonthlySummary);
+    renderBusinessOverviewPanel();
     setBusinessStatus(`业务模块加载完成：账户 ${formatNumber(accounts.length, 0)}，分类 ${formatNumber(categories.length, 0)}，预算 ${formatNumber(budgets.length, 0)}，交易 ${formatNumber(transactionTotalElements, 0)}。`);
   } catch (error) {
     setBusinessStatus(`业务模块加载失败：${error.message}`, true);
@@ -2701,19 +3617,29 @@ function updateNotificationsStats(items) {
 
 function renderNotifications(items) {
   const host = byId("notificationsList");
+  selectedNotificationIds = syncSelectionToVisible(selectedNotificationIds, items);
   const pageSize = Number(byId("notificationPageSize")?.value || 8);
   if (!items || items.length === 0) {
     updateNotificationsStats([]);
     renderEmptyBoard("notificationsList", token ? "当前筛选条件下暂无通知" : "请先登录并选择家庭");
     renderNotificationDetail(null);
     renderPager("notificationsPager", notificationsPageIndex, notificationsTotalPages, notificationsTotalElements, pageSize, "notifications");
+    renderRulesOverviewPanel();
     return;
   }
   host.classList.remove("empty-board");
   updateNotificationsStats(items);
+  const allSelected = items.length > 0 && items.every((item) => selectedNotificationIds.includes(Number(item.id)));
   host.innerHTML = `
+    ${renderNotificationsBatchToolbar(selectedNotificationIds.length, items.length)}
+    ${renderResultOverview([
+      { label: "未读通知", value: formatNumber(items.filter((item) => Number(item.readStatus) !== 1).length, 0), meta: `当前页 ${formatNumber(items.length, 0)} 条`, tone: items.some((item) => Number(item.readStatus) !== 1) ? "warning" : "" },
+      { label: "规则来源", value: formatNumber(items.filter((item) => includesKeyword(item.sourceType, "RULE")).length, 0), meta: "便于追踪规则评估产出" },
+      { label: "高等级通知", value: formatNumber(items.filter((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL")).length, 0), meta: "建议优先处理高等级消息", tone: items.some((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL")) ? "danger" : "" }
+    ])}
     <div class="data-table">
       <div class="data-table-header notifications-table-header">
+        <div><input type="checkbox" data-action="notification-toggle-all" ${allSelected ? "checked" : ""}></div>
         <div>标题</div>
         <div>等级</div>
         <div>来源类型</div>
@@ -2723,6 +3649,9 @@ function renderNotifications(items) {
       <div class="data-table-body">
         ${items.map((item) => `
           <div class="data-table-row notifications-table-row ${item.id === selectedNotificationId ? "is-active" : ""}" data-action="select-notification" data-notification-id="${item.id}">
+            <div class="data-cell data-cell-checkbox">
+              <input type="checkbox" data-action="toggle-notification-select" data-notification-id="${item.id}" ${selectedNotificationIds.includes(Number(item.id)) ? "checked" : ""}>
+            </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">标题</span>
               <span class="data-cell-value">${escapeHtml(item.title)}</span>
@@ -2754,6 +3683,7 @@ function renderNotifications(items) {
   selectedNotificationId = selected?.id ?? null;
   renderNotificationDetail(selected || null);
   renderPager("notificationsPager", notificationsPageIndex, notificationsTotalPages, notificationsTotalElements, pageSize, "notifications");
+  renderRulesOverviewPanel();
 }
 
 function renderSummary(summary) {
@@ -2771,6 +3701,7 @@ function renderSummary(summary) {
   renderFred(fredSeries);
   renderConclusions(summary?.conclusions || []);
   renderRaw(summary);
+  renderExecutiveDashboard();
 }
 
 function resetSummary() {
@@ -2783,6 +3714,7 @@ function resetSummary() {
   renderFred(null);
   renderConclusions([]);
   renderRaw({ message: "waiting" });
+  renderExecutiveDashboard();
 }
 
 function applyImportPreset(batchSize, truncate) {
@@ -2811,33 +3743,51 @@ function updateViewMeta(view) {
     analysis: {
       eyebrow: "数据治理与分析后台",
       title: "真实数据分析总控台",
-      breadcrumb: "后台首页 / 真实数据分析"
+      breadcrumb: "后台首页 / 真实数据分析",
+      workspaceTag: "分析工作区",
+      focus: "真实数据汇总、趋势判断、自动结论输出",
+      hint: "先执行导入，再刷新分析汇总与首页总控台"
     },
     imports: {
       eyebrow: "Import Center",
       title: "导入管理中心",
-      breadcrumb: "后台首页 / 导入管理"
+      breadcrumb: "后台首页 / 导入管理",
+      workspaceTag: "导入工作区",
+      focus: "导入批次、数据质量、异常定位与回执复核",
+      hint: "优先查看最近批次质量结论，再决定是否重导"
     },
     business: {
       eyebrow: "Business Modules",
       title: "业务管理工作台",
-      breadcrumb: "后台首页 / 业务管理"
+      breadcrumb: "后台首页 / 业务管理",
+      workspaceTag: "业务工作区",
+      focus: "账户、分类、预算、交易的日常运营与数据维护",
+      hint: "从共享账户、预算异常和最近交易切入排查"
     },
     rules: {
       eyebrow: "Rules And Notifications",
       title: "规则与通知工作台",
-      breadcrumb: "后台首页 / 规则与通知"
+      breadcrumb: "后台首页 / 规则与通知",
+      workspaceTag: "规则工作区",
+      focus: "规则启停、优先级复核、通知运营与来源追踪",
+      hint: "优先查看未读通知与高优先级规则"
     },
     acceptance: {
       eyebrow: "Acceptance",
       title: "系统联通验收",
-      breadcrumb: "后台首页 / 系统验收"
+      breadcrumb: "后台首页 / 系统验收",
+      workspaceTag: "验收工作区",
+      focus: "联通检查、接口回执、端到端结果确认",
+      hint: "执行一键验收后核对导入、分析、业务与规则状态"
     }
   };
   const meta = metas[view] || metas.analysis;
   byId("pageEyebrow").textContent = meta.eyebrow;
   byId("pageTitle").textContent = meta.title;
   byId("pageBreadcrumb").textContent = meta.breadcrumb;
+  byId("pageWorkspaceTag").textContent = meta.workspaceTag;
+  byId("pageFocus").textContent = meta.focus;
+  byId("pageHint").textContent = meta.hint;
 }
 
 function switchView(view) {
@@ -2982,6 +3932,7 @@ async function loadRules() {
     setRulesStatus("加载规则中...");
     allRules = await api(`/api/rules${buildQuery({ familyId })}`);
     filteredRules = getFilteredRules(allRules);
+    selectedRuleIds = syncSelectionToVisible(selectedRuleIds, filteredRules);
     if (selectedRuleId && !filteredRules.some((item) => item.id === selectedRuleId)) {
       selectedRuleId = null;
     }
@@ -3002,6 +3953,19 @@ async function toggleRule(ruleId, enabled) {
   } catch (error) {
     setRulesStatus(`切换规则失败：${error.message}`, true);
   }
+}
+
+async function batchToggleRules(enabled) {
+  if (selectedRuleIds.length === 0) {
+    return;
+  }
+  const action = enabled ? "enable" : "disable";
+  for (const id of selectedRuleIds) {
+    await api(`/api/rules/${id}/${action}`, { method: "POST" });
+  }
+  setRulesStatus(`规则批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedRuleIds.length, 0)} 条。`);
+  selectedRuleIds = [];
+  await loadRules();
 }
 
 async function evaluateRules() {
@@ -3058,6 +4022,7 @@ async function loadNotifications(page = notificationsPageIndex) {
       }
     }
     notificationsPage = page.items || [];
+    selectedNotificationIds = syncSelectionToVisible(selectedNotificationIds, notificationsPage);
     notificationsPageIndex = page.page || 0;
     notificationsTotalPages = page.totalPages || 0;
     notificationsTotalElements = page.totalElements || notificationsPage.length;
@@ -3090,6 +4055,30 @@ async function deleteNotification(notificationId) {
   } catch (error) {
     setRulesStatus(`删除通知失败：${error.message}`, true);
   }
+}
+
+async function batchMarkNotificationsRead() {
+  if (selectedNotificationIds.length === 0) {
+    return;
+  }
+  for (const id of selectedNotificationIds) {
+    await api(`/api/notifications/${id}/read`, { method: "POST" });
+  }
+  setRulesStatus(`通知批量已读完成，共处理 ${formatNumber(selectedNotificationIds.length, 0)} 条。`);
+  selectedNotificationIds = [];
+  await loadNotifications();
+}
+
+async function batchDeleteNotifications() {
+  if (selectedNotificationIds.length === 0 || !window.confirm(`确认删除已选中的 ${selectedNotificationIds.length} 条通知吗？`)) {
+    return;
+  }
+  for (const id of selectedNotificationIds) {
+    await api(`/api/notifications/${id}`, { method: "DELETE" });
+  }
+  setRulesStatus(`通知批量删除完成，共处理 ${formatNumber(selectedNotificationIds.length, 0)} 条。`);
+  selectedNotificationIds = [];
+  await reloadNotificationsAfterMutation();
 }
 
 async function markAllNotificationsRead() {
@@ -3142,6 +4131,9 @@ async function reloadNotificationsAfterMutation() {
 }
 
 function handleDocumentClick(event) {
+  if (globalCommandMenuOpen && !event.target.closest(".command-panel")) {
+    closeGlobalCommandMenu();
+  }
   const actionNode = event.target.closest("[data-action], [data-view]");
   if (!actionNode) {
     return;
@@ -3187,6 +4179,114 @@ function handleDocumentClick(event) {
       }
       break;
     }
+    case "dashboard-refresh-summary":
+      loadSummary();
+      break;
+    case "analysis-open-country-list":
+      focusAnalysisArea("countries");
+      break;
+    case "analysis-open-dashboard":
+      focusAnalysisArea("dashboard");
+      break;
+    case "analysis-open-world-bank":
+      focusAnalysisArea("worldBank");
+      break;
+    case "analysis-open-fred":
+      focusAnalysisArea("fred");
+      break;
+    case "dashboard-refresh-business":
+      loadBusinessOverview();
+      break;
+    case "dashboard-evaluate-rules":
+      evaluateRules();
+      break;
+    case "dashboard-run-acceptance":
+      runAcceptance();
+      break;
+    case "run-global-command":
+      executeGlobalCommand(actionNode.dataset.command || byId("globalCommandInput")?.value || "");
+      break;
+    case "select-global-command":
+      executeGlobalCommand(actionNode.dataset.command || "");
+      break;
+    case "dashboard-open-exceeded-budgets":
+      switchView("business");
+      byId("budgetEnabledFilter").value = "";
+      byId("budgetPeriodFilter").value = "";
+      byId("budgetSortFilter").value = "amount-desc";
+      applyBudgetQuickFilter("exceeded");
+      break;
+    case "dashboard-open-import-issues":
+      {
+        const importRecord = importHistory[0] || (latestImport ? { id: latestImport.importBatchId, result: latestImport, createdAt: latestImport.importedAt } : null);
+        let targetFilter = "all";
+        if (importRecord) {
+          if (isImportFailed(importRecord.result?.importStatus)) {
+            targetFilter = "abnormal";
+          } else if (Number(importRecord.result?.fredImported || 0) === 0) {
+            targetFilter = "degraded";
+          }
+        }
+        focusImportHistory(targetFilter);
+        if (importRecord?.id) {
+          selectedImportHistoryId = importRecord.id;
+        }
+        renderImportHistory();
+        renderImportHistoryDetail();
+      }
+      break;
+    case "dashboard-open-analysis-anomalies":
+      switchView("analysis");
+      if (latestSummary) {
+        renderRaw(latestSummary);
+      }
+      break;
+    case "dashboard-open-unread-notifications":
+      focusRulesNotifications("unread");
+      break;
+    case "dashboard-open-rule-notifications":
+      focusRulesNotifications("rule");
+      break;
+    case "dashboard-open-high-priority-rules":
+      focusRulesNotifications("high-priority-rules");
+      break;
+    case "rules-open-all":
+      byId("ruleEnabledFilter").value = "all";
+      byId("ruleTypeFilter").value = "";
+      applyRuleQuickFilter("all");
+      break;
+    case "rules-open-enabled":
+      byId("ruleEnabledFilter").value = "1";
+      byId("ruleTypeFilter").value = "";
+      applyRuleQuickFilter("all");
+      break;
+    case "rules-open-high-priority":
+      focusRulesNotifications("high-priority-rules");
+      break;
+    case "notifications-open-all":
+      focusRulesNotifications("all");
+      break;
+    case "notifications-open-unread":
+      focusRulesNotifications("unread");
+      break;
+    case "notifications-open-rule-source":
+      focusRulesNotifications("rule");
+      break;
+    case "business-open-balance-overview":
+      focusBusinessArea("overview");
+      break;
+    case "business-open-shared-accounts":
+      focusBusinessArea("shared-accounts");
+      break;
+    case "business-open-enabled-budgets":
+      focusBusinessArea("enabled-budgets");
+      break;
+    case "business-open-alert-budgets":
+      focusBusinessArea("alert-budgets");
+      break;
+    case "business-open-recent-transactions":
+      focusBusinessArea("recent-transactions");
+      break;
     case "close-business-form":
       closeBusinessForm();
       break;
@@ -3197,6 +4297,34 @@ function handleDocumentClick(event) {
       renderRuleDetail(item);
       break;
     }
+    case "toggle-rule-select":
+      event.stopPropagation();
+      selectedRuleIds = toggleSelection(selectedRuleIds, actionNode.dataset.ruleId, event.target.checked);
+      renderRules(filteredRules);
+      break;
+    case "rule-toggle-all":
+      event.stopPropagation();
+      selectedRuleIds = event.target.checked ? filteredRules.map((item) => Number(item.id)) : [];
+      renderRules(filteredRules);
+      break;
+    case "rule-select-all":
+      event.stopPropagation();
+      selectedRuleIds = filteredRules.map((item) => Number(item.id));
+      renderRules(filteredRules);
+      break;
+    case "rule-clear-selection":
+      event.stopPropagation();
+      selectedRuleIds = [];
+      renderRules(filteredRules);
+      break;
+    case "rule-batch-enable":
+      event.stopPropagation();
+      batchToggleRules(true);
+      break;
+    case "rule-batch-disable":
+      event.stopPropagation();
+      batchToggleRules(false);
+      break;
     case "select-account": {
       selectedAccountId = Number(actionNode.dataset.accountId);
       const item = accounts.find((account) => account.id === selectedAccountId) || null;
@@ -3439,6 +4567,34 @@ function handleDocumentClick(event) {
       renderNotificationDetail(item);
       break;
     }
+    case "toggle-notification-select":
+      event.stopPropagation();
+      selectedNotificationIds = toggleSelection(selectedNotificationIds, actionNode.dataset.notificationId, event.target.checked);
+      renderNotifications(notificationsPage);
+      break;
+    case "notification-toggle-all":
+      event.stopPropagation();
+      selectedNotificationIds = event.target.checked ? notificationsPage.map((item) => Number(item.id)) : [];
+      renderNotifications(notificationsPage);
+      break;
+    case "notification-select-all":
+      event.stopPropagation();
+      selectedNotificationIds = notificationsPage.map((item) => Number(item.id));
+      renderNotifications(notificationsPage);
+      break;
+    case "notification-clear-selection":
+      event.stopPropagation();
+      selectedNotificationIds = [];
+      renderNotifications(notificationsPage);
+      break;
+    case "notification-batch-read":
+      event.stopPropagation();
+      batchMarkNotificationsRead();
+      break;
+    case "notification-batch-delete":
+      event.stopPropagation();
+      batchDeleteNotifications();
+      break;
     case "mark-notification-read":
       event.stopPropagation();
       markNotificationRead(Number(actionNode.dataset.notificationId));
@@ -3467,6 +4623,27 @@ function handleDocumentClick(event) {
 
 function bindEvents() {
   byId("loginBtn").addEventListener("click", handleLogin);
+  byId("runGlobalCommandBtn").addEventListener("click", () => {
+    executeGlobalCommand(byId("globalCommandInput").value || "analysis-summary");
+  });
+  byId("globalCommandInput").addEventListener("input", () => {
+    renderGlobalCommandOptions(byId("globalCommandInput").value || "");
+  });
+  byId("globalCommandInput").addEventListener("focus", () => {
+    renderGlobalCommandOptions(byId("globalCommandInput").value || "");
+  });
+  byId("globalCommandMenu").addEventListener("mousemove", (event) => {
+    const option = event.target.closest("[data-command-index]");
+    if (!option) {
+      return;
+    }
+    updateGlobalCommandActiveOption(Number(option.dataset.commandIndex));
+  });
+  byId("globalCommandInput").addEventListener("blur", () => {
+    setTimeout(() => {
+      closeGlobalCommandMenu();
+    }, 120);
+  });
   byId("importBtn").addEventListener("click", performImport);
   byId("importBtnMirror").addEventListener("click", performImport);
   byId("summaryBtn").addEventListener("click", loadSummary);
@@ -3474,6 +4651,11 @@ function bindEvents() {
   byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
   byId("syncAnalysisParamsBtn").addEventListener("click", syncImportParamsToAnalysis);
   byId("clearImportHistoryBtn").addEventListener("click", loadImportHistory);
+  byId("importHistorySort").addEventListener("change", () => {
+    importHistorySort = byId("importHistorySort").value || "created-desc";
+    renderImportHistory();
+    renderImportHistoryDetail();
+  });
   byId("loadBusinessBtn").addEventListener("click", loadBusinessOverview);
   byId("loadTransactionsBtn").addEventListener("click", loadTransactions);
   byId("createAccountBtn").addEventListener("click", createAccount);
@@ -3516,6 +4698,12 @@ function bindEvents() {
     filteredRules = getFilteredRules(allRules);
     renderRules(filteredRules);
   });
+  byId("ruleQuickAllBtn").addEventListener("click", () => applyRuleQuickFilter("all"));
+  byId("ruleQuickHighBtn").addEventListener("click", () => applyRuleQuickFilter("high"));
+  byId("importHistoryQuickAllBtn").addEventListener("click", () => applyImportHistoryQuickFilter("all"));
+  byId("importHistoryQuickAbnormalBtn").addEventListener("click", () => applyImportHistoryQuickFilter("abnormal"));
+  byId("importHistoryQuickDegradedBtn").addEventListener("click", () => applyImportHistoryQuickFilter("degraded"));
+  byId("importHistoryQuickSuccessBtn").addEventListener("click", () => applyImportHistoryQuickFilter("success"));
   byId("notificationReadFilter").addEventListener("change", () => {
     notificationsPageIndex = 0;
     loadNotifications(0);
@@ -3579,6 +4767,40 @@ function bindEvents() {
   byId("budgetQuickExceededBtn").addEventListener("click", () => applyBudgetQuickFilter("exceeded"));
   byId("budgetQuickMonthlyBtn").addEventListener("click", () => applyBudgetQuickFilter("monthly"));
   document.addEventListener("keydown", (event) => {
+    if (event.key === "/" && event.target?.tagName !== "INPUT" && event.target?.tagName !== "TEXTAREA" && event.target?.tagName !== "SELECT") {
+      event.preventDefault();
+      byId("globalCommandInput").focus();
+      byId("globalCommandInput").select();
+      return;
+    }
+    if (event.target?.id === "globalCommandInput" && event.key === "ArrowDown") {
+      event.preventDefault();
+      if (!globalCommandMenuOpen) {
+        renderGlobalCommandOptions(byId("globalCommandInput").value || "");
+      } else {
+        updateGlobalCommandActiveOption(activeGlobalCommandIndex + 1);
+      }
+      return;
+    }
+    if (event.target?.id === "globalCommandInput" && event.key === "ArrowUp") {
+      event.preventDefault();
+      updateGlobalCommandActiveOption(activeGlobalCommandIndex - 1);
+      return;
+    }
+    if (event.target?.id === "globalCommandInput" && event.key === "Enter") {
+      event.preventDefault();
+      if (globalCommandMenuOpen && activeGlobalCommandIndex >= 0 && filteredGlobalCommands[activeGlobalCommandIndex]) {
+        executeGlobalCommand(filteredGlobalCommands[activeGlobalCommandIndex].key);
+      } else {
+        executeGlobalCommand(byId("globalCommandInput").value || "analysis-summary");
+      }
+      return;
+    }
+    if (event.target?.id === "globalCommandInput" && event.key === "Escape") {
+      event.preventDefault();
+      closeGlobalCommandMenu();
+      return;
+    }
     if (event.key !== "Enter") {
       return;
     }
@@ -3597,6 +4819,7 @@ function bindEvents() {
 
 async function init() {
   restoreSession();
+  renderGlobalCommandOptions("");
   resetSummary();
   renderLatestImport(null);
   renderImportHistory();
@@ -3606,8 +4829,10 @@ async function init() {
   renderBudgets([]);
   renderTransactions([]);
   renderTransactionMonthlySummary([]);
+  renderBusinessOverviewPanel();
   renderRules([]);
   renderNotifications([]);
+  renderSidebarStatusPanel();
   switchView(activeView);
   bindEvents();
   await loadImportHistory();
