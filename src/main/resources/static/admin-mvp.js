@@ -23,6 +23,7 @@ let selectedAccountId = null;
 let selectedCategoryId = null;
 let selectedBudgetId = null;
 let selectedTransactionId = null;
+let businessFormType = null;
 let activeView = "analysis";
 
 function byId(id) {
@@ -441,23 +442,6 @@ function renderDescriptionPairs(items) {
   `).join("");
 }
 
-function promptRequired(label, defaultValue = "") {
-  const value = window.prompt(label, defaultValue);
-  if (value === null) {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function promptOptional(label, defaultValue = "") {
-  const value = window.prompt(label, defaultValue);
-  if (value === null) {
-    return null;
-  }
-  return value.trim();
-}
-
 function formatLocalDateTimeForApi(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -473,6 +457,180 @@ function formatLocalDateForApi(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function parseNullableNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  return Number(value);
+}
+
+function openBusinessForm(type) {
+  businessFormType = type;
+  renderBusinessForm(type);
+  byId("businessFormModal").hidden = false;
+}
+
+function closeBusinessForm() {
+  businessFormType = null;
+  byId("businessForm").reset();
+  byId("businessFormFields").innerHTML = "";
+  byId("businessFormModal").hidden = true;
+}
+
+function renderBusinessFormField(field) {
+  const isSelect = field.type === "select";
+  const isTextarea = field.type === "textarea";
+  const className = `field-group${field.full ? " is-full" : ""}`;
+
+  if (isSelect) {
+    return `
+      <label class="${className}">
+        <span>${escapeHtml(field.label)}</span>
+        <select class="field-input" name="${escapeHtml(field.name)}" ${field.required ? "required" : ""}>
+          ${(field.options || []).map((option) => `
+            <option value="${escapeHtml(option.value)}" ${String(option.value) === String(field.value ?? "") ? "selected" : ""}>${escapeHtml(option.label)}</option>
+          `).join("")}
+        </select>
+      </label>
+    `;
+  }
+
+  if (isTextarea) {
+    return `
+      <label class="${className}">
+        <span>${escapeHtml(field.label)}</span>
+        <textarea class="field-input" name="${escapeHtml(field.name)}" rows="4" ${field.required ? "required" : ""}>${escapeHtml(field.value ?? "")}</textarea>
+      </label>
+    `;
+  }
+
+  return `
+    <label class="${className}">
+      <span>${escapeHtml(field.label)}</span>
+      <input
+        class="field-input"
+        name="${escapeHtml(field.name)}"
+        type="${escapeHtml(field.type || "text")}"
+        value="${escapeHtml(field.value ?? "")}"
+        ${field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : ""}
+        ${field.required ? "required" : ""}
+        ${field.step ? `step="${escapeHtml(field.step)}"` : ""}
+      >
+    </label>
+  `;
+}
+
+function getBusinessFormConfig(type) {
+  const familyId = getCurrentFamilyId();
+  const selectedCategory = categories.find((item) => item.id === selectedCategoryId);
+  const selectedAccount = accounts.find((item) => item.id === selectedAccountId);
+  const commonTypes = {
+    account: {
+      title: "新增账户",
+      subtitle: "Account Create",
+      submitText: "创建账户",
+      fields: [
+        { label: "家庭 ID", name: "familyId", type: "number", value: familyId ?? "", required: true },
+        { label: "账户名称", name: "accountName", value: "招商银行储蓄卡", required: true },
+        { label: "账户类型", name: "accountType", type: "select", value: "DEBIT", required: true, options: [
+          { value: "DEBIT", label: "借记卡" },
+          { value: "CREDIT", label: "信用卡" },
+          { value: "CASH", label: "现金" },
+          { value: "ALIPAY", label: "支付宝" },
+          { value: "WECHAT", label: "微信" }
+        ] },
+        { label: "机构名称", name: "institutionName", value: "招商银行" },
+        { label: "当前余额", name: "currentBalance", type: "number", value: "0", step: "0.01" },
+        { label: "信用额度", name: "creditLimit", type: "number", value: "", step: "0.01" },
+        { label: "账单日", name: "billingDay", type: "number", value: "" },
+        { label: "还款日", name: "repaymentDay", type: "number", value: "" },
+        { label: "是否共享", name: "isShared", type: "select", value: "0", options: [
+          { value: "0", label: "否" },
+          { value: "1", label: "是" }
+        ] },
+        { label: "备注", name: "remark", full: true, value: "" }
+      ]
+    },
+    category: {
+      title: "新增分类",
+      subtitle: "Category Create",
+      submitText: "创建分类",
+      fields: [
+        { label: "家庭 ID", name: "familyId", type: "number", value: familyId ?? "", required: true },
+        { label: "分类名称", name: "categoryName", value: "餐饮", required: true },
+        { label: "分类类型", name: "categoryType", type: "select", value: selectedCategory?.categoryType || "EXPENSE", required: true, options: [
+          { value: "EXPENSE", label: "支出" },
+          { value: "INCOME", label: "收入" }
+        ] },
+        { label: "作用域", name: "scopeType", type: "select", value: "FAMILY", options: [
+          { value: "FAMILY", label: "家庭" },
+          { value: "PERSONAL", label: "个人" }
+        ] },
+        { label: "父分类 ID", name: "parentId", type: "number", value: "" },
+        { label: "图标代码", name: "iconCode", value: "" },
+        { label: "排序", name: "sortOrder", type: "number", value: "0" }
+      ]
+    },
+    budget: {
+      title: "新增预算",
+      subtitle: "Budget Create",
+      submitText: "创建预算",
+      fields: [
+        { label: "家庭 ID", name: "familyId", type: "number", value: familyId ?? "", required: true },
+        { label: "预算名称", name: "budgetName", value: "餐饮月预算", required: true },
+        { label: "分类 ID", name: "categoryId", type: "number", value: selectedCategoryId ?? "", required: true },
+        { label: "周期类型", name: "periodType", type: "select", value: "MONTHLY", required: true, options: [
+          { value: "MONTHLY", label: "月度" },
+          { value: "WEEKLY", label: "周度" },
+          { value: "YEARLY", label: "年度" }
+        ] },
+        { label: "预算金额", name: "amount", type: "number", value: "2000", step: "0.01", required: true },
+        { label: "预警比例", name: "alertRatio", type: "number", value: "0.8", step: "0.01" },
+        { label: "开始日期", name: "startDate", type: "date", value: formatLocalDateForApi(), required: true },
+        { label: "结束日期", name: "endDate", type: "date", value: "" },
+        { label: "备注", name: "remark", full: true, value: "" }
+      ]
+    },
+    transaction: {
+      title: "新增交易",
+      subtitle: "Transaction Create",
+      submitText: "创建交易",
+      fields: [
+        { label: "家庭 ID", name: "familyId", type: "number", value: familyId ?? "", required: true },
+        { label: "账户 ID", name: "accountId", type: "number", value: selectedAccount?.id ?? "", required: true },
+        { label: "分类 ID", name: "categoryId", type: "number", value: selectedCategoryId ?? "" },
+        { label: "交易类型", name: "transactionType", type: "select", value: "EXPENSE", required: true, options: [
+          { value: "EXPENSE", label: "支出" },
+          { value: "INCOME", label: "收入" },
+          { value: "TRANSFER", label: "转账" }
+        ] },
+        { label: "交易金额", name: "amount", type: "number", value: "100", step: "0.01", required: true },
+        { label: "交易时间", name: "transactionTime", type: "datetime-local", value: formatLocalDateTimeForApi().slice(0, 16), required: true },
+        { label: "商户名称", name: "merchantName", value: "线下消费" },
+        { label: "来源平台", name: "sourcePlatform", value: "" },
+        { label: "备注", name: "note", full: true, value: "" }
+      ]
+    }
+  };
+  return commonTypes[type];
+}
+
+function renderBusinessForm(type) {
+  const config = getBusinessFormConfig(type);
+  if (!config) {
+    return;
+  }
+  byId("businessFormTitle").textContent = config.title;
+  byId("businessFormSubtitle").textContent = config.subtitle;
+  byId("businessFormSubmitBtn").textContent = config.submitText;
+  byId("businessFormFields").innerHTML = config.fields.map(renderBusinessFormField).join("");
+}
+
+function getBusinessFormData() {
+  const formData = new FormData(byId("businessForm"));
+  return Object.fromEntries(formData.entries());
 }
 
 function renderRuleDetail(item) {
@@ -1194,38 +1352,11 @@ async function loadBusinessOverview() {
 }
 
 async function createAccount() {
-  const familyId = getCurrentFamilyId();
-  if (!token || !familyId) {
+  if (!token || !getCurrentFamilyId()) {
     setBusinessStatus("新增账户前请先登录并选择家庭。", true);
     return;
   }
-  const accountName = promptRequired("请输入账户名称", "招商银行储蓄卡");
-  if (!accountName) {
-    return;
-  }
-  const accountType = promptRequired("请输入账户类型", "DEBIT");
-  if (!accountType) {
-    return;
-  }
-  const institutionName = promptOptional("请输入机构名称", "招商银行");
-  const currentBalance = promptOptional("请输入当前余额", "0");
-  try {
-    await api("/api/accounts", {
-      method: "POST",
-      body: {
-        familyId,
-        accountName,
-        accountType,
-        institutionName: institutionName || null,
-        currentBalance: currentBalance || null,
-        isShared: 0
-      }
-    });
-    setBusinessStatus("账户新增成功。");
-    await loadBusinessOverview();
-  } catch (error) {
-    setBusinessStatus(`账户新增失败：${error.message}`, true);
-  }
+  openBusinessForm("account");
 }
 
 async function toggleAccount(accountId, status) {
@@ -1253,36 +1384,11 @@ async function deleteAccount(accountId) {
 }
 
 async function createCategory() {
-  const familyId = getCurrentFamilyId();
-  if (!token || !familyId) {
+  if (!token || !getCurrentFamilyId()) {
     setBusinessStatus("新增分类前请先登录并选择家庭。", true);
     return;
   }
-  const categoryName = promptRequired("请输入分类名称", "餐饮");
-  if (!categoryName) {
-    return;
-  }
-  const categoryType = promptRequired("请输入分类类型", "EXPENSE");
-  if (!categoryType) {
-    return;
-  }
-  const scopeType = promptOptional("请输入作用域", "FAMILY");
-  try {
-    await api("/api/categories", {
-      method: "POST",
-      body: {
-        familyId,
-        categoryName,
-        categoryType,
-        scopeType: scopeType || null,
-        parentId: null
-      }
-    });
-    setBusinessStatus("分类新增成功。");
-    await loadBusinessOverview();
-  } catch (error) {
-    setBusinessStatus(`分类新增失败：${error.message}`, true);
-  }
+  openBusinessForm("category");
 }
 
 async function toggleCategory(categoryId, enabled) {
@@ -1310,51 +1416,11 @@ async function deleteCategory(categoryId) {
 }
 
 async function createBudget() {
-  const familyId = getCurrentFamilyId();
-  if (!token || !familyId) {
+  if (!token || !getCurrentFamilyId()) {
     setBusinessStatus("新增预算前请先登录并选择家庭。", true);
     return;
   }
-  const budgetName = promptRequired("请输入预算名称", "餐饮月预算");
-  if (!budgetName) {
-    return;
-  }
-  const amount = promptRequired("请输入预算金额", "2000");
-  if (!amount) {
-    return;
-  }
-  const categoryId = promptRequired("请输入分类 ID", selectedCategoryId ? String(selectedCategoryId) : "");
-  if (!categoryId) {
-    return;
-  }
-  const periodType = promptRequired("请输入周期类型", "MONTHLY");
-  if (!periodType) {
-    return;
-  }
-  const alertRatio = promptOptional("请输入预警比例", "0.8");
-  const startDate = promptRequired("请输入开始日期", formatLocalDateForApi());
-  if (!startDate) {
-    return;
-  }
-  try {
-    await api("/api/budgets", {
-      method: "POST",
-      body: {
-        familyId,
-        categoryId: Number(categoryId),
-        budgetName,
-        periodType,
-        amount,
-        alertRatio: alertRatio || null,
-        startDate,
-        endDate: null
-      }
-    });
-    setBusinessStatus("预算新增成功。");
-    await loadBusinessOverview();
-  } catch (error) {
-    setBusinessStatus(`预算新增失败：${error.message}`, true);
-  }
+  openBusinessForm("budget");
 }
 
 async function toggleBudget(budgetId, enabled) {
@@ -1382,43 +1448,11 @@ async function deleteBudget(budgetId) {
 }
 
 async function createTransaction() {
-  const familyId = getCurrentFamilyId();
-  if (!token || !familyId) {
+  if (!token || !getCurrentFamilyId()) {
     setBusinessStatus("新增交易前请先登录并选择家庭。", true);
     return;
   }
-  const accountId = promptRequired("请输入账户 ID", selectedAccountId ? String(selectedAccountId) : "");
-  if (!accountId) {
-    return;
-  }
-  const transactionType = promptRequired("请输入交易类型", "EXPENSE");
-  if (!transactionType) {
-    return;
-  }
-  const amount = promptRequired("请输入交易金额", "100");
-  if (!amount) {
-    return;
-  }
-  const categoryId = promptOptional("请输入分类 ID", selectedCategoryId ? String(selectedCategoryId) : "");
-  const merchantName = promptOptional("请输入商户名称", "线下消费");
-  try {
-    await api("/api/transaction-records", {
-      method: "POST",
-      body: {
-        familyId,
-        accountId: Number(accountId),
-        categoryId: categoryId ? Number(categoryId) : null,
-        transactionType,
-        amount,
-        transactionTime: formatLocalDateTimeForApi(),
-        merchantName: merchantName || null
-      }
-    });
-    setBusinessStatus("交易新增成功。");
-    await loadBusinessOverview();
-  } catch (error) {
-    setBusinessStatus(`交易新增失败：${error.message}`, true);
-  }
+  openBusinessForm("transaction");
 }
 
 async function deleteTransaction(recordId) {
@@ -1431,6 +1465,91 @@ async function deleteTransaction(recordId) {
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`交易记录删除失败：${error.message}`, true);
+  }
+}
+
+async function submitBusinessForm(event) {
+  event.preventDefault();
+  if (!businessFormType) {
+    return;
+  }
+  const form = getBusinessFormData();
+  try {
+    if (businessFormType === "account") {
+      await api("/api/accounts", {
+        method: "POST",
+        body: {
+          familyId: Number(form.familyId),
+          accountName: form.accountName,
+          accountType: form.accountType,
+          institutionName: form.institutionName || null,
+          currentBalance: form.currentBalance || null,
+          creditLimit: form.creditLimit || null,
+          billingDay: parseNullableNumber(form.billingDay),
+          repaymentDay: parseNullableNumber(form.repaymentDay),
+          isShared: parseNullableNumber(form.isShared) ?? 0,
+          remark: form.remark || null
+        }
+      });
+      setBusinessStatus("账户新增成功。");
+    }
+
+    if (businessFormType === "category") {
+      await api("/api/categories", {
+        method: "POST",
+        body: {
+          familyId: Number(form.familyId),
+          categoryName: form.categoryName,
+          categoryType: form.categoryType,
+          scopeType: form.scopeType || null,
+          parentId: parseNullableNumber(form.parentId),
+          iconCode: form.iconCode || null,
+          sortOrder: parseNullableNumber(form.sortOrder)
+        }
+      });
+      setBusinessStatus("分类新增成功。");
+    }
+
+    if (businessFormType === "budget") {
+      await api("/api/budgets", {
+        method: "POST",
+        body: {
+          familyId: Number(form.familyId),
+          categoryId: Number(form.categoryId),
+          budgetName: form.budgetName,
+          periodType: form.periodType,
+          amount: form.amount,
+          alertRatio: form.alertRatio || null,
+          startDate: form.startDate,
+          endDate: form.endDate || null,
+          remark: form.remark || null
+        }
+      });
+      setBusinessStatus("预算新增成功。");
+    }
+
+    if (businessFormType === "transaction") {
+      await api("/api/transaction-records", {
+        method: "POST",
+        body: {
+          familyId: Number(form.familyId),
+          accountId: Number(form.accountId),
+          categoryId: parseNullableNumber(form.categoryId),
+          transactionType: form.transactionType,
+          amount: form.amount,
+          transactionTime: `${form.transactionTime}:00`,
+          merchantName: form.merchantName || null,
+          sourcePlatform: form.sourcePlatform || null,
+          note: form.note || null
+        }
+      });
+      setBusinessStatus("交易新增成功。");
+    }
+
+    closeBusinessForm();
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`表单提交失败：${error.message}`, true);
   }
 }
 
@@ -1895,6 +2014,9 @@ function handleDocumentClick(event) {
       }
       break;
     }
+    case "close-business-form":
+      closeBusinessForm();
+      break;
     case "select-rule": {
       selectedRuleId = Number(actionNode.dataset.ruleId);
       const item = filteredRules.find((rule) => rule.id === selectedRuleId) || null;
@@ -2009,6 +2131,9 @@ function bindEvents() {
   byId("createCategoryBtn").addEventListener("click", createCategory);
   byId("createBudgetBtn").addEventListener("click", createBudget);
   byId("createTransactionBtn").addEventListener("click", createTransaction);
+  byId("businessForm").addEventListener("submit", submitBusinessForm);
+  byId("businessFormCloseBtn").addEventListener("click", closeBusinessForm);
+  byId("businessFormCancelBtn").addEventListener("click", closeBusinessForm);
   byId("loadRulesBtn").addEventListener("click", loadRules);
   byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
   byId("loadNotificationsBtn").addEventListener("click", loadNotifications);

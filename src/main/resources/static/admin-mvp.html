@@ -624,6 +624,25 @@
       </section>
     </main>
   </div>
+  <div id="businessFormModal" class="modal-shell" hidden>
+    <div class="modal-mask" data-action="close-business-form"></div>
+    <section class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <p id="businessFormSubtitle" class="panel-eyebrow">Business Form</p>
+          <h2 id="businessFormTitle">新增业务数据</h2>
+        </div>
+        <button id="businessFormCloseBtn" class="ghost-btn" type="button">关闭</button>
+      </div>
+      <form id="businessForm" class="stack-form">
+        <div id="businessFormFields" class="business-form-grid"></div>
+        <div class="action-row">
+          <button id="businessFormCancelBtn" class="ghost-btn" type="button">取消</button>
+          <button id="businessFormSubmitBtn" class="primary-btn" type="submit">提交</button>
+        </div>
+      </form>
+    </section>
+  </div>
   <script src="/admin-mvp.js"></script>
 </body>
 </html>
