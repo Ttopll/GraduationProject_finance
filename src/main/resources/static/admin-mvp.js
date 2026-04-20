@@ -1,4 +1,4 @@
-const STORAGE_TOKEN_KEY = "finance_admin_token";
+﻿const STORAGE_TOKEN_KEY = "finance_admin_token";
 const STORAGE_SESSION_KEY = "finance_admin_session";
 
 let token = "";
@@ -19,12 +19,17 @@ let budgetUsage = [];
 let transactionItems = [];
 let transactionMonthlySummary = [];
 let transactionTotalElements = 0;
+let transactionPageIndex = 0;
+let transactionTotalPages = 0;
+let notificationsTotalElements = 0;
 let selectedAccountId = null;
 let selectedCategoryId = null;
 let selectedBudgetId = null;
 let selectedTransactionId = null;
 let businessFormType = null;
 let businessFormMode = "create";
+let notificationsPageIndex = 0;
+let notificationsTotalPages = 0;
 let activeView = "analysis";
 
 function byId(id) {
@@ -128,6 +133,11 @@ function clearSession() {
   transactionItems = [];
   transactionMonthlySummary = [];
   transactionTotalElements = 0;
+  transactionPageIndex = 0;
+  transactionTotalPages = 0;
+  notificationsTotalElements = 0;
+  notificationsPageIndex = 0;
+  notificationsTotalPages = 0;
   selectedRuleId = null;
   selectedNotificationId = null;
   selectedAccountId = null;
@@ -232,6 +242,31 @@ function renderEmptyBoard(id, message) {
   const host = byId(id);
   host.classList.add("empty-board");
   host.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+function renderPager(containerId, pageIndex, totalPages, totalElements, pageSize, prefix) {
+  const host = byId(containerId);
+  if (!host) {
+    return;
+  }
+  const safeTotalPages = Math.max(Number(totalPages) || 0, 0);
+  const safePageIndex = Math.max(Math.min(Number(pageIndex) || 0, Math.max(safeTotalPages - 1, 0)), 0);
+  const safeTotalElements = Math.max(Number(totalElements) || 0, 0);
+  const safePageSize = Math.max(Number(pageSize) || 1, 1);
+  const from = safeTotalElements === 0 ? 0 : safePageIndex * safePageSize + 1;
+  const to = safeTotalElements === 0 ? 0 : Math.min((safePageIndex + 1) * safePageSize, safeTotalElements);
+
+  host.innerHTML = `
+    <div class="pager-info">
+      共 ${formatNumber(safeTotalElements, 0)} 条，第 ${formatNumber(safePageIndex + 1, 0)} / ${formatNumber(Math.max(safeTotalPages, 1), 0)} 页，当前显示 ${formatNumber(from, 0)}-${formatNumber(to, 0)}
+    </div>
+    <div class="pager-actions">
+      <button class="mini-btn" type="button" data-action="${prefix}-prev-page" ${safePageIndex <= 0 ? "disabled" : ""}>上一页</button>
+      <button class="mini-btn" type="button" data-action="${prefix}-next-page" ${safeTotalPages === 0 || safePageIndex >= safeTotalPages - 1 ? "disabled" : ""}>下一页</button>
+      <input id="${prefix}PageInput" class="pager-input" type="number" min="1" max="${Math.max(safeTotalPages, 1)}" value="${safePageIndex + 1}">
+      <button class="mini-btn" type="button" data-action="${prefix}-jump-page">跳转</button>
+    </div>
+  `;
 }
 
 function renderCountryList(items) {
@@ -1574,11 +1609,13 @@ function renderTransactionDetail(item) {
 
 function renderTransactions(items) {
   const host = byId("transactionList");
+  const pageSize = Number(byId("transactionPageSize")?.value || 8);
   if (!items || items.length === 0) {
     updateTransactionsStats([]);
     renderEmptyBoard("transactionList", token ? "当前筛选条件下暂无交易数据" : "请先登录并选择家庭");
     renderTransactionDetail(null);
     renderBusinessMetrics();
+    renderPager("transactionsPager", transactionPageIndex, transactionTotalPages, transactionTotalElements, pageSize, "transactions");
     return;
   }
   host.classList.remove("empty-board");
@@ -1620,17 +1657,24 @@ function renderTransactions(items) {
   selectedTransactionId = selected?.id ?? null;
   renderTransactionDetail(selected || null);
   renderBusinessMetrics();
+  renderPager("transactionsPager", transactionPageIndex, transactionTotalPages, transactionTotalElements, pageSize, "transactions");
 }
 
-async function loadTransactions() {
+async function loadTransactions(page = transactionPageIndex) {
   const familyId = getCurrentFamilyId();
   if (!token) {
+    transactionPageIndex = 0;
+    transactionTotalPages = 0;
+    transactionTotalElements = 0;
     renderTransactions([]);
     renderTransactionMonthlySummary([]);
     setBusinessStatus("请先登录后再加载交易模块。", true);
     return;
   }
   if (!familyId) {
+    transactionPageIndex = 0;
+    transactionTotalPages = 0;
+    transactionTotalElements = 0;
     renderTransactions([]);
     renderTransactionMonthlySummary([]);
     setBusinessStatus("请先选择家庭。", true);
@@ -1640,11 +1684,14 @@ async function loadTransactions() {
     setBusinessStatus("加载交易与月报中...");
     const transactionType = byId("transactionTypeFilter").value;
     const size = Number(byId("transactionPageSize").value || 8);
+    const pageToLoad = Math.max(Number(page) || 0, 0);
     const [page, summary] = await Promise.all([
-      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: 0, size })}`),
+      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: pageToLoad, size })}`),
       api(`/api/transaction-records/family/${familyId}/monthly-summary${buildQuery({ months: 6 })}`)
     ]);
     transactionItems = page.items || [];
+    transactionPageIndex = page.page || 0;
+    transactionTotalPages = page.totalPages || 0;
     transactionTotalElements = page.totalElements || transactionItems.length;
     transactionMonthlySummary = summary || [];
     if (selectedTransactionId && !transactionItems.some((item) => item.id === selectedTransactionId)) {
@@ -1663,6 +1710,9 @@ async function loadTransactions() {
 async function loadBusinessOverview() {
   const familyId = getCurrentFamilyId();
   if (!token) {
+    transactionPageIndex = 0;
+    transactionTotalPages = 0;
+    transactionTotalElements = 0;
     renderAccounts([]);
     renderCategories([]);
     renderBudgets([]);
@@ -1672,6 +1722,9 @@ async function loadBusinessOverview() {
     return;
   }
   if (!familyId) {
+    transactionPageIndex = 0;
+    transactionTotalPages = 0;
+    transactionTotalElements = 0;
     renderAccounts([]);
     renderCategories([]);
     renderBudgets([]);
@@ -1689,7 +1742,7 @@ async function loadBusinessOverview() {
       api(`/api/categories${buildQuery({ familyId })}`),
       api(`/api/budgets${buildQuery({ familyId })}`),
       api(`/api/budgets/usage${buildQuery({ familyId })}`),
-      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: 0, size })}`),
+      api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: transactionPageIndex, size })}`),
       api(`/api/transaction-records/family/${familyId}/monthly-summary${buildQuery({ months: 6 })}`)
     ]);
     accounts = accountData || [];
@@ -1697,6 +1750,8 @@ async function loadBusinessOverview() {
     budgets = budgetData || [];
     budgetUsage = budgetUsageData || [];
     transactionItems = transactionPage.items || [];
+    transactionPageIndex = transactionPage.page || 0;
+    transactionTotalPages = transactionPage.totalPages || 0;
     transactionTotalElements = transactionPage.totalElements || transactionItems.length;
     transactionMonthlySummary = summary || [];
     renderAccounts(accounts);
@@ -1988,7 +2043,7 @@ function updateNotificationsStats(items) {
   const read = (items || []).filter((item) => Number(item.readStatus) === 1).length;
   const unread = total - read;
   byId("notificationsStats").innerHTML = `
-    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">总数：${formatNumber(notificationsTotalElements || total, 0)}</div>
     <div class="stats-pill">未读：${formatNumber(unread, 0)}</div>
     <div class="stats-pill">已读：${formatNumber(read, 0)}</div>
   `;
@@ -1996,10 +2051,12 @@ function updateNotificationsStats(items) {
 
 function renderNotifications(items) {
   const host = byId("notificationsList");
+  const pageSize = Number(byId("notificationPageSize")?.value || 8);
   if (!items || items.length === 0) {
     updateNotificationsStats([]);
     renderEmptyBoard("notificationsList", token ? "当前筛选条件下暂无通知" : "请先登录并选择家庭");
     renderNotificationDetail(null);
+    renderPager("notificationsPager", notificationsPageIndex, notificationsTotalPages, notificationsTotalElements, pageSize, "notifications");
     return;
   }
   host.classList.remove("empty-board");
@@ -2046,6 +2103,7 @@ function renderNotifications(items) {
   const selected = items.find((item) => item.id === selectedNotificationId) || items[0];
   selectedNotificationId = selected?.id ?? null;
   renderNotificationDetail(selected || null);
+  renderPager("notificationsPager", notificationsPageIndex, notificationsTotalPages, notificationsTotalElements, pageSize, "notifications");
 }
 
 function renderSummary(summary) {
@@ -2313,14 +2371,20 @@ async function evaluateRules() {
   }
 }
 
-async function loadNotifications() {
+async function loadNotifications(page = notificationsPageIndex) {
   const familyId = getCurrentFamilyId();
   if (!token) {
+    notificationsPageIndex = 0;
+    notificationsTotalPages = 0;
+    notificationsTotalElements = 0;
     renderNotifications([]);
     setRulesStatus("请先登录后再加载通知。", true);
     return;
   }
   if (!familyId) {
+    notificationsPageIndex = 0;
+    notificationsTotalPages = 0;
+    notificationsTotalElements = 0;
     renderNotifications([]);
     setRulesStatus("请先选择家庭。", true);
     return;
@@ -2330,13 +2394,16 @@ async function loadNotifications() {
     targetMemberId: getCurrentMemberId(),
     readStatus: byId("notificationReadFilter").value,
     sourceType: (byId("notificationSourceFilter").value || "").trim().toUpperCase(),
-    page: 0,
+    page: Math.max(Number(page) || 0, 0),
     size: Number(byId("notificationPageSize").value || 8)
   };
   try {
     setRulesStatus("加载通知中...");
     const page = await api(`/api/notifications/search${buildQuery(params)}`);
     notificationsPage = page.items || [];
+    notificationsPageIndex = page.page || 0;
+    notificationsTotalPages = page.totalPages || 0;
+    notificationsTotalElements = page.totalElements || notificationsPage.length;
     if (selectedNotificationId && !notificationsPage.some((item) => item.id === selectedNotificationId)) {
       selectedNotificationId = null;
     }
@@ -2396,6 +2463,15 @@ async function clearReadNotifications() {
   } catch (error) {
     setRulesStatus(`清理已读失败：${error.message}`, true);
   }
+}
+
+function getPagerInputPage(inputId, totalPages, fallbackPageIndex) {
+  const value = Number(byId(inputId)?.value || 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallbackPageIndex;
+  }
+  const maxPage = Math.max(Number(totalPages) || 1, 1);
+  return Math.min(value, maxPage) - 1;
 }
 
 function handleDocumentClick(event) {
@@ -2534,6 +2610,19 @@ function handleDocumentClick(event) {
       event.stopPropagation();
       deleteTransaction(Number(actionNode.dataset.transactionId));
       break;
+    case "transactions-prev-page":
+      if (transactionPageIndex > 0) {
+        loadTransactions(transactionPageIndex - 1);
+      }
+      break;
+    case "transactions-next-page":
+      if (transactionPageIndex + 1 < transactionTotalPages) {
+        loadTransactions(transactionPageIndex + 1);
+      }
+      break;
+    case "transactions-jump-page":
+      loadTransactions(getPagerInputPage("transactionsPageInput", transactionTotalPages, transactionPageIndex));
+      break;
     case "toggle-rule":
       event.stopPropagation();
       toggleRule(Number(actionNode.dataset.ruleId), Number(actionNode.dataset.enabled));
@@ -2552,6 +2641,19 @@ function handleDocumentClick(event) {
     case "delete-notification":
       event.stopPropagation();
       deleteNotification(Number(actionNode.dataset.notificationId));
+      break;
+    case "notifications-prev-page":
+      if (notificationsPageIndex > 0) {
+        loadNotifications(notificationsPageIndex - 1);
+      }
+      break;
+    case "notifications-next-page":
+      if (notificationsPageIndex + 1 < notificationsTotalPages) {
+        loadNotifications(notificationsPageIndex + 1);
+      }
+      break;
+    case "notifications-jump-page":
+      loadNotifications(getPagerInputPage("notificationsPageInput", notificationsTotalPages, notificationsPageIndex));
       break;
     default:
       break;
@@ -2586,6 +2688,8 @@ function bindEvents() {
   byId("familySelect").addEventListener("change", async () => {
     updateMemberOptions();
     if (token) {
+      notificationsPageIndex = 0;
+      transactionPageIndex = 0;
       const jobs = [loadRules(), loadNotifications()];
       if (activeView === "business") {
         jobs.push(loadBusinessOverview());
@@ -2595,7 +2699,8 @@ function bindEvents() {
   });
   byId("memberSelect").addEventListener("change", () => {
     if (token) {
-      loadNotifications();
+      notificationsPageIndex = 0;
+      loadNotifications(0);
     }
   });
   byId("ruleEnabledFilter").addEventListener("change", () => {
@@ -2606,11 +2711,26 @@ function bindEvents() {
     filteredRules = getFilteredRules(allRules);
     renderRules(filteredRules);
   });
-  byId("notificationReadFilter").addEventListener("change", loadNotifications);
-  byId("notificationSourceFilter").addEventListener("input", loadNotifications);
-  byId("notificationPageSize").addEventListener("change", loadNotifications);
-  byId("transactionTypeFilter").addEventListener("change", loadTransactions);
-  byId("transactionPageSize").addEventListener("change", loadTransactions);
+  byId("notificationReadFilter").addEventListener("change", () => {
+    notificationsPageIndex = 0;
+    loadNotifications(0);
+  });
+  byId("notificationSourceFilter").addEventListener("input", () => {
+    notificationsPageIndex = 0;
+    loadNotifications(0);
+  });
+  byId("notificationPageSize").addEventListener("change", () => {
+    notificationsPageIndex = 0;
+    loadNotifications(0);
+  });
+  byId("transactionTypeFilter").addEventListener("change", () => {
+    transactionPageIndex = 0;
+    loadTransactions(0);
+  });
+  byId("transactionPageSize").addEventListener("change", () => {
+    transactionPageIndex = 0;
+    loadTransactions(0);
+  });
   document.addEventListener("click", handleDocumentClick);
 }
 

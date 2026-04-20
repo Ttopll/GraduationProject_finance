@@ -906,6 +906,38 @@ code {
   justify-content: center;
 }
 
+.pager-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.pager-info {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pager-input {
+  width: 84px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+}
+
 .raw-box {
   margin: 0;
   min-height: 280px;
