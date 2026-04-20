@@ -1128,6 +1128,7 @@ function clearSession() {
   renderTransactionMonthlySummary([]);
   renderBusinessOverviewPanel();
   renderSidebarStatusPanel();
+  renderAcceptanceWorkspace();
   setRulesStatus("请先登录后再加载规则与通知。", true);
   setBusinessStatus("请先登录后再加载业务模块。", true);
 }
@@ -1371,6 +1372,85 @@ function renderRaw(payload) {
   byId("rawPayload").textContent = JSON.stringify(payload, null, 2);
 }
 
+function renderAnalysisStateBoard(state = "idle", summary = latestSummary, errorMessage = "") {
+  const host = byId("analysisStateBoard");
+  if (!host) {
+    return;
+  }
+  if (state === "loading") {
+    host.innerHTML = `
+      <div class="summary-item warning">
+        <strong>分析汇总加载中</strong>
+        <div>正在请求真实数据分析汇总，稍后会同步更新国家趋势、FRED 状态、自动结论和原始回执。</div>
+      </div>
+    `;
+    return;
+  }
+  if (state === "error") {
+    host.innerHTML = `
+      <div class="summary-item danger">
+        <strong>分析汇总加载失败</strong>
+        <div>${escapeHtml(errorMessage || "当前未拿到分析结果，请检查接口状态和参数。")}</div>
+      </div>
+    `;
+    return;
+  }
+  if (!summary) {
+    host.innerHTML = `
+      <div class="summary-item">
+        <strong>尚未生成分析汇总</strong>
+        <div>当前分析页还没有真实结果，建议先完成导入，再执行分析汇总。</div>
+      </div>
+    `;
+    return;
+  }
+  const retailOverview = summary?.retailOverview || {};
+  const worldBankTrend = summary?.worldBankTrend || {};
+  const fredSeries = summary?.fredSeries || {};
+  const worldBankPoints = worldBankTrend.points?.length || 0;
+  const fredPoints = fredSeries.points?.length || 0;
+  const conclusions = summary?.conclusions || [];
+  const cards = [
+    {
+      label: "零售数据",
+      tone: Number(retailOverview.totalRecords || 0) > 0 ? "success" : "warning",
+      meta: `记录 ${formatNumber(retailOverview.totalRecords, 0)} 条 / 金额 ${formatNumber(retailOverview.totalAmount)}`
+    },
+    {
+      label: "国家趋势",
+      tone: worldBankPoints > 0 ? "success" : "danger",
+      meta: worldBankPoints > 0 ? `${escapeHtml(worldBankTrend.countryIso3 || "-")} 共 ${formatNumber(worldBankPoints, 0)} 个趋势点` : "世行趋势为空，当前无法支撑国家趋势结论"
+    },
+    {
+      label: "宏观序列",
+      tone: fredPoints > 0 ? "success" : "warning",
+      meta: fredPoints > 0 ? `${escapeHtml(fredSeries.seriesId || "-")} 共 ${formatNumber(fredPoints, 0)} 个点` : "FRED 当前无点数，属于软降级展示"
+    },
+    {
+      label: "自动结论",
+      tone: conclusions.length > 0 ? "success" : "warning",
+      meta: conclusions.length > 0 ? `已生成 ${formatNumber(conclusions.length, 0)} 条结论，可直接用于汇报说明` : "当前没有自动结论输出"
+    }
+  ];
+  host.innerHTML = `
+    <div class="analysis-state-grid">
+      ${cards.map((item) => `
+        <div class="analysis-state-item ${item.tone}">
+          <div class="analysis-state-title">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span class="status-chip ${item.tone === "danger" ? "danger" : (item.tone === "warning" ? "warning" : "success")}">${item.tone === "danger" ? "异常" : (item.tone === "warning" ? "待确认" : "完成")}</span>
+          </div>
+          <div class="analysis-state-meta">${escapeHtml(item.meta)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="summary-item">
+      <strong>分析完成说明</strong>
+      <div>自动结论来自当前汇总结果；原始回执区域用于解释这些结论对应的零售、世行和 FRED 原始结构。</div>
+    </div>
+  `;
+}
+
 function updateImportHistoryStats(items) {
   const total = items?.length || 0;
   const successful = (items || []).filter((item) => getImportHistoryTone(item) === "success").length;
@@ -1447,6 +1527,7 @@ function renderImportHistory() {
   const items = getSortedImportHistory(getFilteredImportHistory(importHistory));
   if (items.length === 0) {
     renderEmptyBoard("importHistoryList", importHistory.length > 0 ? "当前筛选条件下暂无导入记录" : "暂无导入历史");
+    renderAcceptanceWorkspace();
     return;
   }
   if (selectedImportHistoryId && !items.some((item) => item.id === selectedImportHistoryId)) {
@@ -1471,6 +1552,7 @@ function renderImportHistory() {
       </div>
     </div>
   `).join("");
+  renderAcceptanceWorkspace();
 }
 
 function renderImportHistoryDetail() {
@@ -2673,6 +2755,120 @@ function renderExecutiveDashboard() {
       </div>
     </div>
   `;
+  renderAcceptanceWorkspace();
+}
+
+function renderAcceptanceWorkspace() {
+  const readinessHost = byId("acceptanceReadinessBoard");
+  const stepsHost = byId("acceptanceNextStepsBoard");
+  const snapshotHost = byId("acceptanceSnapshotBoard");
+  const statusHost = byId("acceptanceStatus");
+  if (!readinessHost || !stepsHost || !snapshotHost || !statusHost) {
+    return;
+  }
+  const latestImportRecord = importHistory[0] || (latestImport ? { result: latestImport, createdAt: latestImport.importedAt } : null);
+  const latestImportStatus = latestImportRecord?.result?.importStatus || latestImport?.importStatus || "";
+  const importQuality = latestImportRecord ? getImportQualityConclusion(latestImportRecord.result) : null;
+  const hasBusinessData = accounts.length > 0 || categories.length > 0 || budgets.length > 0 || transactionTotalElements > 0;
+  const hasRulesData = allRules.length > 0;
+  const hasNotificationsData = notificationsPage.length > 0;
+  const checkpoints = [
+    {
+      label: "登录与上下文",
+      ready: Boolean(token && getCurrentFamilyId()),
+      danger: false,
+      meta: token ? (getCurrentFamilyId() ? "已接通登录态和家庭上下文" : "已登录，但尚未选择家庭") : "尚未登录，无法联调业务和规则模块"
+    },
+    {
+      label: "真实数据导入",
+      ready: Boolean(latestImportRecord && !isImportFailed(latestImportStatus)),
+      danger: Boolean(latestImportRecord && isImportFailed(latestImportStatus)),
+      meta: latestImportRecord ? `${importQuality?.label || "待确认"} / ${latestImportStatus || "状态未知"}` : "尚未执行导入"
+    },
+    {
+      label: "分析汇总",
+      ready: Boolean(latestSummary),
+      danger: Boolean(latestSummary && ((latestSummary.worldBankTrend?.points?.length || 0) === 0)),
+      meta: latestSummary ? `零售 ${formatNumber(latestSummary.retailOverview?.totalRecords, 0)} 条 / 世行 ${formatNumber(latestSummary.worldBankTrend?.points?.length || 0, 0)} 点 / FRED ${formatNumber(latestSummary.fredSeries?.points?.length || 0, 0)} 点` : "尚未刷新分析汇总"
+    },
+    {
+      label: "业务模块",
+      ready: hasBusinessData,
+      danger: false,
+      meta: hasBusinessData ? `账户 ${formatNumber(accounts.length, 0)} / 分类 ${formatNumber(categories.length, 0)} / 预算 ${formatNumber(budgets.length, 0)} / 交易 ${formatNumber(transactionTotalElements, 0)}` : "尚未加载业务模块数据"
+    },
+    {
+      label: "规则与通知",
+      ready: hasRulesData || hasNotificationsData,
+      danger: false,
+      meta: `规则 ${formatNumber(allRules.length, 0)} 条 / 当前页通知 ${formatNumber(notificationsPage.length, 0)} 条 / 未读 ${formatNumber(notificationsPage.filter((item) => Number(item.readStatus) !== 1).length, 0)}`
+    },
+    {
+      label: "验收闭环",
+      ready: Boolean(latestImportRecord && latestSummary && hasBusinessData && (hasRulesData || hasNotificationsData)),
+      danger: false,
+      meta: "导入、分析、业务、规则通知四块至少都应有真实返回"
+    }
+  ];
+  const readyCount = checkpoints.filter((item) => item.ready).length;
+  const dangerCount = checkpoints.filter((item) => item.danger).length;
+  statusHost.textContent = dangerCount > 0
+    ? `当前验收存在 ${formatNumber(dangerCount, 0)} 项高风险阻塞，请先处理异常项。`
+    : `当前验收已完成 ${formatNumber(readyCount, 0)}/${formatNumber(checkpoints.length, 0)} 项关键检查。`;
+  readinessHost.innerHTML = `
+    <div class="acceptance-check-grid">
+      ${checkpoints.map((item) => {
+        const tone = item.danger ? "danger" : (item.ready ? "success" : "warning");
+        const stateText = item.danger ? "异常" : (item.ready ? "就绪" : "待完成");
+        return `
+          <div class="acceptance-check-item ${tone}">
+            <div class="acceptance-check-head">
+              <strong>${escapeHtml(item.label)}</strong>
+              <span class="status-chip ${item.danger ? "danger" : (item.ready ? "enabled" : "warning")}">${stateText}</span>
+            </div>
+            <div class="acceptance-check-meta">${escapeHtml(item.meta)}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+  const nextSteps = [
+    ...(!token ? [{ title: "先登录管理员账号", meta: "没有登录态时，业务、规则和通知接口都无法形成完整联调。", action: "analysis-summary" }] : []),
+    ...(token && !getCurrentFamilyId() ? [{ title: "选择家庭上下文", meta: "当前需要先锁定家庭，再加载业务和规则数据。", action: "analysis-summary" }] : []),
+    ...(!latestImportRecord || isImportFailed(latestImportStatus) ? [{ title: "重新执行真实数据导入", meta: "先确保导入结果可用，再做分析和验收。", action: "acceptance-run" }] : []),
+    ...(!latestSummary ? [{ title: "刷新分析汇总", meta: "导入后需要重新拉取零售、世行和 FRED 汇总结果。", action: "analysis-summary" }] : []),
+    ...(!hasBusinessData ? [{ title: "加载业务模块", meta: "确保账户、分类、预算、交易至少有一块已接通。", action: "business-shared" }] : []),
+    ...(!(hasRulesData || hasNotificationsData) ? [{ title: "加载规则与通知", meta: "规则和通知页需要有真实数据才能证明风控链路已打通。", action: "rules-unread" }] : [])
+  ].slice(0, 4);
+  stepsHost.innerHTML = nextSteps.length > 0 ? `
+    <div class="acceptance-step-list">
+      ${nextSteps.map((item) => `
+        <button class="acceptance-step-item" type="button" data-action="run-global-command" data-command="${item.action}">
+          <strong>${escapeHtml(item.title)}</strong>
+          <div>${escapeHtml(item.meta)}</div>
+        </button>
+      `).join("")}
+    </div>
+  ` : '<div class="summary-item">当前关键模块都已具备验收条件，建议执行一键验收并核对脚本报告。</div>';
+  snapshotHost.innerHTML = `
+    <div class="summary-item">
+      <strong>当前快照</strong>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "最近导入批次", value: latestImportRecord?.result?.importBatchId ? formatNumber(latestImportRecord.result.importBatchId, 0) : "-" },
+          { label: "导入状态", value: latestImportStatus || "未执行" },
+          { label: "分析汇总", value: latestSummary ? "已刷新" : "未刷新" },
+          { label: "业务数据", value: hasBusinessData ? "已加载" : "未加载" },
+          { label: "规则数据", value: hasRulesData ? "已加载" : "未加载" },
+          { label: "通知数据", value: hasNotificationsData ? "已加载" : "未加载" }
+        ])}
+      </div>
+    </div>
+    <div class="summary-item">
+      <strong>建议判定</strong>
+      <div>${readyCount === checkpoints.length ? "当前管理员端已具备较完整的联通验收展示条件。" : "当前仍建议按左侧建议动作逐步补齐验收链路。"} </div>
+    </div>
+  `;
 }
 
 function updateAccountsStats(items) {
@@ -3846,10 +4042,12 @@ function renderSummary(summary) {
   renderFred(fredSeries);
   renderConclusions(summary?.conclusions || []);
   renderRaw(summary);
+  renderAnalysisStateBoard("ready", summary);
   renderExecutiveDashboard();
 }
 
 function resetSummary() {
+  latestSummary = null;
   renderMetric("metricTotalRecords", "-");
   renderMetric("metricTotalAmount", "-");
   renderMetric("metricWorldBankPoints", "-");
@@ -3859,6 +4057,7 @@ function resetSummary() {
   renderFred(null);
   renderConclusions([]);
   renderRaw({ message: "waiting" });
+  renderAnalysisStateBoard("idle", null);
   renderExecutiveDashboard();
 }
 
@@ -4037,12 +4236,14 @@ async function loadSummary() {
   const params = getAnalysisParams();
   try {
     setImportStatuses("正在加载分析汇总...");
+    renderAnalysisStateBoard("loading", null);
     const response = await api(`/api/real-data-analysis/defense-summary${buildQuery(params)}`, { auth: false });
     renderSummary(response);
     setImportStatuses("分析汇总已刷新。");
     return response;
   } catch (error) {
     setImportStatuses(`汇总加载失败：${error.message}`, true);
+    renderAnalysisStateBoard("error", null, error.message);
     throw error;
   }
 }

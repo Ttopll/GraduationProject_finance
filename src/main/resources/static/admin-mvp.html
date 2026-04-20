@@ -229,6 +229,18 @@
           </div>
         </section>
 
+        <section class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Analysis State</p>
+              <h2>分析状态总览</h2>
+            </div>
+          </div>
+          <div id="analysisStateBoard" class="summary-board">
+            <div class="summary-item">尚未执行分析汇总，当前无法判断国家趋势、宏观序列和自动结论质量。</div>
+          </div>
+        </section>
+
         <section id="analysisCountryPanel" class="panel panel-chart">
           <div class="panel-head">
             <div>
@@ -881,8 +893,53 @@
               <h2>系统验收</h2>
             </div>
           </div>
+          <div id="acceptanceStatus" class="inline-status">等待执行验收检查</div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Readiness</p>
+              <h2>模块联通就绪度</h2>
+            </div>
+          </div>
+          <div id="acceptanceReadinessBoard" class="summary-board">
+            <div class="summary-item">正在等待登录态、导入结果和模块数据。</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Next Steps</p>
+              <h2>建议验收动作</h2>
+            </div>
+          </div>
+          <div id="acceptanceNextStepsBoard" class="summary-board">
+            <div class="summary-item">建议先登录，再执行导入、分析、业务和规则通知的串联检查。</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Snapshot</p>
+              <h2>当前系统快照</h2>
+            </div>
+          </div>
+          <div id="acceptanceSnapshotBoard" class="summary-board">
+            <div class="summary-item">加载后展示导入、分析、业务、规则通知的当前状态摘要。</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Scripts</p>
+              <h2>脚本与报告入口</h2>
+            </div>
+          </div>
           <div class="summary-board">
-            <div class="summary-item">推荐先登录，再执行“一键验收”，自动完成导入与汇总刷新。</div>
             <div class="summary-item">验收脚本：<code>scripts/run_three_end_mvp_acceptance.ps1</code></div>
             <div class="summary-item">报告脚本：<code>scripts/generate_three_end_mvp_report.ps1</code></div>
             <div class="summary-item">当前管理员端重点已经转向长期可用的后台工作台，不再只做答辩页。</div>

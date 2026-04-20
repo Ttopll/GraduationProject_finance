@@ -853,6 +853,112 @@ span.tag-btn.command-muted {
   font-size: 13px;
 }
 
+.acceptance-check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.acceptance-check-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: #f8fbff;
+}
+
+.acceptance-check-item.success {
+  background: #eff8f1;
+  border-color: #b8e1c0;
+}
+
+.acceptance-check-item.warning {
+  background: #fff7e4;
+  border-color: #f5d27a;
+}
+
+.acceptance-check-item.danger {
+  background: #fff1f1;
+  border-color: #efb0b0;
+}
+
+.acceptance-check-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.acceptance-check-head strong {
+  font-size: 15px;
+}
+
+.acceptance-check-meta {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.acceptance-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.acceptance-step-item {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+  text-align: left;
+}
+
+.acceptance-step-item strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.analysis-state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analysis-state-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: #f8fbff;
+}
+
+.analysis-state-item.warning {
+  background: #fff7e4;
+  border-color: #f5d27a;
+}
+
+.analysis-state-item.danger {
+  background: #fff1f1;
+  border-color: #efb0b0;
+}
+
+.analysis-state-item.success {
+  background: #eff8f1;
+  border-color: #b8e1c0;
+}
+
+.analysis-state-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analysis-state-meta {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
 .toolbar-card {
   padding: 16px;
   border-radius: 16px;
@@ -1960,6 +2066,14 @@ span.tag-btn.command-muted {
   }
 
   .dashboard-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acceptance-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-state-grid {
     grid-template-columns: 1fr;
   }
 
