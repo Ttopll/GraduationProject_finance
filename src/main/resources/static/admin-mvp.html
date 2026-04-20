@@ -348,6 +348,38 @@
             </div>
             <button id="createAccountBtn" class="ghost-btn" type="button">新增账户</button>
           </div>
+          <div class="form-row">
+            <label class="field-group compact-group">
+              <span>状态</span>
+              <select id="accountStatusFilter" class="field-input">
+                <option value="">全部</option>
+                <option value="1">启用</option>
+                <option value="0">停用</option>
+              </select>
+            </label>
+            <label class="field-group compact-group">
+              <span>类型</span>
+              <input id="accountTypeFilter" class="field-input" placeholder="如 DEBIT">
+            </label>
+            <label class="field-group compact-group">
+              <span>排序</span>
+              <select id="accountSortFilter" class="field-input">
+                <option value="name-asc">名称 A-Z</option>
+                <option value="balance-desc">余额从高到低</option>
+                <option value="balance-asc">余额从低到高</option>
+              </select>
+            </label>
+            <div class="filter-action-group">
+              <button id="resetAccountFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
+            </div>
+          </div>
+          <div class="quick-tags">
+            <button id="accountQuickAllBtn" class="tag-btn is-active" type="button">全部账户</button>
+            <button id="accountQuickSharedBtn" class="tag-btn" type="button">共享账户</button>
+            <button id="accountQuickCreditBtn" class="tag-btn" type="button">信用账户</button>
+            <button id="accountQuickEnabledBtn" class="tag-btn" type="button">仅启用</button>
+          </div>
+          <div id="accountFilterSummary" class="filter-summary">当前未启用筛选</div>
           <div id="accountsStats" class="stats-strip">
             <div class="stats-pill">总数：-</div>
             <div class="stats-pill">启用：-</div>
@@ -378,6 +410,38 @@
             </div>
             <button id="createCategoryBtn" class="ghost-btn" type="button">新增分类</button>
           </div>
+          <div class="form-row">
+            <label class="field-group compact-group">
+              <span>状态</span>
+              <select id="categoryEnabledFilter" class="field-input">
+                <option value="">全部</option>
+                <option value="1">启用</option>
+                <option value="0">停用</option>
+              </select>
+            </label>
+            <label class="field-group compact-group">
+              <span>类型</span>
+              <input id="categoryTypeFilter" class="field-input" placeholder="如 EXPENSE">
+            </label>
+            <label class="field-group compact-group">
+              <span>排序</span>
+              <select id="categorySortFilter" class="field-input">
+                <option value="sort-asc">排序值升序</option>
+                <option value="name-asc">名称 A-Z</option>
+                <option value="name-desc">名称 Z-A</option>
+              </select>
+            </label>
+            <div class="filter-action-group">
+              <button id="resetCategoryFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
+            </div>
+          </div>
+          <div class="quick-tags">
+            <button id="categoryQuickAllBtn" class="tag-btn is-active" type="button">全部分类</button>
+            <button id="categoryQuickExpenseBtn" class="tag-btn" type="button">支出分类</button>
+            <button id="categoryQuickIncomeBtn" class="tag-btn" type="button">收入分类</button>
+            <button id="categoryQuickEnabledBtn" class="tag-btn" type="button">仅启用</button>
+          </div>
+          <div id="categoryFilterSummary" class="filter-summary">当前未启用筛选</div>
           <div id="categoriesStats" class="stats-strip">
             <div class="stats-pill">总数：-</div>
             <div class="stats-pill">启用：-</div>
@@ -408,6 +472,38 @@
             </div>
             <button id="createBudgetBtn" class="ghost-btn" type="button">新增预算</button>
           </div>
+          <div class="form-row">
+            <label class="field-group compact-group">
+              <span>状态</span>
+              <select id="budgetEnabledFilter" class="field-input">
+                <option value="">全部</option>
+                <option value="1">启用</option>
+                <option value="0">停用</option>
+              </select>
+            </label>
+            <label class="field-group compact-group">
+              <span>周期</span>
+              <input id="budgetPeriodFilter" class="field-input" placeholder="如 MONTHLY">
+            </label>
+            <label class="field-group compact-group">
+              <span>排序</span>
+              <select id="budgetSortFilter" class="field-input">
+                <option value="amount-desc">金额从高到低</option>
+                <option value="amount-asc">金额从低到高</option>
+                <option value="name-asc">名称 A-Z</option>
+              </select>
+            </label>
+            <div class="filter-action-group">
+              <button id="resetBudgetFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
+            </div>
+          </div>
+          <div class="quick-tags">
+            <button id="budgetQuickAllBtn" class="tag-btn is-active" type="button">全部预算</button>
+            <button id="budgetQuickAlertBtn" class="tag-btn" type="button">预警预算</button>
+            <button id="budgetQuickExceededBtn" class="tag-btn" type="button">超支预算</button>
+            <button id="budgetQuickMonthlyBtn" class="tag-btn" type="button">月度预算</button>
+          </div>
+          <div id="budgetFilterSummary" class="filter-summary">当前未启用筛选</div>
           <div id="budgetsStats" class="stats-strip">
             <div class="stats-pill">总数：-</div>
             <div class="stats-pill">启用：-</div>

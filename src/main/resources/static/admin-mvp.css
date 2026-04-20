@@ -376,6 +376,17 @@ code {
   max-width: 190px;
 }
 
+.filter-action-group {
+  display: flex;
+  align-items: flex-end;
+}
+
+.filter-summary {
+  margin: -2px 0 14px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
 .toggle-field {
   justify-content: flex-end;
 }
@@ -438,6 +449,12 @@ code {
   color: #1d4ed8;
   border: 1px solid #c7dcff;
   padding: 8px 12px;
+}
+
+.tag-btn.is-active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #fff;
+  border-color: #1d4ed8;
 }
 
 .inline-status {
@@ -784,6 +801,16 @@ code {
   background: #fff;
 }
 
+.table-section-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 .data-table-header,
 .data-table-row {
   display: grid;
@@ -802,22 +829,22 @@ code {
 
 .accounts-table-header,
 .accounts-table-row {
-  grid-template-columns: 1.4fr 1fr 1fr 0.9fr;
+  grid-template-columns: 1.3fr 0.8fr 0.85fr 1fr 0.75fr 1.05fr;
 }
 
 .categories-table-header,
 .categories-table-row {
-  grid-template-columns: 1.4fr 1fr 0.9fr 0.8fr;
+  grid-template-columns: 1.2fr 0.8fr 0.75fr 1.1fr 0.75fr 1.05fr;
 }
 
 .budgets-table-header,
 .budgets-table-row {
-  grid-template-columns: 1.4fr 0.9fr 1fr 0.8fr;
+  grid-template-columns: 1.2fr 0.75fr 0.85fr 1.1fr 0.75fr 1.05fr;
 }
 
 .transactions-table-header,
 .transactions-table-row {
-  grid-template-columns: 1.4fr 0.9fr 1fr 0.9fr;
+  grid-template-columns: 1.2fr 0.7fr 0.85fr 0.9fr 1.05fr 1.05fr;
 }
 
 .data-table-header {
@@ -862,13 +889,19 @@ code {
 .data-cell {
   padding: 14px;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-width: 0;
   border-right: 1px solid rgba(215, 225, 236, 0.65);
 }
 
 .data-cell:last-child {
   border-right: 0;
+}
+
+.data-cell:not(.data-cell-actions) {
+  align-items: flex-start;
 }
 
 .data-cell-primary .data-cell-value {
@@ -884,6 +917,7 @@ code {
   min-width: 0;
   color: var(--text-main);
   word-break: break-word;
+  line-height: 1.5;
 }
 
 .data-cell-meta {
@@ -897,13 +931,15 @@ code {
 
 .data-cell-actions {
   justify-content: center;
+  min-width: 0;
 }
 
 .table-action-group {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
+  width: 100%;
 }
 
 .pager-bar {
@@ -1182,7 +1218,11 @@ code {
   }
 
   .rules-table-row,
-  .notifications-table-row {
+  .notifications-table-row,
+  .accounts-table-row,
+  .categories-table-row,
+  .budgets-table-row,
+  .transactions-table-row {
     grid-template-columns: 1fr;
   }
 
