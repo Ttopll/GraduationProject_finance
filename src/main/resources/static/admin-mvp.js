@@ -334,31 +334,74 @@ function renderRuleDetail(item) {
   `;
 }
 
+function updateRulesStats(items) {
+  const total = items?.length || 0;
+  const enabled = (items || []).filter((item) => Number(item.enabled) === 1).length;
+  const disabled = total - enabled;
+  byId("rulesStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(total)}</div>
+    <div class="stats-pill">启用：${formatNumber(enabled)}</div>
+    <div class="stats-pill">停用：${formatNumber(disabled)}</div>
+  `;
+}
+
 function renderRules(items) {
   const host = byId("rulesList");
   if (!items || items.length === 0) {
     host.classList.add("empty-board");
     host.innerHTML = '<div class="empty-state">当前家庭暂无规则</div>';
+    updateRulesStats([]);
     renderRuleDetail(null);
     return;
   }
   host.classList.remove("empty-board");
-  host.innerHTML = items.map((item) => `
-    <div class="table-row ${item.id === selectedRuleId ? "is-active" : ""}" data-action="select-rule" data-rule-id="${item.id}">
-      <div class="table-main">
-        <div class="table-title">${escapeHtml(item.ruleName)}</div>
-        <div class="table-meta">${escapeHtml(item.ruleType)} / ${escapeHtml(item.metricType)} / 优先级 ${formatNumber(item.priority)}</div>
+  updateRulesStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header rules-table-header">
+        <div>规则名称</div>
+        <div>规则类型</div>
+        <div>指标类型</div>
+        <div>优先级</div>
+        <div>状态</div>
+        <div>操作</div>
       </div>
-      <div class="table-side">
-        <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">
-          ${Number(item.enabled) === 1 ? "启用中" : "已停用"}
-        </span>
-        <button class="mini-btn" type="button" data-action="toggle-rule" data-rule-id="${item.id}" data-enabled="${item.enabled}">
-          ${Number(item.enabled) === 1 ? "停用规则" : "启用规则"}
-        </button>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row rules-table-row ${item.id === selectedRuleId ? "is-active" : ""}" data-action="select-rule" data-rule-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">规则名称</span>
+              <span class="data-cell-value">${escapeHtml(item.ruleName)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">规则类型</span>
+              <span class="data-cell-value">${escapeHtml(item.ruleType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">指标类型</span>
+              <span class="data-cell-value">${escapeHtml(item.metricType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">优先级</span>
+              <span class="data-cell-value">${formatNumber(item.priority)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">状态</span>
+              <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">
+                ${Number(item.enabled) === 1 ? "启用中" : "已停用"}
+              </span>
+            </div>
+            <div class="data-cell data-cell-actions">
+              <span class="data-cell-label">操作</span>
+              <button class="mini-btn" type="button" data-action="toggle-rule" data-rule-id="${item.id}" data-enabled="${item.enabled}">
+                ${Number(item.enabled) === 1 ? "停用规则" : "启用规则"}
+              </button>
+            </div>
+          </div>
+        `).join("")}
       </div>
     </div>
-  `).join("");
+  `;
   const selected = items.find((item) => item.id === selectedRuleId) || items[0];
   selectedRuleId = selected?.id ?? null;
   renderRuleDetail(selected || null);
@@ -384,48 +427,73 @@ function renderNotificationDetail(item) {
   `;
 }
 
+function updateNotificationsStats(items) {
+  const total = items?.length || 0;
+  const unread = (items || []).filter((item) => Number(item.readStatus) !== 1).length;
+  const read = total - unread;
+  byId("notificationsStats").innerHTML = `
+    <div class="stats-pill">总数：${formatNumber(total)}</div>
+    <div class="stats-pill">未读：${formatNumber(unread)}</div>
+    <div class="stats-pill">已读：${formatNumber(read)}</div>
+  `;
+}
+
 function renderNotifications(items) {
   const host = byId("notificationsList");
   if (!items || items.length === 0) {
     host.classList.add("empty-board");
     host.innerHTML = '<div class="empty-state">当前家庭暂无通知</div>';
+    updateNotificationsStats([]);
     renderNotificationDetail(null);
     return;
   }
   host.classList.remove("empty-board");
-  host.innerHTML = items.map((item) => `
-    <div class="table-row ${item.id === selectedNotificationId ? "is-active" : ""}" data-action="select-notification" data-notification-id="${item.id}">
-      <div class="table-main">
-        <div class="table-title">${escapeHtml(item.title)}</div>
-        <div class="table-meta">${escapeHtml(item.sourceType)} / ${formatDateTime(item.createdAt)}</div>
+  updateNotificationsStats(items);
+  host.innerHTML = `
+    <div class="data-table">
+      <div class="data-table-header notifications-table-header">
+        <div>标题</div>
+        <div>来源</div>
+        <div>创建时间</div>
+        <div>状态</div>
+        <div>操作</div>
       </div>
-      <div class="table-side">
-        <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">
-          ${Number(item.readStatus) === 1 ? "已读" : "未读"}
-        </span>
-        <div class="item-actions">
-          ${Number(item.readStatus) === 1 ? "" : `<button class="mini-btn" type="button" data-action="read-notification" data-notification-id="${item.id}">标记已读</button>`}
-          <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除</button>
-        </div>
+      <div class="data-table-body">
+        ${items.map((item) => `
+          <div class="data-table-row notifications-table-row ${item.id === selectedNotificationId ? "is-active" : ""}" data-action="select-notification" data-notification-id="${item.id}">
+            <div class="data-cell data-cell-primary">
+              <span class="data-cell-label">标题</span>
+              <span class="data-cell-value">${escapeHtml(item.title)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">来源</span>
+              <span class="data-cell-value">${escapeHtml(item.sourceType)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">创建时间</span>
+              <span class="data-cell-value">${formatDateTime(item.createdAt)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">状态</span>
+              <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">
+                ${Number(item.readStatus) === 1 ? "已读" : "未读"}
+              </span>
+            </div>
+            <div class="data-cell data-cell-actions">
+              <span class="data-cell-label">操作</span>
+              <div class="table-action-group">
+                ${Number(item.readStatus) === 1 ? "" : `<button class="mini-btn" type="button" data-action="read-notification" data-notification-id="${item.id}">标记已读</button>`}
+                <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除</button>
+              </div>
+            </div>
+          </div>
+        `).join("")}
       </div>
     </div>
-  `).join("");
+  `;
   const selected = items.find((item) => item.id === selectedNotificationId) || items[0];
   selectedNotificationId = selected?.id ?? null;
   renderNotificationDetail(selected || null);
-}
-
-function renderSummary(summary) {
-  latestSummary = summary;
-  renderMetric("metricTotalRecords", formatNumber(summary?.retailOverview?.totalRecords ?? "-"));
-  renderMetric("metricTotalAmount", formatNumber(summary?.retailOverview?.totalAmount ?? "-"));
-  renderMetric("metricWorldBankPoints", formatNumber(summary?.worldBankTrend?.points?.length ?? 0));
-  renderMetric("metricFredPoints", formatNumber(summary?.fredSeries?.points?.length ?? 0));
-  renderCountryList(summary?.retailOverview?.topCountries || []);
-  renderWorldBank(summary?.worldBankTrend);
-  renderFred(summary?.fredSeries);
-  renderConclusions(summary?.conclusions || []);
-  renderRaw(summary);
 }
 
 function applyHistoryParams(record) {
@@ -522,6 +590,7 @@ async function loadRules() {
   const familyId = getCurrentFamilyId();
   if (!familyId) {
     setStatus("rulesStatus", "请先登录并选择家庭");
+    updateRulesStats([]);
     return;
   }
   setStatus("rulesStatus", "正在加载规则...");
@@ -532,6 +601,7 @@ async function loadRules() {
     renderRules(filteredRules);
     setStatus("rulesStatus", `规则加载完成，筛选后 ${filteredRules.length} 条 / 原始 ${allRules.length} 条`);
   } catch (error) {
+    updateRulesStats([]);
     setStatus("rulesStatus", `规则加载失败：${error.message}`);
   }
 }
@@ -541,6 +611,7 @@ async function loadNotifications() {
   const memberId = getCurrentMemberId();
   if (!familyId) {
     setStatus("rulesStatus", "请先登录并选择家庭");
+    updateNotificationsStats([]);
     return;
   }
   setStatus("rulesStatus", "正在加载通知...");
@@ -565,6 +636,7 @@ async function loadNotifications() {
     renderNotifications(notificationsPage);
     setStatus("rulesStatus", `通知加载完成，本页 ${notificationsPage.length} 条 / 总计 ${pageResult?.totalElements ?? notificationsPage.length} 条`);
   } catch (error) {
+    updateNotificationsStats([]);
     setStatus("rulesStatus", `通知加载失败：${error.message}`);
   }
 }
@@ -656,7 +728,7 @@ function clearImportHistory() {
   selectedImportHistoryId = null;
   renderImportHistory();
   renderImportHistoryDetail();
-  setImportStatuses("本地展示历史已清空，再次加载将从后端重新读取");
+  setImportStatuses("已触发导入历史刷新，将重新从后端读取");
   loadImportHistory();
 }
 
