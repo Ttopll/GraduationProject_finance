@@ -441,6 +441,40 @@ function renderDescriptionPairs(items) {
   `).join("");
 }
 
+function promptRequired(label, defaultValue = "") {
+  const value = window.prompt(label, defaultValue);
+  if (value === null) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function promptOptional(label, defaultValue = "") {
+  const value = window.prompt(label, defaultValue);
+  if (value === null) {
+    return null;
+  }
+  return value.trim();
+}
+
+function formatLocalDateTimeForApi(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+function formatLocalDateForApi(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function renderRuleDetail(item) {
   const host = byId("ruleDetailPanel");
   if (!item) {
@@ -668,6 +702,11 @@ function renderAccountDetail(item) {
         <div class="detail-section-title">机构与备注</div>
         <div class="detail-section-body">${escapeHtml(item.institutionName || "-")} / ${escapeHtml(item.remark || "-")}</div>
       </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="create-account">新增账户</button>
+        <button class="mini-btn" type="button" data-action="toggle-account" data-account-id="${item.id}" data-status="${item.status}">${Number(item.status) === 1 ? "停用账户" : "启用账户"}</button>
+        <button class="mini-btn danger" type="button" data-action="delete-account" data-account-id="${item.id}">删除账户</button>
+      </div>
     </div>
   `;
 }
@@ -763,6 +802,11 @@ function renderCategoryDetail(item) {
             { label: "启用状态", value: Number(item.enabled) === 1 ? "启用中" : "已停用" }
           ])}
         </div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="create-category">新增分类</button>
+        <button class="mini-btn" type="button" data-action="toggle-category" data-category-id="${item.id}" data-enabled="${item.enabled}">${Number(item.enabled) === 1 ? "停用分类" : "启用分类"}</button>
+        <button class="mini-btn danger" type="button" data-action="delete-category" data-category-id="${item.id}">删除分类</button>
       </div>
     </div>
   `;
@@ -874,6 +918,11 @@ function renderBudgetDetail(item) {
           <div class="business-summary-item"><strong>已支出</strong><div>${formatNumber(usage?.spentAmount)}</div></div>
           <div class="business-summary-item"><strong>剩余额度</strong><div>${formatNumber(usage?.remainingAmount)}</div></div>
         </div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="create-budget">新增预算</button>
+        <button class="mini-btn" type="button" data-action="toggle-budget" data-budget-id="${item.id}" data-enabled="${item.enabled}">${Number(item.enabled) === 1 ? "停用预算" : "启用预算"}</button>
+        <button class="mini-btn danger" type="button" data-action="delete-budget" data-budget-id="${item.id}">删除预算</button>
       </div>
     </div>
   `;
@@ -998,6 +1047,10 @@ function renderTransactionDetail(item) {
       <div class="detail-section">
         <div class="detail-section-title">备注</div>
         <div class="detail-section-body">${escapeHtml(item.note || "-")}</div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="create-transaction">新增交易</button>
+        <button class="mini-btn danger" type="button" data-action="delete-transaction" data-transaction-id="${item.id}">删除交易</button>
       </div>
     </div>
   `;
@@ -1137,6 +1190,247 @@ async function loadBusinessOverview() {
     setBusinessStatus(`业务模块加载完成：账户 ${formatNumber(accounts.length, 0)}，分类 ${formatNumber(categories.length, 0)}，预算 ${formatNumber(budgets.length, 0)}，交易 ${formatNumber(transactionTotalElements, 0)}。`);
   } catch (error) {
     setBusinessStatus(`业务模块加载失败：${error.message}`, true);
+  }
+}
+
+async function createAccount() {
+  const familyId = getCurrentFamilyId();
+  if (!token || !familyId) {
+    setBusinessStatus("新增账户前请先登录并选择家庭。", true);
+    return;
+  }
+  const accountName = promptRequired("请输入账户名称", "招商银行储蓄卡");
+  if (!accountName) {
+    return;
+  }
+  const accountType = promptRequired("请输入账户类型", "DEBIT");
+  if (!accountType) {
+    return;
+  }
+  const institutionName = promptOptional("请输入机构名称", "招商银行");
+  const currentBalance = promptOptional("请输入当前余额", "0");
+  try {
+    await api("/api/accounts", {
+      method: "POST",
+      body: {
+        familyId,
+        accountName,
+        accountType,
+        institutionName: institutionName || null,
+        currentBalance: currentBalance || null,
+        isShared: 0
+      }
+    });
+    setBusinessStatus("账户新增成功。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`账户新增失败：${error.message}`, true);
+  }
+}
+
+async function toggleAccount(accountId, status) {
+  try {
+    const action = Number(status) === 1 ? "disable" : "enable";
+    await api(`/api/accounts/${accountId}/${action}`, { method: "POST" });
+    setBusinessStatus(`${Number(status) === 1 ? "停用" : "启用"}账户成功。`);
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`账户状态更新失败：${error.message}`, true);
+  }
+}
+
+async function deleteAccount(accountId) {
+  if (!window.confirm("确认删除该账户吗？")) {
+    return;
+  }
+  try {
+    await api(`/api/accounts/${accountId}`, { method: "DELETE" });
+    setBusinessStatus("账户已删除。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`账户删除失败：${error.message}`, true);
+  }
+}
+
+async function createCategory() {
+  const familyId = getCurrentFamilyId();
+  if (!token || !familyId) {
+    setBusinessStatus("新增分类前请先登录并选择家庭。", true);
+    return;
+  }
+  const categoryName = promptRequired("请输入分类名称", "餐饮");
+  if (!categoryName) {
+    return;
+  }
+  const categoryType = promptRequired("请输入分类类型", "EXPENSE");
+  if (!categoryType) {
+    return;
+  }
+  const scopeType = promptOptional("请输入作用域", "FAMILY");
+  try {
+    await api("/api/categories", {
+      method: "POST",
+      body: {
+        familyId,
+        categoryName,
+        categoryType,
+        scopeType: scopeType || null,
+        parentId: null
+      }
+    });
+    setBusinessStatus("分类新增成功。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`分类新增失败：${error.message}`, true);
+  }
+}
+
+async function toggleCategory(categoryId, enabled) {
+  try {
+    const action = Number(enabled) === 1 ? "disable" : "enable";
+    await api(`/api/categories/${categoryId}/${action}`, { method: "POST" });
+    setBusinessStatus(`${Number(enabled) === 1 ? "停用" : "启用"}分类成功。`);
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`分类状态更新失败：${error.message}`, true);
+  }
+}
+
+async function deleteCategory(categoryId) {
+  if (!window.confirm("确认删除该分类吗？")) {
+    return;
+  }
+  try {
+    await api(`/api/categories/${categoryId}`, { method: "DELETE" });
+    setBusinessStatus("分类已删除。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`分类删除失败：${error.message}`, true);
+  }
+}
+
+async function createBudget() {
+  const familyId = getCurrentFamilyId();
+  if (!token || !familyId) {
+    setBusinessStatus("新增预算前请先登录并选择家庭。", true);
+    return;
+  }
+  const budgetName = promptRequired("请输入预算名称", "餐饮月预算");
+  if (!budgetName) {
+    return;
+  }
+  const amount = promptRequired("请输入预算金额", "2000");
+  if (!amount) {
+    return;
+  }
+  const categoryId = promptRequired("请输入分类 ID", selectedCategoryId ? String(selectedCategoryId) : "");
+  if (!categoryId) {
+    return;
+  }
+  const periodType = promptRequired("请输入周期类型", "MONTHLY");
+  if (!periodType) {
+    return;
+  }
+  const alertRatio = promptOptional("请输入预警比例", "0.8");
+  const startDate = promptRequired("请输入开始日期", formatLocalDateForApi());
+  if (!startDate) {
+    return;
+  }
+  try {
+    await api("/api/budgets", {
+      method: "POST",
+      body: {
+        familyId,
+        categoryId: Number(categoryId),
+        budgetName,
+        periodType,
+        amount,
+        alertRatio: alertRatio || null,
+        startDate,
+        endDate: null
+      }
+    });
+    setBusinessStatus("预算新增成功。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`预算新增失败：${error.message}`, true);
+  }
+}
+
+async function toggleBudget(budgetId, enabled) {
+  try {
+    const action = Number(enabled) === 1 ? "disable" : "enable";
+    await api(`/api/budgets/${budgetId}/${action}`, { method: "POST" });
+    setBusinessStatus(`${Number(enabled) === 1 ? "停用" : "启用"}预算成功。`);
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`预算状态更新失败：${error.message}`, true);
+  }
+}
+
+async function deleteBudget(budgetId) {
+  if (!window.confirm("确认删除该预算吗？")) {
+    return;
+  }
+  try {
+    await api(`/api/budgets/${budgetId}`, { method: "DELETE" });
+    setBusinessStatus("预算已删除。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`预算删除失败：${error.message}`, true);
+  }
+}
+
+async function createTransaction() {
+  const familyId = getCurrentFamilyId();
+  if (!token || !familyId) {
+    setBusinessStatus("新增交易前请先登录并选择家庭。", true);
+    return;
+  }
+  const accountId = promptRequired("请输入账户 ID", selectedAccountId ? String(selectedAccountId) : "");
+  if (!accountId) {
+    return;
+  }
+  const transactionType = promptRequired("请输入交易类型", "EXPENSE");
+  if (!transactionType) {
+    return;
+  }
+  const amount = promptRequired("请输入交易金额", "100");
+  if (!amount) {
+    return;
+  }
+  const categoryId = promptOptional("请输入分类 ID", selectedCategoryId ? String(selectedCategoryId) : "");
+  const merchantName = promptOptional("请输入商户名称", "线下消费");
+  try {
+    await api("/api/transaction-records", {
+      method: "POST",
+      body: {
+        familyId,
+        accountId: Number(accountId),
+        categoryId: categoryId ? Number(categoryId) : null,
+        transactionType,
+        amount,
+        transactionTime: formatLocalDateTimeForApi(),
+        merchantName: merchantName || null
+      }
+    });
+    setBusinessStatus("交易新增成功。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`交易新增失败：${error.message}`, true);
+  }
+}
+
+async function deleteTransaction(recordId) {
+  if (!window.confirm("确认删除该交易记录吗？")) {
+    return;
+  }
+  try {
+    await api(`/api/transaction-records/${recordId}`, { method: "DELETE" });
+    setBusinessStatus("交易记录已删除。");
+    await loadBusinessOverview();
+  } catch (error) {
+    setBusinessStatus(`交易记录删除失败：${error.message}`, true);
   }
 }
 
@@ -1615,6 +1909,17 @@ function handleDocumentClick(event) {
       renderAccountDetail(item);
       break;
     }
+    case "create-account":
+      createAccount();
+      break;
+    case "toggle-account":
+      event.stopPropagation();
+      toggleAccount(Number(actionNode.dataset.accountId), Number(actionNode.dataset.status));
+      break;
+    case "delete-account":
+      event.stopPropagation();
+      deleteAccount(Number(actionNode.dataset.accountId));
+      break;
     case "select-category": {
       selectedCategoryId = Number(actionNode.dataset.categoryId);
       const item = categories.find((category) => category.id === selectedCategoryId) || null;
@@ -1622,6 +1927,17 @@ function handleDocumentClick(event) {
       renderCategoryDetail(item);
       break;
     }
+    case "create-category":
+      createCategory();
+      break;
+    case "toggle-category":
+      event.stopPropagation();
+      toggleCategory(Number(actionNode.dataset.categoryId), Number(actionNode.dataset.enabled));
+      break;
+    case "delete-category":
+      event.stopPropagation();
+      deleteCategory(Number(actionNode.dataset.categoryId));
+      break;
     case "select-budget": {
       selectedBudgetId = Number(actionNode.dataset.budgetId);
       const item = budgets.find((budget) => budget.id === selectedBudgetId) || null;
@@ -1629,6 +1945,17 @@ function handleDocumentClick(event) {
       renderBudgetDetail(item);
       break;
     }
+    case "create-budget":
+      createBudget();
+      break;
+    case "toggle-budget":
+      event.stopPropagation();
+      toggleBudget(Number(actionNode.dataset.budgetId), Number(actionNode.dataset.enabled));
+      break;
+    case "delete-budget":
+      event.stopPropagation();
+      deleteBudget(Number(actionNode.dataset.budgetId));
+      break;
     case "select-transaction": {
       selectedTransactionId = Number(actionNode.dataset.transactionId);
       const item = transactionItems.find((transaction) => transaction.id === selectedTransactionId) || null;
@@ -1636,6 +1963,13 @@ function handleDocumentClick(event) {
       renderTransactionDetail(item);
       break;
     }
+    case "create-transaction":
+      createTransaction();
+      break;
+    case "delete-transaction":
+      event.stopPropagation();
+      deleteTransaction(Number(actionNode.dataset.transactionId));
+      break;
     case "toggle-rule":
       event.stopPropagation();
       toggleRule(Number(actionNode.dataset.ruleId), Number(actionNode.dataset.enabled));
@@ -1671,6 +2005,10 @@ function bindEvents() {
   byId("clearImportHistoryBtn").addEventListener("click", loadImportHistory);
   byId("loadBusinessBtn").addEventListener("click", loadBusinessOverview);
   byId("loadTransactionsBtn").addEventListener("click", loadTransactions);
+  byId("createAccountBtn").addEventListener("click", createAccount);
+  byId("createCategoryBtn").addEventListener("click", createCategory);
+  byId("createBudgetBtn").addEventListener("click", createBudget);
+  byId("createTransactionBtn").addEventListener("click", createTransaction);
   byId("loadRulesBtn").addEventListener("click", loadRules);
   byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
   byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
