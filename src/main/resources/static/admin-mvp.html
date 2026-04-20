@@ -111,11 +111,15 @@
               <button id="runGlobalCommandBtn" class="primary-btn" type="button">执行</button>
             </div>
             <div id="globalCommandHint" class="command-hint">支持输入中文关键词、命令别名，按 Enter 执行，按 / 快速聚焦。</div>
-            <div class="quick-tags command-tags">
-              <button class="tag-btn" type="button" data-action="run-global-command" data-command="imports-issues">导入异常</button>
-              <button class="tag-btn" type="button" data-action="run-global-command" data-command="business-alert-budgets">预算异常</button>
-              <button class="tag-btn" type="button" data-action="run-global-command" data-command="rules-unread">未读通知</button>
-              <button class="tag-btn" type="button" data-action="run-global-command" data-command="acceptance-run">一键验收</button>
+            <div class="command-deck">
+              <div class="command-tag-block">
+                <div class="command-tag-label">当前工作区推荐</div>
+                <div id="commandContextTags" class="quick-tags command-tags"></div>
+              </div>
+              <div class="command-tag-block">
+                <div class="command-tag-label">最近执行</div>
+                <div id="commandRecentTags" class="quick-tags command-tags"></div>
+              </div>
             </div>
           </label>
           <label class="field-group compact-group">

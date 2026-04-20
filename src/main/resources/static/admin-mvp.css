@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg-page: #edf2f7;
   --bg-sidebar: linear-gradient(180deg, #0b1220 0%, #14233c 100%);
   --bg-panel: rgba(255, 255, 255, 0.96);
@@ -355,6 +355,39 @@ code {
   box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
 }
 
+.command-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-section + .command-section {
+  margin-top: 6px;
+}
+
+.command-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.command-section-header strong {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.command-section-header span {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.command-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .command-option {
   width: 100%;
   border: 0;
@@ -443,6 +476,41 @@ code {
 
 .command-tags {
   margin-top: 10px;
+}
+
+.command-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.command-tag-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.command-tag-label {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.command-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.tag-btn.command-muted {
+  background: #f8fafc;
+  color: var(--text-soft);
+  border-color: #dbe4f0;
+}
+
+span.tag-btn.command-muted {
+  cursor: default;
 }
 
 .eyebrow,
@@ -1842,6 +1910,10 @@ code {
     align-items: flex-start;
   }
 
+  .command-tags {
+    width: 100%;
+  }
+
   .table-row,
   .country-item {
     flex-direction: column;
@@ -1935,3 +2007,4 @@ code {
     justify-content: flex-end;
   }
 }
+

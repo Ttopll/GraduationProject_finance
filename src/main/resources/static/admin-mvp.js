@@ -1,5 +1,6 @@
 ﻿const STORAGE_TOKEN_KEY = "finance_admin_token";
 const STORAGE_SESSION_KEY = "finance_admin_session";
+const STORAGE_COMMAND_RECENTS_KEY = "finance_admin_recent_commands";
 
 let token = "";
 let latestSummary = null;
@@ -268,23 +269,136 @@ function focusBusinessArea(mode = "overview") {
 }
 
 const GLOBAL_COMMANDS = [
-  { key: "analysis-summary", label: "打开分析总控台", aliases: ["分析总控台", "分析汇总", "分析面板", "summary", "analysis"] },
-  { key: "imports-issues", label: "查看导入异常", aliases: ["导入异常", "导入失败", "import issues", "imports"] },
-  { key: "imports-degraded", label: "查看 FRED 降级批次", aliases: ["fred 降级", "降级批次", "宏观降级", "fred"] },
-  { key: "business-shared", label: "查看共享账户", aliases: ["共享账户", "shared accounts", "shared"] },
-  { key: "business-alert-budgets", label: "查看预算异常", aliases: ["预算异常", "预警预算", "alert budgets", "budget"] },
-  { key: "rules-unread", label: "查看未读通知", aliases: ["未读通知", "通知未读", "unread notifications", "unread"] },
-  { key: "rules-high-priority", label: "查看高优先级规则", aliases: ["高优先级规则", "priority rules", "high priority"] },
-  { key: "acceptance-run", label: "执行一键验收", aliases: ["一键验收", "系统验收", "acceptance", "run acceptance"] }
+  { key: "analysis-summary", label: "打开分析总控台", aliases: ["分析总控台", "分析汇总", "分析面板", "summary", "analysis"], section: "分析", description: "回到总控台查看分析指标、趋势与自动结论。" },
+  { key: "imports-issues", label: "查看导入异常", aliases: ["导入异常", "导入失败", "import issues", "imports"], section: "导入", description: "定位失败批次、字段异常和数据质量问题。" },
+  { key: "imports-degraded", label: "查看 FRED 降级批次", aliases: ["fred 降级", "降级批次", "宏观降级", "fred"], section: "导入", description: "快速检查宏观序列是否因网络问题触发软降级。" },
+  { key: "business-shared", label: "查看共享账户", aliases: ["共享账户", "shared accounts", "shared"], section: "业务", description: "跳转到账户工作区并筛选共享账户。" },
+  { key: "business-alert-budgets", label: "查看预算异常", aliases: ["预算异常", "预警预算", "alert budgets", "budget"], section: "业务", description: "直接进入预算预警视图查看超额和告警项目。" },
+  { key: "rules-unread", label: "查看未读通知", aliases: ["未读通知", "通知未读", "unread notifications", "unread"], section: "规则通知", description: "打开通知中心并聚焦当前未读消息。" },
+  { key: "rules-high-priority", label: "查看高优先级规则", aliases: ["高优先级规则", "priority rules", "high priority"], section: "规则通知", description: "快速复核高优先级规则的启用状态和影响范围。" },
+  { key: "acceptance-run", label: "执行一键验收", aliases: ["一键验收", "系统验收", "acceptance", "run acceptance"], section: "验收", description: "串联导入、分析、规则与通知做一次完整联通检查。" }
 ];
+const VIEW_COMMAND_PRESETS = {
+  analysis: ["analysis-summary", "imports-issues", "imports-degraded", "acceptance-run"],
+  imports: ["imports-issues", "imports-degraded", "analysis-summary", "acceptance-run"],
+  business: ["business-alert-budgets", "business-shared", "rules-unread", "acceptance-run"],
+  rules: ["rules-unread", "rules-high-priority", "business-alert-budgets", "acceptance-run"],
+  acceptance: ["acceptance-run", "imports-issues", "analysis-summary", "rules-unread"]
+};
 let filteredGlobalCommands = [...GLOBAL_COMMANDS];
 let activeGlobalCommandIndex = 0;
 let globalCommandMenuOpen = false;
+let recentGlobalCommands = [];
 
 function normalizeCommandText(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function getCommandByKey(commandKey) {
+  return GLOBAL_COMMANDS.find((item) => item.key === commandKey) || null;
+}
+
+function restoreRecentGlobalCommands() {
+  try {
+    const rawValue = localStorage.getItem(STORAGE_COMMAND_RECENTS_KEY);
+    if (!rawValue) {
+      recentGlobalCommands = [];
+      return;
+    }
+    const parsed = JSON.parse(rawValue);
+    recentGlobalCommands = Array.isArray(parsed)
+      ? parsed.map((item) => String(item || "")).filter((key) => getCommandByKey(key))
+      : [];
+  } catch (error) {
+    recentGlobalCommands = [];
+  }
+}
+
+function persistRecentGlobalCommands() {
+  localStorage.setItem(STORAGE_COMMAND_RECENTS_KEY, JSON.stringify(recentGlobalCommands.slice(0, 6)));
+}
+
+function pushRecentGlobalCommand(commandKey) {
+  if (!getCommandByKey(commandKey)) {
+    return;
+  }
+  recentGlobalCommands = [commandKey, ...recentGlobalCommands.filter((item) => item !== commandKey)].slice(0, 6);
+  persistRecentGlobalCommands();
+}
+
+function buildCommandOptionMarkup(item, index, extraMeta = "") {
+  return `
+    <button
+      class="command-option ${index === activeGlobalCommandIndex ? "is-active" : ""}"
+      type="button"
+      data-action="select-global-command"
+      data-command="${item.key}"
+      data-command-index="${index}"
+    >
+      <span class="command-option-title">${escapeHtml(item.label)}</span>
+      <span class="command-option-meta">${escapeHtml(extraMeta || item.description || item.aliases.slice(0, 3).join(" / "))}</span>
+    </button>
+  `;
+}
+
+function renderCommandSection(title, subtitle, commands, startIndex, options = {}) {
+  const { recent = false, defaultKey = "" } = options;
+  if (commands.length === 0) {
+    return { markup: "", nextIndex: startIndex };
+  }
+  let currentIndex = startIndex;
+  const rows = commands.map((item) => {
+    const badges = [
+      recent ? "最近使用" : "",
+      item.key === defaultKey ? "回车默认执行" : "",
+      item.section || ""
+    ].filter(Boolean).join(" / ");
+    const markup = buildCommandOptionMarkup(item, currentIndex, badges || item.description || item.aliases.slice(0, 3).join(" / "));
+    currentIndex += 1;
+    return markup;
+  }).join("");
+  return {
+    markup: `
+      <section class="command-section">
+        <div class="command-section-header">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(subtitle)}</span>
+        </div>
+        <div class="command-section-list">
+          ${rows}
+        </div>
+      </section>
+    `,
+    nextIndex: currentIndex
+  };
+}
+
+function renderGlobalCommandDeck() {
+  const contextHost = byId("commandContextTags");
+  const recentHost = byId("commandRecentTags");
+  if (!contextHost || !recentHost) {
+    return;
+  }
+  const contextCommands = (VIEW_COMMAND_PRESETS[activeView] || VIEW_COMMAND_PRESETS.analysis || [])
+    .map((key) => getCommandByKey(key))
+    .filter(Boolean);
+  const recentCommands = recentGlobalCommands
+    .map((key) => getCommandByKey(key))
+    .filter(Boolean)
+    .slice(0, 4);
+  contextHost.innerHTML = contextCommands.map((item, index) => `
+    <button class="tag-btn ${index === 0 ? "is-active" : ""}" type="button" data-action="run-global-command" data-command="${item.key}">
+      ${escapeHtml(item.label)}
+    </button>
+  `).join("");
+  recentHost.innerHTML = recentCommands.length > 0
+    ? recentCommands.map((item) => `
+      <button class="tag-btn command-muted" type="button" data-action="run-global-command" data-command="${item.key}">
+        ${escapeHtml(item.label)}
+      </button>
+    `).join("")
+    : '<span class="tag-btn command-muted">暂无最近命令</span>';
+}
 function openGlobalCommandMenu() {
   const host = byId("globalCommandMenu");
   const input = byId("globalCommandInput");
@@ -321,38 +435,63 @@ function renderGlobalCommandOptions(filter = "") {
     if (!keyword) {
       return true;
     }
-      return normalizeCommandText(item.label).includes(keyword)
+    return normalizeCommandText(item.label).includes(keyword)
       || item.aliases.some((alias) => normalizeCommandText(alias).includes(keyword));
   });
-  filteredGlobalCommands = commands;
-  activeGlobalCommandIndex = commands.length > 0 ? 0 : -1;
-  const optionsMarkup = commands.length > 0
-    ? commands.map((item, index) => `
-      <button
-        class="command-option ${index === activeGlobalCommandIndex ? "is-active" : ""}"
-        type="button"
-        data-action="select-global-command"
-        data-command="${item.key}"
-        data-command-index="${index}"
-      >
-        <span class="command-option-title">${escapeHtml(item.label)}</span>
-        <span class="command-option-meta">${escapeHtml(item.aliases.slice(0, 3).join(" / "))}</span>
-      </button>
-    `).join("")
+  let displayedCommands = [...commands];
+  let sectionMarkup = "";
+  let runningIndex = 0;
+  if (keyword) {
+    const defaultCommand = commands[0] || null;
+    const groupedCommands = commands.reduce((acc, item) => {
+      const section = item.section || "其他";
+      if (!acc[section]) {
+        acc[section] = [];
+      }
+      acc[section].push(item);
+      return acc;
+    }, {});
+    sectionMarkup = Object.entries(groupedCommands).map(([sectionName, sectionItems]) => {
+      const section = renderCommandSection(sectionName, `匹配 ${formatNumber(sectionItems.length, 0)} 条`, sectionItems, runningIndex, { defaultKey: defaultCommand?.key || "" });
+      runningIndex = section.nextIndex;
+      return section.markup;
+    }).join("");
+  } else {
+    const recentItems = recentGlobalCommands.map((key) => getCommandByKey(key)).filter(Boolean);
+    const catalogItems = GLOBAL_COMMANDS.filter((item) => !recentItems.some((recentItem) => recentItem.key === item.key));
+    displayedCommands = [...recentItems, ...catalogItems];
+    const defaultCommand = displayedCommands[0] || null;
+    const recentSection = renderCommandSection("最近使用", recentItems.length > 0 ? "保留最近 6 条执行记录" : "暂无执行记录，首次执行后会在这里显示", recentItems, runningIndex, { recent: true, defaultKey: defaultCommand?.key || "" });
+    runningIndex = recentSection.nextIndex;
+    const groupedCommands = catalogItems.reduce((acc, item) => {
+      const section = item.section || "其他";
+      if (!acc[section]) {
+        acc[section] = [];
+      }
+      acc[section].push(item);
+      return acc;
+    }, {});
+    const groupedMarkup = Object.entries(groupedCommands).map(([sectionName, sectionItems]) => {
+      const section = renderCommandSection(sectionName, `共 ${formatNumber(sectionItems.length, 0)} 条命令`, sectionItems, runningIndex, { defaultKey: defaultCommand?.key || "" });
+      runningIndex = section.nextIndex;
+      return section.markup;
+    }).join("");
+    sectionMarkup = `${recentSection.markup}${groupedMarkup}`;
+  }
+  filteredGlobalCommands = displayedCommands;
+  activeGlobalCommandIndex = displayedCommands.length > 0 ? 0 : -1;
+  const defaultCommand = displayedCommands[0] || null;
+  const optionsMarkup = displayedCommands.length > 0
+    ? sectionMarkup
     : `
       <div class="command-empty">
         <strong>没有匹配命令</strong>
         可继续输入中文关键词，或直接选择下方建议命令快速进入对应工作区。
       </div>
-      ${GLOBAL_COMMANDS.slice(0, 4).map((item) => `
-        <button class="command-option" type="button" data-action="select-global-command" data-command="${item.key}">
-          <span class="command-option-title">${escapeHtml(item.label)}</span>
-          <span class="command-option-meta">${escapeHtml(item.aliases.slice(0, 2).join(" / "))}</span>
-        </button>
-      `).join("")}
+      ${renderCommandSection("建议命令", "你可以先从最常用入口开始", GLOBAL_COMMANDS.slice(0, 4), 0, {}).markup}
     `;
-  const summaryText = commands.length > 0
-    ? `共 ${formatNumber(commands.length, 0)} 条候选`
+  const summaryText = displayedCommands.length > 0
+    ? `共 ${formatNumber(displayedCommands.length, 0)} 条候选${defaultCommand ? `，回车将执行“${escapeHtml(defaultCommand.label)}”` : ""}`
     : `未找到“${escapeHtml(filter || "当前输入")}”对应命令`;
   host.innerHTML = `
     ${optionsMarkup}
@@ -368,8 +507,8 @@ function renderGlobalCommandOptions(filter = "") {
   `;
   const hint = byId("globalCommandHint");
   if (hint) {
-    hint.textContent = commands.length > 0
-      ? `可执行 ${formatNumber(commands.length, 0)} 条命令，当前建议：${commands.slice(0, 3).map((item) => item.label).join(" / ")}`
+    hint.textContent = displayedCommands.length > 0
+      ? `可执行 ${formatNumber(displayedCommands.length, 0)} 条命令${defaultCommand ? `，直接回车默认执行：${defaultCommand.label}` : ""}`
       : "没有匹配命令，可输入 导入异常 / 预算异常 / 未读通知 / 一键验收 等关键词。";
   }
   if (document.activeElement?.id === "globalCommandInput") {
@@ -413,10 +552,14 @@ function resolveGlobalCommand(value) {
 function executeGlobalCommand(commandInput) {
   const command = resolveGlobalCommand(commandInput);
   const commandInputNode = byId("globalCommandInput");
-  const matched = GLOBAL_COMMANDS.find((item) => item.key === command) || null;
+  const matched = getCommandByKey(command);
   if (commandInputNode && matched) {
     commandInputNode.value = matched.label;
   }
+  if (matched) {
+    pushRecentGlobalCommand(matched.key);
+  }
+  renderGlobalCommandDeck();
   closeGlobalCommandMenu();
   switch (command) {
     case "analysis-summary":
@@ -991,6 +1134,8 @@ function clearSession() {
 
 function restoreSession() {
   token = localStorage.getItem(STORAGE_TOKEN_KEY) || "";
+  restoreRecentGlobalCommands();
+  renderGlobalCommandDeck();
   const rawSession = localStorage.getItem(STORAGE_SESSION_KEY);
   if (!rawSession) {
     renderSession(null);
@@ -3802,6 +3947,7 @@ function switchView(view) {
     node.classList.toggle("is-active", node.id === `${view}View`);
   });
   updateViewMeta(view);
+  renderGlobalCommandDeck();
 }
 
 async function loadMe() {
@@ -4820,6 +4966,7 @@ function bindEvents() {
 async function init() {
   restoreSession();
   renderGlobalCommandOptions("");
+  renderGlobalCommandDeck();
   resetSummary();
   renderLatestImport(null);
   renderImportHistory();
@@ -4845,3 +4992,5 @@ async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+
