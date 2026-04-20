@@ -1,3 +1,6 @@
+const STORAGE_TOKEN_KEY = "finance_admin_token";
+const STORAGE_SESSION_KEY = "finance_admin_session";
+
 let token = "";
 let latestSummary = null;
 let latestImport = null;
@@ -9,6 +12,7 @@ let filteredRules = [];
 let notificationsPage = [];
 let selectedRuleId = null;
 let selectedNotificationId = null;
+let activeView = "analysis";
 
 function byId(id) {
   return document.getElementById(id);
@@ -23,7 +27,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function formatNumber(value) {
+function formatNumber(value, digits = 2) {
   if (value === null || value === undefined || value === "") {
     return "-";
   }
@@ -31,7 +35,7 @@ function formatNumber(value) {
   if (Number.isNaN(number)) {
     return String(value);
   }
-  return number.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  return number.toLocaleString("zh-CN", { maximumFractionDigits: digits });
 }
 
 function formatDateTime(value) {
@@ -45,24 +49,123 @@ function formatDateTime(value) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
-async function api(path, method = "GET", body = null, auth = true) {
+function formatBoolean(value) {
+  return value ? "是" : "否";
+}
+
+function buildQuery(params) {
+  const search = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    search.append(key, String(value));
+  });
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
+async function api(path, options = {}) {
+  const { method = "GET", body = null, auth = true } = options;
   const response = await fetch(path, {
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
       ...(auth && token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: body ? JSON.stringify(body) : null
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
   }
+
   if (response.status === 204) {
     return null;
   }
+
   const text = await response.text();
   return text ? JSON.parse(text) : null;
+}
+
+function saveSession(session) {
+  token = session?.accessToken || token || "";
+  if (token) {
+    localStorage.setItem(STORAGE_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+  }
+  localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({
+    user: session?.user || null,
+    memberships: session?.memberships || []
+  }));
+}
+
+function clearSession() {
+  token = "";
+  memberships = [];
+  allRules = [];
+  filteredRules = [];
+  notificationsPage = [];
+  selectedRuleId = null;
+  selectedNotificationId = null;
+  localStorage.removeItem(STORAGE_TOKEN_KEY);
+  localStorage.removeItem(STORAGE_SESSION_KEY);
+  renderSession(null);
+  renderMemberships([]);
+  renderRules([]);
+  renderNotifications([]);
+  setRulesStatus("请先登录后再加载规则与通知。", true);
+}
+
+function restoreSession() {
+  token = localStorage.getItem(STORAGE_TOKEN_KEY) || "";
+  const rawSession = localStorage.getItem(STORAGE_SESSION_KEY);
+  if (!rawSession) {
+    renderSession(null);
+    renderMemberships([]);
+    return;
+  }
+  try {
+    const session = JSON.parse(rawSession);
+    renderSession(session.user || null);
+    renderMemberships(session.memberships || []);
+  } catch (error) {
+    clearSession();
+  }
+}
+
+function renderSession(user) {
+  const status = byId("loginStatus");
+  if (!user) {
+    status.textContent = "未登录";
+    return;
+  }
+  const label = [user.nickname || user.realName || user.username, user.userType].filter(Boolean).join(" / ");
+  status.textContent = label || "已登录";
+}
+
+function setStatus(id, message, isError = false) {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.textContent = message;
+  node.style.color = isError ? "#b91c1c" : "";
+}
+
+function setImportStatuses(message, isError = false) {
+  setStatus("importStatus", message, isError);
+  setStatus("importStatusMirror", message, isError);
+}
+
+function setRulesStatus(message, isError = false) {
+  setStatus("rulesStatus", message, isError);
+}
+
+function renderMetric(id, value) {
+  byId(id).textContent = value ?? "-";
 }
 
 function getImportParams() {
@@ -81,32 +184,38 @@ function getAnalysisParams() {
   };
 }
 
-function setStatus(id, message) {
-  byId(id).textContent = message;
+function getCurrentFamilyId() {
+  const value = Number(byId("familySelect").value || 0);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function setImportStatuses(message) {
-  setStatus("importStatus", message);
-  setStatus("importStatusMirror", message);
+function getCurrentMemberId() {
+  const value = Number(byId("memberSelect").value || 0);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function renderMetric(id, value) {
-  byId(id).textContent = value ?? "-";
+function renderEmptyBoard(id, message) {
+  const host = byId(id);
+  host.classList.add("empty-board");
+  host.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
 function renderCountryList(items) {
   const host = byId("countryList");
   if (!items || items.length === 0) {
-    host.innerHTML = '<div class="summary-item">暂无国家分布数据</div>';
+    host.innerHTML = '<div class="summary-item">暂无国家交易分布数据</div>';
     return;
   }
   host.innerHTML = items.map((item, index) => `
     <div class="country-item">
       <div>
         <div class="country-rank">TOP ${index + 1}</div>
-        <div class="country-name">${escapeHtml(item.country)}</div>
+        <div class="country-name">${escapeHtml(item.country || "未知国家")}</div>
       </div>
-      <div class="country-amount">${formatNumber(item.totalAmount)}</div>
+      <div>
+        <div class="country-amount">${formatNumber(item.totalAmount)}</div>
+        <div class="table-meta">记录数 ${formatNumber(item.recordCount, 0)}</div>
+      </div>
     </div>
   `).join("");
 }
@@ -121,10 +230,13 @@ function renderWorldBank(worldBankTrend) {
   const first = points[0];
   const last = points[points.length - 1];
   host.innerHTML = `
-    <div class="summary-item"><strong>${escapeHtml(worldBankTrend.countryName)}</strong> (${escapeHtml(worldBankTrend.countryIso3)})</div>
-    <div class="summary-item">起始年份：${escapeHtml(first.year)}，起始值：${formatNumber(first.value)}</div>
-    <div class="summary-item">最新年份：${escapeHtml(last.year)}，最新值：${formatNumber(last.value)}</div>
-    <div class="summary-item">最新同比：${formatNumber(last.yearOnYearGrowthRatio)}</div>
+    <div class="summary-item"><strong>${escapeHtml(worldBankTrend.countryName || "未知国家")}</strong> (${escapeHtml(worldBankTrend.countryIso3 || "-")})</div>
+    <div class="detail-grid">
+      <div class="detail-item"><strong>起始年份</strong><div>${escapeHtml(first.year)}</div><div>数值 ${formatNumber(first.value)}</div></div>
+      <div class="detail-item"><strong>最新年份</strong><div>${escapeHtml(last.year)}</div><div>数值 ${formatNumber(last.value)}</div></div>
+      <div class="detail-item"><strong>最新同比</strong><div>${formatNumber(last.yearOnYearGrowthRatio)}</div></div>
+      <div class="detail-item"><strong>趋势点数</strong><div>${formatNumber(points.length, 0)}</div></div>
+    </div>
   `;
 }
 
@@ -132,16 +244,18 @@ function renderFred(fredSeries) {
   const host = byId("fredSummary");
   const points = fredSeries?.points || [];
   if (points.length === 0) {
-    host.innerHTML = `<div class="summary-item">${escapeHtml(fredSeries?.seriesId || "PCE")} 当前无数据点，可按软降级处理。</div>`;
+    host.innerHTML = `<div class="summary-item">序列 ${escapeHtml(fredSeries?.seriesId || "PCE")} 当前无数据点，属于已处理的软降级状态。</div>`;
     return;
   }
   const first = points[0];
   const last = points[points.length - 1];
   host.innerHTML = `
-    <div class="summary-item">序列：${escapeHtml(fredSeries.seriesId)}</div>
-    <div class="summary-item">首点：${escapeHtml(first.date)} / ${formatNumber(first.value)}</div>
-    <div class="summary-item">末点：${escapeHtml(last.date)} / ${formatNumber(last.value)}</div>
-    <div class="summary-item">数据点数：${points.length}</div>
+    <div class="detail-grid">
+      <div class="detail-item"><strong>序列</strong><div>${escapeHtml(fredSeries.seriesId)}</div></div>
+      <div class="detail-item"><strong>首个数据点</strong><div>${escapeHtml(first.date)}</div><div>${formatNumber(first.value)}</div></div>
+      <div class="detail-item"><strong>最新数据点</strong><div>${escapeHtml(last.date)}</div><div>${formatNumber(last.value)}</div></div>
+      <div class="detail-item"><strong>点数</strong><div>${formatNumber(points.length, 0)}</div></div>
+    </div>
   `;
 }
 
@@ -167,14 +281,16 @@ function renderLatestImport(result) {
     return;
   }
   host.innerHTML = `
-    <div class="summary-item">处理目录：<strong>${escapeHtml(result.processedDir)}</strong></div>
+    <div class="summary-item"><strong>处理目录</strong><div>${escapeHtml(result.processedDir)}</div></div>
     <div class="detail-grid">
-      <div class="detail-item">importBatchId：${formatNumber(result.importBatchId)}</div>
-      <div class="detail-item">batchSize：${formatNumber(result.batchSize)}</div>
-      <div class="detail-item">retailImported：${formatNumber(result.retailImported)}</div>
-      <div class="detail-item">worldBankImported：${formatNumber(result.worldBankImported)}</div>
-      <div class="detail-item">fredImported：${formatNumber(result.fredImported)}</div>
-      <div class="detail-item">importStatus：${escapeHtml(result.importStatus)}</div>
+      <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(result.importBatchId, 0)}</div></div>
+      <div class="detail-item"><strong>批大小</strong><div>${formatNumber(result.batchSize, 0)}</div></div>
+      <div class="detail-item"><strong>是否清空</strong><div>${formatBoolean(result.truncatedBeforeImport)}</div></div>
+      <div class="detail-item"><strong>零售导入</strong><div>${formatNumber(result.retailImported, 0)}</div></div>
+      <div class="detail-item"><strong>世行导入</strong><div>${formatNumber(result.worldBankImported, 0)}</div></div>
+      <div class="detail-item"><strong>FRED 导入</strong><div>${formatNumber(result.fredImported, 0)}</div></div>
+      <div class="detail-item"><strong>导入状态</strong><div>${escapeHtml(result.importStatus)}</div></div>
+      <div class="detail-item"><strong>导入时间</strong><div>${formatDateTime(result.importedAt)}</div></div>
     </div>
   `;
 }
@@ -205,8 +321,7 @@ function normalizeImportHistory(items) {
 function renderImportHistory() {
   const host = byId("importHistoryList");
   if (importHistory.length === 0) {
-    host.classList.add("empty-board");
-    host.innerHTML = '<div class="empty-state">暂无导入历史</div>';
+    renderEmptyBoard("importHistoryList", "暂无导入历史");
     return;
   }
   host.classList.remove("empty-board");
@@ -214,13 +329,13 @@ function renderImportHistory() {
     <div class="table-row ${item.id === selectedImportHistoryId ? "is-active" : ""}" data-action="select-import-history" data-history-id="${item.id}">
       <div class="table-main">
         <div class="table-title">${escapeHtml(item.params.processedDir)}</div>
-        <div class="table-meta">${item.params.truncateBeforeImport ? "清空导入" : "增量导入"} / batchSize=${formatNumber(item.params.batchSize)}</div>
+        <div class="table-meta">${item.params.truncateBeforeImport ? "清空后全量导入" : "增量导入"} / batchSize=${formatNumber(item.params.batchSize, 0)}</div>
         <div class="meta-line">${formatDateTime(item.createdAt)}</div>
       </div>
       <div class="table-side">
-        <span class="status-chip success">retail ${formatNumber(item.result?.retailImported)}</span>
-        <span class="status-chip success">world ${formatNumber(item.result?.worldBankImported)}</span>
-        <span class="status-chip ${Number(item.result?.fredImported || 0) > 0 ? "success" : "warning"}">fred ${formatNumber(item.result?.fredImported)}</span>
+        <span class="status-chip success">retail ${formatNumber(item.result?.retailImported, 0)}</span>
+        <span class="status-chip success">world ${formatNumber(item.result?.worldBankImported, 0)}</span>
+        <span class="status-chip ${Number(item.result?.fredImported || 0) > 0 ? "success" : "warning"}">fred ${formatNumber(item.result?.fredImported, 0)}</span>
       </div>
     </div>
   `).join("");
@@ -236,13 +351,14 @@ function renderImportHistoryDetail() {
   host.innerHTML = `
     <div class="summary-item"><strong>导入时间</strong><div>${formatDateTime(record.createdAt)}</div></div>
     <div class="detail-grid">
-      <div class="detail-item">importBatchId：${formatNumber(record.result?.importBatchId)}</div>
-      <div class="detail-item">processedDir：${escapeHtml(record.params.processedDir)}</div>
-      <div class="detail-item">truncateBeforeImport：${record.params.truncateBeforeImport ? "true" : "false"}</div>
-      <div class="detail-item">batchSize：${formatNumber(record.params.batchSize)}</div>
-      <div class="detail-item">retailImported：${formatNumber(record.result?.retailImported)}</div>
-      <div class="detail-item">worldBankImported：${formatNumber(record.result?.worldBankImported)}</div>
-      <div class="detail-item">fredImported：${formatNumber(record.result?.fredImported)}</div>
+      <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(record.result?.importBatchId, 0)}</div></div>
+      <div class="detail-item"><strong>处理目录</strong><div>${escapeHtml(record.params.processedDir)}</div></div>
+      <div class="detail-item"><strong>清空导入</strong><div>${formatBoolean(record.params.truncateBeforeImport)}</div></div>
+      <div class="detail-item"><strong>批大小</strong><div>${formatNumber(record.params.batchSize, 0)}</div></div>
+      <div class="detail-item"><strong>零售导入</strong><div>${formatNumber(record.result?.retailImported, 0)}</div></div>
+      <div class="detail-item"><strong>世行导入</strong><div>${formatNumber(record.result?.worldBankImported, 0)}</div></div>
+      <div class="detail-item"><strong>FRED 导入</strong><div>${formatNumber(record.result?.fredImported, 0)}</div></div>
+      <div class="detail-item"><strong>状态</strong><div>${escapeHtml(record.result?.importStatus)}</div></div>
     </div>
     <div class="item-actions">
       <button class="mini-btn" type="button" data-action="reuse-import-history" data-history-id="${record.id}">回填参数</button>
@@ -252,37 +368,11 @@ function renderImportHistoryDetail() {
   `;
 }
 
-async function loadImportHistory() {
-  try {
-    const items = await api("/api/real-data-analysis/imports", "GET", null, false);
-    importHistory = normalizeImportHistory(items);
-    if (!selectedImportHistoryId && importHistory.length > 0) {
-      selectedImportHistoryId = importHistory[0].id;
-    }
-    if (selectedImportHistoryId && !importHistory.some((item) => item.id === selectedImportHistoryId)) {
-      selectedImportHistoryId = importHistory[0]?.id ?? null;
-    }
-    renderImportHistory();
-    renderImportHistoryDetail();
-  } catch (error) {
-    setImportStatuses(`导入历史加载失败：${error.message}`);
-  }
-}
-
-function getCurrentFamilyId() {
-  return Number(byId("familySelect").value || 0);
-}
-
-function getCurrentMemberId() {
-  return Number(byId("memberSelect").value || 0);
-}
-
 function renderMemberships(items) {
   memberships = items || [];
   const familySelect = byId("familySelect");
-
   if (memberships.length === 0) {
-    familySelect.innerHTML = '<option value="">无家庭</option>';
+    familySelect.innerHTML = '<option value="">未选择家庭</option>';
     updateMemberOptions();
     return;
   }
@@ -292,21 +382,20 @@ function renderMemberships(items) {
       ${escapeHtml(item.familyName || `家庭${item.familyId}`)}
     </option>
   `).join("");
-
   updateMemberOptions();
 }
 
 function updateMemberOptions() {
   const memberSelect = byId("memberSelect");
   const currentFamilyId = getCurrentFamilyId();
-  const filtered = memberships.filter((item) => Number(item.familyId) === currentFamilyId);
-  if (filtered.length === 0) {
-    memberSelect.innerHTML = '<option value="">无成员</option>';
+  const currentMembers = memberships.filter((item) => Number(item.familyId) === Number(currentFamilyId));
+  if (currentMembers.length === 0) {
+    memberSelect.innerHTML = '<option value="">未选择成员</option>';
     return;
   }
-  memberSelect.innerHTML = filtered.map((item, index) => `
+  memberSelect.innerHTML = currentMembers.map((item, index) => `
     <option value="${item.familyMemberId}" ${index === 0 ? "selected" : ""}>
-      ${escapeHtml(item.roleCode || "MEMBER")} / ${item.familyMemberId}
+      ${escapeHtml(item.roleCode || "MEMBER")} / ${escapeHtml(item.familyName || `家庭${item.familyId}`)}
     </option>
   `).join("");
 }
@@ -320,17 +409,17 @@ function renderRuleDetail(item) {
   host.innerHTML = `
     <div class="summary-item"><strong>${escapeHtml(item.ruleName)}</strong></div>
     <div class="detail-grid">
-      <div class="detail-item">ruleType：${escapeHtml(item.ruleType)}</div>
-      <div class="detail-item">metricType：${escapeHtml(item.metricType)}</div>
-      <div class="detail-item">timeScope：${escapeHtml(item.timeScope)}</div>
-      <div class="detail-item">operatorType：${escapeHtml(item.operatorType)}</div>
-      <div class="detail-item">thresholdValue：${formatNumber(item.thresholdValue)}</div>
-      <div class="detail-item">priority：${formatNumber(item.priority)}</div>
-      <div class="detail-item">actionType：${escapeHtml(item.actionType)}</div>
-      <div class="detail-item">enabled：${Number(item.enabled) === 1 ? "true" : "false"}</div>
+      <div class="detail-item"><strong>规则类型</strong><div>${escapeHtml(item.ruleType)}</div></div>
+      <div class="detail-item"><strong>指标类型</strong><div>${escapeHtml(item.metricType)}</div></div>
+      <div class="detail-item"><strong>时间范围</strong><div>${escapeHtml(item.timeScope)}</div></div>
+      <div class="detail-item"><strong>运算符</strong><div>${escapeHtml(item.operatorType)}</div></div>
+      <div class="detail-item"><strong>阈值</strong><div>${formatNumber(item.thresholdValue)}</div></div>
+      <div class="detail-item"><strong>优先级</strong><div>${formatNumber(item.priority, 0)}</div></div>
+      <div class="detail-item"><strong>动作类型</strong><div>${escapeHtml(item.actionType)}</div></div>
+      <div class="detail-item"><strong>启用状态</strong><div>${Number(item.enabled) === 1 ? "启用中" : "已停用"}</div></div>
     </div>
-    <div class="summary-item">messageTemplate：${escapeHtml(item.messageTemplate)}</div>
-    <div class="summary-item">thresholdJson：${escapeHtml(item.thresholdJson)}</div>
+    <div class="summary-item"><strong>消息模板</strong><div>${escapeHtml(item.messageTemplate)}</div></div>
+    <div class="summary-item"><strong>扩展阈值 JSON</strong><div>${escapeHtml(item.thresholdJson || "-")}</div></div>
   `;
 }
 
@@ -339,18 +428,27 @@ function updateRulesStats(items) {
   const enabled = (items || []).filter((item) => Number(item.enabled) === 1).length;
   const disabled = total - enabled;
   byId("rulesStats").innerHTML = `
-    <div class="stats-pill">总数：${formatNumber(total)}</div>
-    <div class="stats-pill">启用：${formatNumber(enabled)}</div>
-    <div class="stats-pill">停用：${formatNumber(disabled)}</div>
+    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">启用：${formatNumber(enabled, 0)}</div>
+    <div class="stats-pill">停用：${formatNumber(disabled, 0)}</div>
   `;
+}
+
+function getFilteredRules(items) {
+  const enabledFilter = byId("ruleEnabledFilter").value;
+  const ruleTypeFilter = (byId("ruleTypeFilter").value || "").trim().toUpperCase();
+  return (items || []).filter((item) => {
+    const enabledMatched = enabledFilter === "all" || String(item.enabled) === enabledFilter;
+    const typeMatched = !ruleTypeFilter || String(item.ruleType || "").toUpperCase().includes(ruleTypeFilter);
+    return enabledMatched && typeMatched;
+  });
 }
 
 function renderRules(items) {
   const host = byId("rulesList");
   if (!items || items.length === 0) {
-    host.classList.add("empty-board");
-    host.innerHTML = '<div class="empty-state">当前家庭暂无规则</div>';
     updateRulesStats([]);
+    renderEmptyBoard("rulesList", token ? "当前筛选条件下暂无规则" : "请先登录并选择家庭");
     renderRuleDetail(null);
     return;
   }
@@ -383,19 +481,16 @@ function renderRules(items) {
             </div>
             <div class="data-cell">
               <span class="data-cell-label">优先级</span>
-              <span class="data-cell-value">${formatNumber(item.priority)}</span>
+              <span class="data-cell-value">${formatNumber(item.priority, 0)}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">状态</span>
-              <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">
-                ${Number(item.enabled) === 1 ? "启用中" : "已停用"}
-              </span>
+              <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用中" : "已停用"}</span>
             </div>
             <div class="data-cell data-cell-actions">
-              <span class="data-cell-label">操作</span>
-              <button class="mini-btn" type="button" data-action="toggle-rule" data-rule-id="${item.id}" data-enabled="${item.enabled}">
-                ${Number(item.enabled) === 1 ? "停用规则" : "启用规则"}
-              </button>
+              <div class="table-action-group">
+                <button class="mini-btn" type="button" data-action="toggle-rule" data-rule-id="${item.id}" data-enabled="${item.enabled}">${Number(item.enabled) === 1 ? "停用规则" : "启用规则"}</button>
+              </div>
             </div>
           </div>
         `).join("")}
@@ -416,34 +511,37 @@ function renderNotificationDetail(item) {
   host.innerHTML = `
     <div class="summary-item"><strong>${escapeHtml(item.title)}</strong></div>
     <div class="detail-grid">
-      <div class="detail-item">sourceType：${escapeHtml(item.sourceType)}</div>
-      <div class="detail-item">levelCode：${escapeHtml(item.levelCode)}</div>
-      <div class="detail-item">readStatus：${Number(item.readStatus) === 1 ? "已读" : "未读"}</div>
-      <div class="detail-item">sentAt：${formatDateTime(item.sentAt)}</div>
-      <div class="detail-item">createdAt：${formatDateTime(item.createdAt)}</div>
-      <div class="detail-item">targetMemberId：${formatNumber(item.targetMemberId)}</div>
+      <div class="detail-item"><strong>来源类型</strong><div>${escapeHtml(item.sourceType)}</div></div>
+      <div class="detail-item"><strong>等级</strong><div>${escapeHtml(item.levelCode)}</div></div>
+      <div class="detail-item"><strong>已读状态</strong><div>${Number(item.readStatus) === 1 ? "已读" : "未读"}</div></div>
+      <div class="detail-item"><strong>目标成员</strong><div>${formatNumber(item.targetMemberId, 0)}</div></div>
+      <div class="detail-item"><strong>发送时间</strong><div>${formatDateTime(item.sentAt)}</div></div>
+      <div class="detail-item"><strong>创建时间</strong><div>${formatDateTime(item.createdAt)}</div></div>
     </div>
-    <div class="summary-item">${escapeHtml(item.content)}</div>
+    <div class="summary-item"><strong>内容</strong><div>${escapeHtml(item.content)}</div></div>
+    <div class="item-actions">
+      <button class="mini-btn" type="button" data-action="mark-notification-read" data-notification-id="${item.id}">标记已读</button>
+      <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除通知</button>
+    </div>
   `;
 }
 
 function updateNotificationsStats(items) {
   const total = items?.length || 0;
-  const unread = (items || []).filter((item) => Number(item.readStatus) !== 1).length;
-  const read = total - unread;
+  const read = (items || []).filter((item) => Number(item.readStatus) === 1).length;
+  const unread = total - read;
   byId("notificationsStats").innerHTML = `
-    <div class="stats-pill">总数：${formatNumber(total)}</div>
-    <div class="stats-pill">未读：${formatNumber(unread)}</div>
-    <div class="stats-pill">已读：${formatNumber(read)}</div>
+    <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">未读：${formatNumber(unread, 0)}</div>
+    <div class="stats-pill">已读：${formatNumber(read, 0)}</div>
   `;
 }
 
 function renderNotifications(items) {
   const host = byId("notificationsList");
   if (!items || items.length === 0) {
-    host.classList.add("empty-board");
-    host.innerHTML = '<div class="empty-state">当前家庭暂无通知</div>';
     updateNotificationsStats([]);
+    renderEmptyBoard("notificationsList", token ? "当前筛选条件下暂无通知" : "请先登录并选择家庭");
     renderNotificationDetail(null);
     return;
   }
@@ -453,8 +551,8 @@ function renderNotifications(items) {
     <div class="data-table">
       <div class="data-table-header notifications-table-header">
         <div>标题</div>
-        <div>来源</div>
-        <div>创建时间</div>
+        <div>等级</div>
+        <div>来源类型</div>
         <div>状态</div>
         <div>操作</div>
       </div>
@@ -466,23 +564,20 @@ function renderNotifications(items) {
               <span class="data-cell-value">${escapeHtml(item.title)}</span>
             </div>
             <div class="data-cell">
-              <span class="data-cell-label">来源</span>
+              <span class="data-cell-label">等级</span>
+              <span class="data-cell-value">${escapeHtml(item.levelCode)}</span>
+            </div>
+            <div class="data-cell">
+              <span class="data-cell-label">来源类型</span>
               <span class="data-cell-value">${escapeHtml(item.sourceType)}</span>
             </div>
             <div class="data-cell">
-              <span class="data-cell-label">创建时间</span>
-              <span class="data-cell-value">${formatDateTime(item.createdAt)}</span>
-            </div>
-            <div class="data-cell">
               <span class="data-cell-label">状态</span>
-              <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">
-                ${Number(item.readStatus) === 1 ? "已读" : "未读"}
-              </span>
+              <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">${Number(item.readStatus) === 1 ? "已读" : "未读"}</span>
             </div>
             <div class="data-cell data-cell-actions">
-              <span class="data-cell-label">操作</span>
               <div class="table-action-group">
-                ${Number(item.readStatus) === 1 ? "" : `<button class="mini-btn" type="button" data-action="read-notification" data-notification-id="${item.id}">标记已读</button>`}
+                <button class="mini-btn" type="button" data-action="mark-notification-read" data-notification-id="${item.id}">已读</button>
                 <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除</button>
               </div>
             </div>
@@ -496,395 +591,484 @@ function renderNotifications(items) {
   renderNotificationDetail(selected || null);
 }
 
-function applyHistoryParams(record) {
-  byId("processedDirInput").value = record.params.processedDir;
-  byId("truncateBeforeImportInput").checked = !!record.params.truncateBeforeImport;
-  byId("batchSizeInput").value = record.params.batchSize;
+function renderSummary(summary) {
+  latestSummary = summary;
+  const retailOverview = summary?.retailOverview || {};
+  const worldBankTrend = summary?.worldBankTrend || {};
+  const fredSeries = summary?.fredSeries || {};
+
+  renderMetric("metricTotalRecords", formatNumber(retailOverview.totalRecords, 0));
+  renderMetric("metricTotalAmount", formatNumber(retailOverview.totalAmount));
+  renderMetric("metricWorldBankPoints", formatNumber(worldBankTrend.points?.length || 0, 0));
+  renderMetric("metricFredPoints", formatNumber(fredSeries.points?.length || 0, 0));
+  renderCountryList(retailOverview.topCountries || []);
+  renderWorldBank(worldBankTrend);
+  renderFred(fredSeries);
+  renderConclusions(summary?.conclusions || []);
+  renderRaw(summary);
+}
+
+function resetSummary() {
+  renderMetric("metricTotalRecords", "-");
+  renderMetric("metricTotalAmount", "-");
+  renderMetric("metricWorldBankPoints", "-");
+  renderMetric("metricFredPoints", "-");
+  renderCountryList([]);
+  renderWorldBank(null);
+  renderFred(null);
+  renderConclusions([]);
+  renderRaw({ message: "waiting" });
+}
+
+function applyImportPreset(batchSize, truncate) {
+  byId("batchSizeInput").value = String(batchSize);
+  byId("truncateBeforeImportInput").checked = String(truncate) === "true";
+  setImportStatuses(`已应用导入预设：batchSize=${batchSize}，truncate=${truncate}`);
 }
 
 function syncImportParamsToAnalysis() {
-  const params = getImportParams();
-  setImportStatuses(`导入参数已确认：${params.processedDir} / batchSize=${params.batchSize} / truncate=${params.truncateBeforeImport}`);
+  switchView("analysis");
+  setImportStatuses("已同步导入参数，当前可直接执行导入或加载汇总。");
 }
 
-async function login() {
-  const username = byId("username").value.trim();
-  const password = byId("password").value;
+function fillImportParamsFromHistory(record) {
+  if (!record) {
+    return;
+  }
+  byId("processedDirInput").value = record.params.processedDir || "data/processed";
+  byId("batchSizeInput").value = String(record.params.batchSize || 5000);
+  byId("truncateBeforeImportInput").checked = Boolean(record.params.truncateBeforeImport);
+  setImportStatuses("已回填导入参数。");
+}
+
+function updateViewMeta(view) {
+  const metas = {
+    analysis: {
+      eyebrow: "数据治理与分析后台",
+      title: "真实数据分析总控台",
+      breadcrumb: "后台首页 / 真实数据分析"
+    },
+    imports: {
+      eyebrow: "Import Center",
+      title: "导入管理中心",
+      breadcrumb: "后台首页 / 导入管理"
+    },
+    rules: {
+      eyebrow: "Rules And Notifications",
+      title: "规则与通知工作台",
+      breadcrumb: "后台首页 / 规则与通知"
+    },
+    acceptance: {
+      eyebrow: "Acceptance",
+      title: "系统联通验收",
+      breadcrumb: "后台首页 / 系统验收"
+    }
+  };
+  const meta = metas[view] || metas.analysis;
+  byId("pageEyebrow").textContent = meta.eyebrow;
+  byId("pageTitle").textContent = meta.title;
+  byId("pageBreadcrumb").textContent = meta.breadcrumb;
+}
+
+function switchView(view) {
+  activeView = view;
+  document.querySelectorAll("[data-view]").forEach((node) => {
+    const isActive = node.dataset.view === view;
+    if (node.classList.contains("menu-item") || node.classList.contains("view-tab")) {
+      node.classList.toggle("is-active", isActive);
+    }
+  });
+  document.querySelectorAll(".view-section").forEach((node) => {
+    node.classList.toggle("is-active", node.id === `${view}View`);
+  });
+  updateViewMeta(view);
+}
+
+async function loadMe() {
+  if (!token) {
+    return;
+  }
   try {
-    const result = await api("/api/auth/login", "POST", { username, password }, false);
-    token = result.accessToken || "";
-    byId("loginStatus").textContent = token ? `已登录：${result.user?.username ?? "-"}` : "登录失败";
-    renderMemberships(result.memberships || []);
-    setStatus("rulesStatus", "登录成功，可加载规则与通知。");
+    const response = await api("/api/auth/me");
+    saveSession({
+      accessToken: token,
+      user: response.user,
+      memberships: response.memberships
+    });
+    renderSession(response.user);
+    renderMemberships(response.memberships || []);
   } catch (error) {
-    byId("loginStatus").textContent = `登录失败：${error.message}`;
+    clearSession();
+    setRulesStatus(`登录态已失效：${error.message}`, true);
   }
 }
 
-async function importData() {
-  const params = getImportParams();
-  setImportStatuses(`正在导入真实数据：${params.processedDir} / batchSize=${params.batchSize} ...`);
+async function handleLogin() {
+  const username = (byId("username").value || "").trim();
+  const password = byId("password").value || "";
+  if (!username || !password) {
+    setImportStatuses("请输入用户名和密码。", true);
+    return;
+  }
   try {
-    const query = new URLSearchParams({
-      processedDir: params.processedDir,
-      truncateBeforeImport: String(params.truncateBeforeImport),
-      batchSize: String(params.batchSize)
+    setImportStatuses("登录中...");
+    const response = await api("/api/auth/login", {
+      method: "POST",
+      auth: false,
+      body: { username, password }
     });
-    const result = await api(`/api/real-data-analysis/import?${query.toString()}`, "POST", null, false);
-    latestImport = result;
-    renderLatestImport(result);
-    renderRaw(result);
-    await loadImportHistory();
-    selectedImportHistoryId = result.importBatchId ?? selectedImportHistoryId;
-    renderImportHistory();
-    renderImportHistoryDetail();
-    setImportStatuses(`导入完成：retail=${formatNumber(result.retailImported)}，worldBank=${formatNumber(result.worldBankImported)}，fred=${formatNumber(result.fredImported)}`);
-    return result;
+    saveSession(response);
+    renderSession(response.user || null);
+    renderMemberships(response.memberships || []);
+    setImportStatuses("登录成功，已接通家庭与成员上下文。");
+    setRulesStatus("登录成功，可以加载规则与通知。");
+    if (getCurrentFamilyId()) {
+      await Promise.all([loadRules(), loadNotifications()]);
+    }
   } catch (error) {
-    setImportStatuses(`导入失败：${error.message}`);
+    clearSession();
+    setImportStatuses(`登录失败：${error.message}`, true);
+  }
+}
+
+async function performImport() {
+  const params = getImportParams();
+  try {
+    setImportStatuses("正在导入真实数据...");
+    const response = await api(`/api/real-data-analysis/import${buildQuery(params)}`, {
+      method: "POST",
+      auth: false
+    });
+    latestImport = response;
+    renderLatestImport(response);
+    setImportStatuses(`导入完成：retail=${formatNumber(response.retailImported, 0)}，world=${formatNumber(response.worldBankImported, 0)}，fred=${formatNumber(response.fredImported, 0)}`);
+    await loadImportHistory();
+    return response;
+  } catch (error) {
+    setImportStatuses(`导入失败：${error.message}`, true);
     throw error;
   }
 }
 
-async function loadDefenseSummary() {
-  const params = getAnalysisParams();
-  setImportStatuses(`正在加载汇总：${params.countryIso3} / ${params.seriesId} ...`);
+async function loadImportHistory() {
   try {
-    const query = new URLSearchParams({
-      countryIso3: params.countryIso3,
-      seriesId: params.seriesId,
-      topCountries: String(params.topCountries)
-    });
-    const summary = await api(`/api/real-data-analysis/defense-summary?${query.toString()}`, "GET", null, false);
-    renderSummary(summary);
-    setImportStatuses("汇总加载完成");
-    return summary;
+    const items = await api("/api/real-data-analysis/imports", { auth: false });
+    importHistory = normalizeImportHistory(items);
+    if (!selectedImportHistoryId && importHistory.length > 0) {
+      selectedImportHistoryId = importHistory[0].id;
+    }
+    if (selectedImportHistoryId && !importHistory.some((item) => item.id === selectedImportHistoryId)) {
+      selectedImportHistoryId = importHistory[0]?.id ?? null;
+    }
+    renderImportHistory();
+    renderImportHistoryDetail();
   } catch (error) {
-    setImportStatuses(`汇总加载失败：${error.message}`);
+    setImportStatuses(`导入历史加载失败：${error.message}`, true);
+  }
+}
+
+async function loadSummary() {
+  const params = getAnalysisParams();
+  try {
+    setImportStatuses("正在加载分析汇总...");
+    const response = await api(`/api/real-data-analysis/defense-summary${buildQuery(params)}`, { auth: false });
+    renderSummary(response);
+    setImportStatuses("分析汇总已刷新。");
+    return response;
+  } catch (error) {
+    setImportStatuses(`汇总加载失败：${error.message}`, true);
     throw error;
   }
 }
 
 async function runAcceptance() {
-  setImportStatuses("正在执行一键验收...");
   try {
-    await importData();
-    await loadDefenseSummary();
-    setImportStatuses("一键验收完成");
+    setImportStatuses("开始执行一键验收：导入 -> 汇总 -> 规则/通知刷新。");
+    await performImport();
+    await loadSummary();
+    if (token && getCurrentFamilyId()) {
+      await Promise.all([loadRules(), loadNotifications()]);
+    }
+    setImportStatuses("一键验收完成。");
+    switchView("acceptance");
   } catch (error) {
-    setImportStatuses(`一键验收失败：${error.message}`);
+    setImportStatuses(`一键验收失败：${error.message}`, true);
   }
-}
-
-function applyRuleFilters(items) {
-  const enabledFilter = byId("ruleEnabledFilter").value;
-  const ruleTypeFilter = (byId("ruleTypeFilter").value || "").trim().toUpperCase();
-  return (items || []).filter((item) => {
-    const enabledMatch = enabledFilter === "all" || String(item.enabled) === enabledFilter;
-    const typeMatch = !ruleTypeFilter || String(item.ruleType || "").toUpperCase().includes(ruleTypeFilter);
-    return enabledMatch && typeMatch;
-  });
 }
 
 async function loadRules() {
   const familyId = getCurrentFamilyId();
-  if (!familyId) {
-    setStatus("rulesStatus", "请先登录并选择家庭");
-    updateRulesStats([]);
+  if (!token) {
+    renderRules([]);
+    setRulesStatus("请先登录后再加载规则。", true);
     return;
   }
-  setStatus("rulesStatus", "正在加载规则...");
+  if (!familyId) {
+    renderRules([]);
+    setRulesStatus("请先选择家庭。", true);
+    return;
+  }
   try {
-    allRules = await api(`/api/rules?familyId=${familyId}`, "GET");
-    filteredRules = applyRuleFilters(allRules);
-    selectedRuleId = filteredRules[0]?.id ?? null;
+    setRulesStatus("加载规则中...");
+    allRules = await api(`/api/rules${buildQuery({ familyId })}`);
+    filteredRules = getFilteredRules(allRules);
+    if (selectedRuleId && !filteredRules.some((item) => item.id === selectedRuleId)) {
+      selectedRuleId = null;
+    }
     renderRules(filteredRules);
-    setStatus("rulesStatus", `规则加载完成，筛选后 ${filteredRules.length} 条 / 原始 ${allRules.length} 条`);
+    setRulesStatus(`规则加载完成，共 ${formatNumber(allRules.length, 0)} 条。`);
   } catch (error) {
-    updateRulesStats([]);
-    setStatus("rulesStatus", `规则加载失败：${error.message}`);
+    renderRules([]);
+    setRulesStatus(`规则加载失败：${error.message}`, true);
   }
 }
 
-async function loadNotifications() {
-  const familyId = getCurrentFamilyId();
-  const memberId = getCurrentMemberId();
-  if (!familyId) {
-    setStatus("rulesStatus", "请先登录并选择家庭");
-    updateNotificationsStats([]);
-    return;
-  }
-  setStatus("rulesStatus", "正在加载通知...");
+async function toggleRule(ruleId, enabled) {
   try {
-    const query = new URLSearchParams({
-      familyId: String(familyId),
-      targetMemberId: String(memberId),
-      page: "0",
-      size: byId("notificationPageSize").value || "8"
-    });
-    const readFilter = byId("notificationReadFilter").value;
-    const sourceFilter = (byId("notificationSourceFilter").value || "").trim();
-    if (readFilter !== "") {
-      query.set("readStatus", readFilter);
-    }
-    if (sourceFilter) {
-      query.set("sourceType", sourceFilter);
-    }
-    const pageResult = await api(`/api/notifications/search?${query.toString()}`, "GET");
-    notificationsPage = pageResult?.items || [];
-    selectedNotificationId = notificationsPage[0]?.id ?? null;
-    renderNotifications(notificationsPage);
-    setStatus("rulesStatus", `通知加载完成，本页 ${notificationsPage.length} 条 / 总计 ${pageResult?.totalElements ?? notificationsPage.length} 条`);
+    const action = Number(enabled) === 1 ? "disable" : "enable";
+    await api(`/api/rules/${ruleId}/${action}`, { method: "POST" });
+    setRulesStatus(`${Number(enabled) === 1 ? "停用" : "启用"}规则成功。`);
+    await loadRules();
   } catch (error) {
-    updateNotificationsStats([]);
-    setStatus("rulesStatus", `通知加载失败：${error.message}`);
+    setRulesStatus(`切换规则失败：${error.message}`, true);
   }
 }
 
 async function evaluateRules() {
   const familyId = getCurrentFamilyId();
-  if (!familyId) {
-    setStatus("rulesStatus", "请先登录并选择家庭");
+  if (!token || !familyId) {
+    setRulesStatus("执行规则评估前请先登录并选择家庭。", true);
     return;
   }
-  setStatus("rulesStatus", "正在执行规则评估...");
   try {
-    const result = await api(`/api/rules/evaluate?familyId=${familyId}`, "POST");
-    setStatus("rulesStatus", `评估完成：触发规则 ${formatNumber(result.triggeredRuleCount)} 条，生成通知 ${formatNumber(result.generatedNotificationCount)} 条`);
-    renderRaw(result);
-    await loadNotifications();
+    setRulesStatus("正在执行规则评估...");
+    const response = await api(`/api/rules/evaluate${buildQuery({ familyId })}`, { method: "POST" });
+    const detailText = (response.details || []).slice(0, 3).join("；") || "无附加细节";
+    setRulesStatus(`规则评估完成：触发 ${formatNumber(response.triggeredRuleCount, 0)} 条，生成通知 ${formatNumber(response.generatedNotificationCount, 0)} 条。${detailText}`);
+    await Promise.all([loadRules(), loadNotifications()]);
   } catch (error) {
-    setStatus("rulesStatus", `规则评估失败：${error.message}`);
+    setRulesStatus(`规则评估失败：${error.message}`, true);
   }
 }
 
-async function toggleRule(ruleId, enabled) {
-  const nextAction = Number(enabled) === 1 ? "disable" : "enable";
-  setStatus("rulesStatus", `正在${nextAction === "enable" ? "启用" : "停用"}规则...`);
+async function loadNotifications() {
+  const familyId = getCurrentFamilyId();
+  if (!token) {
+    renderNotifications([]);
+    setRulesStatus("请先登录后再加载通知。", true);
+    return;
+  }
+  if (!familyId) {
+    renderNotifications([]);
+    setRulesStatus("请先选择家庭。", true);
+    return;
+  }
+  const params = {
+    familyId,
+    targetMemberId: getCurrentMemberId(),
+    readStatus: byId("notificationReadFilter").value,
+    sourceType: (byId("notificationSourceFilter").value || "").trim().toUpperCase(),
+    page: 0,
+    size: Number(byId("notificationPageSize").value || 8)
+  };
   try {
-    await api(`/api/rules/${ruleId}/${nextAction}`, "POST");
-    await loadRules();
+    setRulesStatus("加载通知中...");
+    const page = await api(`/api/notifications/search${buildQuery(params)}`);
+    notificationsPage = page.items || [];
+    if (selectedNotificationId && !notificationsPage.some((item) => item.id === selectedNotificationId)) {
+      selectedNotificationId = null;
+    }
+    renderNotifications(notificationsPage);
+    setRulesStatus(`通知加载完成，本页 ${formatNumber(notificationsPage.length, 0)} 条，总计 ${formatNumber(page.totalElements, 0)} 条。`);
   } catch (error) {
-    setStatus("rulesStatus", `规则操作失败：${error.message}`);
+    renderNotifications([]);
+    setRulesStatus(`通知加载失败：${error.message}`, true);
   }
 }
 
 async function markNotificationRead(notificationId) {
-  setStatus("rulesStatus", "正在标记通知已读...");
   try {
-    await api(`/api/notifications/${notificationId}/read`, "POST");
+    await api(`/api/notifications/${notificationId}/read`, { method: "POST" });
+    setRulesStatus("通知已标记为已读。");
     await loadNotifications();
   } catch (error) {
-    setStatus("rulesStatus", `通知已读失败：${error.message}`);
+    setRulesStatus(`通知已读失败：${error.message}`, true);
   }
 }
 
 async function deleteNotification(notificationId) {
-  setStatus("rulesStatus", "正在删除通知...");
   try {
-    await api(`/api/notifications/${notificationId}`, "DELETE");
+    await api(`/api/notifications/${notificationId}`, { method: "DELETE" });
+    setRulesStatus("通知已删除。");
     await loadNotifications();
   } catch (error) {
-    setStatus("rulesStatus", `通知删除失败：${error.message}`);
+    setRulesStatus(`删除通知失败：${error.message}`, true);
   }
 }
 
 async function markAllNotificationsRead() {
   const familyId = getCurrentFamilyId();
-  const memberId = getCurrentMemberId();
-  if (!familyId) {
-    setStatus("rulesStatus", "请先登录并选择家庭");
+  if (!token || !familyId) {
+    setRulesStatus("请先登录并选择家庭。", true);
     return;
   }
-  setStatus("rulesStatus", "正在批量已读通知...");
   try {
-    const result = await api(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId}`, "POST");
-    setStatus("rulesStatus", `批量已读完成，影响 ${formatNumber(result.affectedCount)} 条`);
+    const response = await api(`/api/notifications/read-all${buildQuery({ familyId, targetMemberId: getCurrentMemberId() })}`, { method: "POST" });
+    setRulesStatus(`批量已读完成，影响 ${formatNumber(response.affectedCount, 0)} 条通知。`);
     await loadNotifications();
   } catch (error) {
-    setStatus("rulesStatus", `批量已读失败：${error.message}`);
+    setRulesStatus(`批量已读失败：${error.message}`, true);
   }
 }
 
 async function clearReadNotifications() {
   const familyId = getCurrentFamilyId();
-  const memberId = getCurrentMemberId();
-  if (!familyId) {
-    setStatus("rulesStatus", "请先登录并选择家庭");
+  if (!token || !familyId) {
+    setRulesStatus("请先登录并选择家庭。", true);
     return;
   }
-  setStatus("rulesStatus", "正在清理已读通知...");
   try {
-    const result = await api(`/api/notifications/read?familyId=${familyId}&targetMemberId=${memberId}`, "DELETE");
-    setStatus("rulesStatus", `已读通知清理完成，影响 ${formatNumber(result.affectedCount)} 条`);
+    const response = await api(`/api/notifications/read${buildQuery({ familyId, targetMemberId: getCurrentMemberId() })}`, { method: "DELETE" });
+    setRulesStatus(`清理已读完成，删除 ${formatNumber(response.affectedCount, 0)} 条通知。`);
     await loadNotifications();
   } catch (error) {
-    setStatus("rulesStatus", `清理已读失败：${error.message}`);
+    setRulesStatus(`清理已读失败：${error.message}`, true);
   }
 }
 
-function clearImportHistory() {
-  importHistory = [];
-  selectedImportHistoryId = null;
-  renderImportHistory();
-  renderImportHistoryDetail();
-  setImportStatuses("已触发导入历史刷新，将重新从后端读取");
-  loadImportHistory();
-}
-
-function switchView(viewName) {
-  const mapping = {
-    analysis: { title: "真实数据分析总控台", eyebrow: "数据治理与分析后台", breadcrumb: "后台首页 / 真实数据分析", id: "analysisView" },
-    imports: { title: "真实数据导入管理", eyebrow: "数据治理与分析后台", breadcrumb: "后台首页 / 导入管理", id: "importsView" },
-    rules: { title: "规则与通知管理", eyebrow: "运营规则与消息中心", breadcrumb: "后台首页 / 规则与通知", id: "rulesView" },
-    acceptance: { title: "系统验收与联通回归", eyebrow: "三端联通验收", breadcrumb: "后台首页 / 系统验收", id: "acceptanceView" }
-  };
-  const target = mapping[viewName] || mapping.analysis;
-
-  document.querySelectorAll(".menu-item").forEach((node) => {
-    node.classList.toggle("is-active", node.dataset.view === viewName);
-  });
-  document.querySelectorAll(".view-tab").forEach((node) => {
-    node.classList.toggle("is-active", node.dataset.view === viewName);
-  });
-  document.querySelectorAll(".view-section").forEach((node) => {
-    node.classList.toggle("is-active", node.id === target.id);
-  });
-  byId("pageTitle").textContent = target.title;
-  byId("pageEyebrow").textContent = target.eyebrow;
-  byId("pageBreadcrumb").textContent = target.breadcrumb;
-
-  if (viewName === "imports") {
-    loadImportHistory();
-  }
-}
-
-function handleImportHistoryAction(action, historyId) {
-  const record = importHistory.find((item) => String(item.id) === String(historyId));
-  if (!record) {
+function handleDocumentClick(event) {
+  const actionNode = event.target.closest("[data-action], [data-view]");
+  if (!actionNode) {
     return;
   }
-  selectedImportHistoryId = record.id;
-  renderImportHistory();
-  renderImportHistoryDetail();
-  if (action === "reuse-import-history") {
-    applyHistoryParams(record);
-    setImportStatuses("已回填选中记录的导入参数");
+
+  if (actionNode.dataset.view) {
+    switchView(actionNode.dataset.view);
+    return;
   }
-  if (action === "load-summary-from-history") {
-    switchView("analysis");
-    renderRaw(record.result);
-    loadDefenseSummary();
+
+  const { action } = actionNode.dataset;
+  if (!action) {
+    return;
   }
-  if (action === "show-import-payload") {
-    renderRaw(record.result);
-    switchView("analysis");
+
+  switch (action) {
+    case "apply-import-preset":
+      applyImportPreset(actionNode.dataset.batchSize, actionNode.dataset.truncate);
+      break;
+    case "select-import-history":
+      selectedImportHistoryId = Number(actionNode.dataset.historyId);
+      renderImportHistory();
+      renderImportHistoryDetail();
+      break;
+    case "reuse-import-history": {
+      const record = importHistory.find((item) => item.id === Number(actionNode.dataset.historyId));
+      fillImportParamsFromHistory(record);
+      break;
+    }
+    case "load-summary-from-history": {
+      const record = importHistory.find((item) => item.id === Number(actionNode.dataset.historyId));
+      fillImportParamsFromHistory(record);
+      syncImportParamsToAnalysis();
+      loadSummary();
+      break;
+    }
+    case "show-import-payload": {
+      const record = importHistory.find((item) => item.id === Number(actionNode.dataset.historyId));
+      if (record) {
+        switchView("analysis");
+        renderRaw(record.result);
+        setImportStatuses("已在分析面板显示导入回执。");
+      }
+      break;
+    }
+    case "select-rule": {
+      selectedRuleId = Number(actionNode.dataset.ruleId);
+      const item = filteredRules.find((rule) => rule.id === selectedRuleId) || null;
+      renderRules(filteredRules);
+      renderRuleDetail(item);
+      break;
+    }
+    case "toggle-rule":
+      event.stopPropagation();
+      toggleRule(Number(actionNode.dataset.ruleId), Number(actionNode.dataset.enabled));
+      break;
+    case "select-notification": {
+      selectedNotificationId = Number(actionNode.dataset.notificationId);
+      const item = notificationsPage.find((notification) => notification.id === selectedNotificationId) || null;
+      renderNotifications(notificationsPage);
+      renderNotificationDetail(item);
+      break;
+    }
+    case "mark-notification-read":
+      event.stopPropagation();
+      markNotificationRead(Number(actionNode.dataset.notificationId));
+      break;
+    case "delete-notification":
+      event.stopPropagation();
+      deleteNotification(Number(actionNode.dataset.notificationId));
+      break;
+    default:
+      break;
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  byId("loginBtn").addEventListener("click", login);
-  byId("importBtn").addEventListener("click", importData);
-  byId("importBtnMirror").addEventListener("click", importData);
-  byId("summaryBtn").addEventListener("click", loadDefenseSummary);
+function bindEvents() {
+  byId("loginBtn").addEventListener("click", handleLogin);
+  byId("importBtn").addEventListener("click", performImport);
+  byId("importBtnMirror").addEventListener("click", performImport);
+  byId("summaryBtn").addEventListener("click", loadSummary);
   byId("acceptanceBtn").addEventListener("click", runAcceptance);
   byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
   byId("syncAnalysisParamsBtn").addEventListener("click", syncImportParamsToAnalysis);
-  byId("clearImportHistoryBtn").addEventListener("click", clearImportHistory);
+  byId("clearImportHistoryBtn").addEventListener("click", loadImportHistory);
   byId("loadRulesBtn").addEventListener("click", loadRules);
-  byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
   byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
+  byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
   byId("readAllNotificationsBtn").addEventListener("click", markAllNotificationsRead);
   byId("clearReadNotificationsBtn").addEventListener("click", clearReadNotifications);
-  byId("familySelect").addEventListener("change", updateMemberOptions);
+  byId("familySelect").addEventListener("change", async () => {
+    updateMemberOptions();
+    if (token) {
+      await Promise.all([loadRules(), loadNotifications()]);
+    }
+  });
+  byId("memberSelect").addEventListener("change", () => {
+    if (token) {
+      loadNotifications();
+    }
+  });
   byId("ruleEnabledFilter").addEventListener("change", () => {
-    filteredRules = applyRuleFilters(allRules);
-    selectedRuleId = filteredRules[0]?.id ?? null;
+    filteredRules = getFilteredRules(allRules);
     renderRules(filteredRules);
   });
   byId("ruleTypeFilter").addEventListener("input", () => {
-    filteredRules = applyRuleFilters(allRules);
-    selectedRuleId = filteredRules[0]?.id ?? null;
+    filteredRules = getFilteredRules(allRules);
     renderRules(filteredRules);
   });
+  byId("notificationReadFilter").addEventListener("change", loadNotifications);
+  byId("notificationSourceFilter").addEventListener("input", loadNotifications);
+  byId("notificationPageSize").addEventListener("change", loadNotifications);
+  document.addEventListener("click", handleDocumentClick);
+}
 
-  byId("rulesList").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) {
-      return;
-    }
-    const action = button.dataset.action;
-    if (action === "toggle-rule") {
-      toggleRule(button.dataset.ruleId, button.dataset.enabled);
-      return;
-    }
-    if (action === "select-rule") {
-      selectedRuleId = Number(button.dataset.ruleId);
-      renderRules(filteredRules);
-    }
-  });
-
-  byId("notificationsList").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) {
-      return;
-    }
-    const action = button.dataset.action;
-    if (action === "read-notification") {
-      markNotificationRead(button.dataset.notificationId);
-      return;
-    }
-    if (action === "delete-notification") {
-      deleteNotification(button.dataset.notificationId);
-      return;
-    }
-    if (action === "select-notification") {
-      selectedNotificationId = Number(button.dataset.notificationId);
-      renderNotifications(notificationsPage);
-    }
-  });
-
-  byId("importHistoryList").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) {
-      return;
-    }
-    if (button.dataset.action === "select-import-history") {
-      selectedImportHistoryId = Number(button.dataset.historyId);
-      renderImportHistory();
-      renderImportHistoryDetail();
-    }
-  });
-
-  byId("importHistoryDetail").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) {
-      return;
-    }
-    handleImportHistoryAction(button.dataset.action, button.dataset.historyId);
-  });
-
-  document.querySelectorAll(".menu-item, .view-tab").forEach((node) => {
-    node.addEventListener("click", () => switchView(node.dataset.view));
-  });
-
-  document.querySelectorAll(".tag-btn").forEach((node) => {
-    node.addEventListener("click", () => {
-      byId("batchSizeInput").value = node.dataset.batchSize;
-      byId("truncateBeforeImportInput").checked = node.dataset.truncate === "true";
-      setImportStatuses(`已应用预设：batchSize=${node.dataset.batchSize} / truncate=${node.dataset.truncate}`);
-    });
-  });
-
-  renderConclusions([]);
-  renderCountryList([]);
-  renderWorldBank(null);
-  renderFred(null);
+async function init() {
+  restoreSession();
+  resetSummary();
   renderLatestImport(null);
   renderImportHistory();
   renderImportHistoryDetail();
   renderRules([]);
   renderNotifications([]);
-  switchView("analysis");
-  loadImportHistory();
-});
+  switchView(activeView);
+  bindEvents();
+  await loadImportHistory();
+  if (token) {
+    await loadMe();
+    if (getCurrentFamilyId()) {
+      await Promise.all([loadRules(), loadNotifications()]);
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
