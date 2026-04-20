@@ -505,6 +505,39 @@ function buildParentCategoryOptions(selectedId = null) {
   );
 }
 
+function formatAccountRef(accountId) {
+  if (!accountId) {
+    return "-";
+  }
+  const account = accounts.find((item) => Number(item.id) === Number(accountId));
+  if (!account) {
+    return `账户#${formatNumber(accountId, 0)}`;
+  }
+  return `${account.accountName} / ${account.accountType}`;
+}
+
+function formatCategoryRef(categoryId) {
+  if (!categoryId) {
+    return "-";
+  }
+  const category = categories.find((item) => Number(item.id) === Number(categoryId));
+  if (!category) {
+    return `分类#${formatNumber(categoryId, 0)}`;
+  }
+  return `${category.categoryName} / ${category.categoryType}`;
+}
+
+function formatMemberRef(memberId) {
+  if (!memberId) {
+    return "-";
+  }
+  const member = memberships.find((item) => Number(item.familyMemberId) === Number(memberId));
+  if (!member) {
+    return `成员#${formatNumber(memberId, 0)}`;
+  }
+  return `${member.roleCode || "MEMBER"} / ${member.familyName || `家庭${member.familyId}`}`;
+}
+
 function getSelectedBusinessItem(type) {
   if (type === "account") {
     return accounts.find((item) => item.id === selectedAccountId) || null;
@@ -692,6 +725,7 @@ function renderBusinessForm(type) {
   byId("businessFormTitle").textContent = config.title;
   byId("businessFormSubtitle").textContent = config.subtitle;
   byId("businessFormSubmitBtn").textContent = config.submitText;
+  byId("businessFormSubmitBtn").dataset.idleText = config.submitText;
   byId("businessFormFields").innerHTML = config.fields.map(renderBusinessFormField).join("");
   syncTransactionFormBehavior();
   applyBusinessFormPrerequisiteMessage();
@@ -729,6 +763,24 @@ function setBusinessFormStatus(message = "", isError = true) {
   node.style.borderColor = isError ? "#fecaca" : "#bbf7d0";
   node.style.background = isError ? "#fff1f2" : "#f0fdf4";
   node.style.color = isError ? "#b91c1c" : "#166534";
+}
+
+function setBusinessFormSubmitting(submitting) {
+  const panel = byId("businessFormModal").querySelector(".modal-panel");
+  const form = byId("businessForm");
+  const submitBtn = byId("businessFormSubmitBtn");
+  const cancelBtn = byId("businessFormCancelBtn");
+  const closeBtn = byId("businessFormCloseBtn");
+  const defaultText = businessFormMode === "edit" ? "保存" : "提交";
+
+  panel.classList.toggle("is-submitting", submitting);
+  form.querySelectorAll(".field-input").forEach((node) => {
+    node.disabled = submitting;
+  });
+  submitBtn.disabled = submitting;
+  cancelBtn.disabled = submitting;
+  closeBtn.disabled = submitting;
+  submitBtn.textContent = submitting ? "提交中..." : (submitBtn.dataset.idleText || defaultText);
 }
 
 function clearBusinessFormErrors() {
@@ -1145,7 +1197,7 @@ function renderAccountDetail(item) {
         <div class="detail-descriptions">
           ${renderDescriptionPairs([
             { label: "账户类型", value: item.accountType },
-            { label: "所属成员", value: formatNumber(item.ownerMemberId, 0) },
+            { label: "所属成员", value: formatMemberRef(item.ownerMemberId) },
             { label: "余额", value: formatNumber(item.currentBalance) },
             { label: "信用额度", value: formatNumber(item.creditLimit) },
             { label: "账单日", value: formatNumber(item.billingDay, 0) },
@@ -1194,6 +1246,7 @@ function renderAccounts(items) {
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">账户名称</span>
               <span class="data-cell-value">${escapeHtml(item.accountName)}</span>
+              <span class="data-cell-meta">${escapeHtml(item.institutionName || "-")} / ${escapeHtml(formatMemberRef(item.ownerMemberId))}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">类型</span>
@@ -1254,7 +1307,7 @@ function renderCategoryDetail(item) {
           ${renderDescriptionPairs([
             { label: "分类类型", value: item.categoryType },
             { label: "作用域", value: item.scopeType || "-" },
-            { label: "父分类", value: formatNumber(item.parentId, 0) },
+            { label: "父分类", value: formatCategoryRef(item.parentId) },
             { label: "排序", value: formatNumber(item.sortOrder, 0) },
             { label: "图标", value: item.iconCode || "-" },
             { label: "启用状态", value: Number(item.enabled) === 1 ? "启用中" : "已停用" }
@@ -1296,6 +1349,7 @@ function renderCategories(items) {
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">分类名称</span>
               <span class="data-cell-value">${escapeHtml(item.categoryName)}</span>
+              <span class="data-cell-meta">${escapeHtml(formatCategoryRef(item.parentId))} / ${escapeHtml(item.scopeType || "-")}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">类型</span>
@@ -1364,8 +1418,8 @@ function renderBudgetDetail(item) {
             { label: "预警比例", value: formatNumber(item.alertRatio) },
             { label: "开始日期", value: item.startDate || "-" },
             { label: "结束日期", value: item.endDate || "-" },
-            { label: "分类 ID", value: formatNumber(item.categoryId, 0) },
-            { label: "创建成员", value: formatNumber(item.createdByMemberId, 0) },
+            { label: "预算分类", value: formatCategoryRef(item.categoryId) },
+            { label: "创建成员", value: formatMemberRef(item.createdByMemberId) },
             { label: "备注", value: item.remark || "-" }
           ])}
         </div>
@@ -1413,6 +1467,7 @@ function renderBudgets(items) {
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">预算名称</span>
               <span class="data-cell-value">${escapeHtml(item.budgetName)}</span>
+              <span class="data-cell-meta">${escapeHtml(formatCategoryRef(item.categoryId))} / ${escapeHtml(formatMemberRef(item.createdByMemberId))}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">周期</span>
@@ -1495,10 +1550,10 @@ function renderTransactionDetail(item) {
           ${renderDescriptionPairs([
             { label: "金额", value: formatNumber(item.amount) },
             { label: "交易时间", value: formatDateTime(item.transactionTime) },
-            { label: "账户 ID", value: formatNumber(item.accountId, 0) },
-            { label: "目标账户 ID", value: formatNumber(item.targetAccountId, 0) },
-            { label: "分类 ID", value: formatNumber(item.categoryId, 0) },
-            { label: "创建成员", value: formatNumber(item.createdByMemberId, 0) },
+            { label: "交易账户", value: formatAccountRef(item.accountId) },
+            { label: "目标账户", value: formatAccountRef(item.targetAccountId) },
+            { label: "交易分类", value: formatCategoryRef(item.categoryId) },
+            { label: "创建成员", value: formatMemberRef(item.createdByMemberId) },
             { label: "来源平台", value: item.sourcePlatform || "-" },
             { label: "外部单号", value: item.externalTradeNo || "-" }
           ])}
@@ -1542,6 +1597,7 @@ function renderTransactions(items) {
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">交易对象</span>
               <span class="data-cell-value">${escapeHtml(item.merchantName || item.counterpartyName || `交易#${item.id}`)}</span>
+              <span class="data-cell-meta">${escapeHtml(formatAccountRef(item.accountId))}${item.targetAccountId ? ` -> ${escapeHtml(formatAccountRef(item.targetAccountId))}` : ""}${item.categoryId ? ` / ${escapeHtml(formatCategoryRef(item.categoryId))}` : ""}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">类型</span>
@@ -1817,6 +1873,7 @@ async function submitBusinessForm(event) {
   }
   clearBusinessFormErrors();
   setBusinessFormStatus("表单校验通过，正在提交...", false);
+  setBusinessFormSubmitting(true);
   try {
     if (businessFormType === "account") {
       await api(isEdit ? `/api/accounts/${selectedAccountId}` : "/api/accounts", {
@@ -1898,6 +1955,8 @@ async function submitBusinessForm(event) {
   } catch (error) {
     setBusinessFormStatus(`提交失败：${error.message}`, true);
     setBusinessStatus(`表单提交失败：${error.message}`, true);
+  } finally {
+    setBusinessFormSubmitting(false);
   }
 }
 
