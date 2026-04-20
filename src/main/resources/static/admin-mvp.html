@@ -376,6 +376,18 @@
         <section class="panel panel-half">
           <div class="panel-head">
             <div>
+              <p class="panel-eyebrow">Import State</p>
+              <h2>导入状态判断</h2>
+            </div>
+          </div>
+          <div id="importStateBoard" class="summary-board">
+            <div class="summary-item">尚未执行导入，当前无法判断真实数据入库质量。</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
               <p class="panel-eyebrow">History</p>
               <h2>导入历史</h2>
             </div>
@@ -822,6 +834,30 @@
           </div>
           <div id="notificationsOverviewBoard" class="summary-board">
             <div class="summary-item">加载通知后显示未读数量、来源分布和最近动态</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Risk State</p>
+              <h2>风控状态判断</h2>
+            </div>
+          </div>
+          <div id="rulesStateBoard" class="summary-board">
+            <div class="summary-item">加载规则与通知后，这里会判断当前风控链路是否稳定。</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Actions</p>
+              <h2>通知处置建议</h2>
+            </div>
+          </div>
+          <div id="notificationsActionBoard" class="summary-board">
+            <div class="summary-item">加载通知后，这里会给出处置顺序和下一步建议。</div>
           </div>
         </section>
 

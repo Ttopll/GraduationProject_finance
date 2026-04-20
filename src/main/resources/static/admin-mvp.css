@@ -959,6 +959,47 @@ span.tag-btn.command-muted {
   color: var(--text-soft);
 }
 
+.import-state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.import-state-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: #f8fbff;
+}
+
+.import-state-item.warning {
+  background: #fff7e4;
+  border-color: #f5d27a;
+}
+
+.import-state-item.danger {
+  background: #fff1f1;
+  border-color: #efb0b0;
+}
+
+.import-state-item.success {
+  background: #eff8f1;
+  border-color: #b8e1c0;
+}
+
+.import-state-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.import-state-meta {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
 .toolbar-card {
   padding: 16px;
   border-radius: 16px;
@@ -2074,6 +2115,10 @@ span.tag-btn.command-muted {
   }
 
   .analysis-state-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-state-grid {
     grid-template-columns: 1fr;
   }
 

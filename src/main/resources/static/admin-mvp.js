@@ -17,6 +17,7 @@ let selectedRuleIds = [];
 let selectedRuleId = null;
 let selectedNotificationIds = [];
 let selectedNotificationId = null;
+let latestRuleEvaluation = null;
 let accounts = [];
 let categories = [];
 let budgets = [];
@@ -1096,6 +1097,7 @@ function clearSession() {
   allRules = [];
   filteredRules = [];
   notificationsPage = [];
+  latestRuleEvaluation = null;
   accounts = [];
   categories = [];
   budgets = [];
@@ -1372,6 +1374,73 @@ function renderRaw(payload) {
   byId("rawPayload").textContent = JSON.stringify(payload, null, 2);
 }
 
+function renderImportStateBoard(result = latestImport) {
+  const host = byId("importStateBoard");
+  if (!host) {
+    return;
+  }
+  if (!result) {
+    host.innerHTML = `
+      <div class="summary-item">
+        <strong>尚未执行导入</strong>
+        <div>当前没有最近批次，建议先执行导入，再判断质量、异常和后续动作。</div>
+      </div>
+    `;
+    return;
+  }
+  const quality = getImportQualityConclusion(result);
+  const status = result.importStatus || "";
+  const hasFailure = isImportFailed(status);
+  const hasDegrade = Number(result.fredImported || 0) === 0;
+  const cards = [
+    {
+      label: "总体质量",
+      tone: quality.tone || "warning",
+      meta: quality.detail || quality.label
+    },
+    {
+      label: "零售与世行",
+      tone: Number(result.retailImported || 0) > 0 && Number(result.worldBankImported || 0) > 0 ? "success" : "warning",
+      meta: `retail ${formatNumber(result.retailImported, 0)} / world ${formatNumber(result.worldBankImported, 0)}`
+    },
+    {
+      label: "FRED 状态",
+      tone: hasDegrade ? "warning" : "success",
+      meta: hasDegrade ? "当前为软降级，宏观序列未入库" : `已导入 ${formatNumber(result.fredImported, 0)} 条宏观点`
+    },
+    {
+      label: "后续动作",
+      tone: hasFailure ? "danger" : (hasDegrade ? "warning" : "success"),
+      meta: hasFailure ? "建议先复查参数并重新导入" : (hasDegrade ? "可先继续分析，但答辩前建议补抓 FRED" : "可以直接切换分析页刷新汇总")
+    }
+  ];
+  const actions = [
+    ...(hasFailure ? [{ label: "重新导入", command: "acceptance-run" }] : []),
+    ...(!hasFailure ? [{ label: "刷新分析汇总", command: "analysis-summary" }] : []),
+    ...(hasDegrade ? [{ label: "查看降级批次", command: "imports-degraded" }] : [{ label: "查看导入异常", command: "imports-issues" }])
+  ];
+  host.innerHTML = `
+    <div class="import-state-grid">
+      ${cards.map((item) => `
+        <div class="import-state-item ${item.tone}">
+          <div class="import-state-head">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span class="status-chip ${item.tone === "danger" ? "danger" : (item.tone === "warning" ? "warning" : "success")}">${item.tone === "danger" ? "异常" : (item.tone === "warning" ? "待确认" : "完成")}</span>
+          </div>
+          <div class="import-state-meta">${escapeHtml(item.meta)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="item-actions">
+      ${actions.map((item) => `
+        <button class="mini-btn" type="button" data-action="run-global-command" data-command="${item.command}">
+          ${escapeHtml(item.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderAnalysisStateBoard(state = "idle", summary = latestSummary, errorMessage = "") {
   const host = byId("analysisStateBoard");
   if (!host) {
@@ -1472,6 +1541,7 @@ function renderLatestImport(result) {
   const host = byId("latestImportResult");
   if (!result) {
     host.innerHTML = '<div class="summary-item">暂无导入结果</div>';
+    renderImportStateBoard(null);
     return;
   }
   const importTone = getImportHistoryTone({ result });
@@ -1485,6 +1555,10 @@ function renderLatestImport(result) {
       { label: "导入质量", value: qualityConclusion.label, meta: qualityConclusion.detail, tone: qualityConclusion.tone }
     ])}
     <div class="summary-item"><strong>处理目录</strong><div>${escapeHtml(result.processedDir)}</div></div>
+    <div class="summary-item">
+      <strong>结果判断</strong>
+      <div>${Number(result.retailImported || 0) > 0 && Number(result.worldBankImported || 0) > 0 ? "核心真实数据已入库，可继续分析。" : "当前核心数据未完全入库，建议优先复核批次结果。"} ${Number(result.fredImported || 0) === 0 ? "FRED 当前处于软降级状态。" : ""}</div>
+    </div>
     <div class="detail-grid">
       <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(result.importBatchId, 0)}</div></div>
       <div class="detail-item"><strong>批大小</strong><div>${formatNumber(result.batchSize, 0)}</div></div>
@@ -1495,7 +1569,12 @@ function renderLatestImport(result) {
       <div class="detail-item"><strong>导入状态</strong><div>${escapeHtml(result.importStatus)}</div></div>
       <div class="detail-item"><strong>导入时间</strong><div>${formatDateTime(result.importedAt)}</div></div>
     </div>
+    <div class="item-actions">
+      <button class="mini-btn" type="button" data-action="run-global-command" data-command="analysis-summary">切到分析并刷新</button>
+      <button class="mini-btn" type="button" data-action="run-global-command" data-command="${Number(result.fredImported || 0) === 0 ? "imports-degraded" : "imports-issues"}">查看对应批次</button>
+    </div>
   `;
+  renderImportStateBoard(result);
 }
 
 function normalizeImportHistory(items) {
@@ -1576,6 +1655,10 @@ function renderImportHistoryDetail() {
       { label: "导入状态", value: escapeHtml(record.result?.importStatus || "未知"), meta: `批次 ${formatNumber(record.result?.importBatchId, 0)}`, tone: getImportHistoryTone(record) === "danger" ? "danger" : getImportHistoryTone(record) === "warning" ? "warning" : "" }
     ])}
     <div class="summary-item"><strong>导入时间</strong><div>${formatDateTime(record.createdAt)}</div></div>
+    <div class="summary-item">
+      <strong>批次结论</strong>
+      <div>${isImportFailed(record.result?.importStatus) ? "该批次导入失败，不建议直接用于分析或验收，请先回填参数并重试。" : (Number(record.result?.fredImported || 0) === 0 ? "该批次核心数据已可用，但 FRED 处于软降级状态。可以继续分析，同时建议保留说明。" : "该批次导入完整，可直接用于分析汇总与系统验收。")}</div>
+    </div>
     <div class="detail-grid">
       <div class="detail-item"><strong>批次 ID</strong><div>${formatNumber(record.result?.importBatchId, 0)}</div></div>
       <div class="detail-item"><strong>处理目录</strong><div>${escapeHtml(record.params.processedDir)}</div></div>
@@ -1590,6 +1673,7 @@ function renderImportHistoryDetail() {
       <button class="mini-btn" type="button" data-action="reuse-import-history" data-history-id="${record.id}">回填参数</button>
       <button class="mini-btn" type="button" data-action="load-summary-from-history" data-history-id="${record.id}">切到分析并加载汇总</button>
       <button class="mini-btn" type="button" data-action="show-import-payload" data-history-id="${record.id}">查看导入回执</button>
+      <button class="mini-btn" type="button" data-action="run-global-command" data-command="${Number(record.result?.fredImported || 0) === 0 ? "imports-degraded" : "analysis-summary"}">${Number(record.result?.fredImported || 0) === 0 ? "查看降级批次" : "转到分析页"}</button>
     </div>
   `;
 }
@@ -2441,12 +2525,16 @@ function renderBusinessOverviewPanel() {
 function renderRulesOverviewPanel() {
   const rulesHost = byId("rulesOverviewBoard");
   const notificationsHost = byId("notificationsOverviewBoard");
-  if (!rulesHost || !notificationsHost) {
+  const stateHost = byId("rulesStateBoard");
+  const actionsHost = byId("notificationsActionBoard");
+  if (!rulesHost || !notificationsHost || !stateHost || !actionsHost) {
     return;
   }
   if (!token || !getCurrentFamilyId()) {
     rulesHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看规则总览</div>';
     notificationsHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看通知总览</div>';
+    stateHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后判断当前风控状态</div>';
+    actionsHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看通知处置建议</div>';
     renderExecutiveDashboard();
     return;
   }
@@ -2455,6 +2543,9 @@ function renderRulesOverviewPanel() {
   const unreadNotifications = notificationsPage.filter((item) => Number(item.readStatus) !== 1).length;
   const ruleSourceNotifications = notificationsPage.filter((item) => includesKeyword(item.sourceType, "RULE")).length;
   const latestNotification = notificationsPage[0] || null;
+  const criticalNotifications = notificationsPage.filter((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL"));
+  const disabledRules = allRules.length - enabledRules;
+  const riskTone = unreadNotifications > 0 || highPriorityRules > 0 ? "warning" : "success";
 
   rulesHost.innerHTML = `
     <div class="business-summary-grid">
@@ -2501,6 +2592,46 @@ function renderRulesOverviewPanel() {
     <div class="detail-section">
       <div class="detail-section-title">最近动态</div>
       <div class="detail-section-body">${latestNotification ? `${escapeHtml(latestNotification.title)} / ${escapeHtml(latestNotification.levelCode || "-")}` : "当前没有通知数据"}</div>
+    </div>
+  `;
+  stateHost.innerHTML = `
+    <div class="summary-item ${riskTone}">
+      <strong>当前风控判断</strong>
+      <div>${unreadNotifications > 0 || highPriorityRules > 0 ? "当前仍存在待处理风险项，建议先看未读通知和高优先级规则。" : "当前规则与通知状态相对稳定，可以进入常规巡检。"} </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">核心指标</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "启用规则", value: `${formatNumber(enabledRules, 0)} 条` },
+          { label: "停用规则", value: `${formatNumber(disabledRules, 0)} 条` },
+          { label: "高优先级规则", value: `${formatNumber(highPriorityRules, 0)} 条` },
+          { label: "未读通知", value: `${formatNumber(unreadNotifications, 0)} 条` },
+          { label: "高等级通知", value: `${formatNumber(criticalNotifications.length, 0)} 条` },
+          { label: "最近评估", value: latestRuleEvaluation ? `触发 ${formatNumber(latestRuleEvaluation.triggeredRuleCount, 0)} / 通知 ${formatNumber(latestRuleEvaluation.generatedNotificationCount, 0)}` : "尚未执行本轮评估" }
+        ])}
+      </div>
+    </div>
+  `;
+  actionsHost.innerHTML = `
+    <div class="summary-item">
+      <strong>处置顺序</strong>
+      <div>${criticalNotifications.length > 0 ? "先处理高等级通知，再回到规则列表复核相关规则。" : unreadNotifications > 0 ? "先清理未读通知，再评估是否需要复跑规则评估。" : "当前通知压力较低，可按规则优先级做巡检。"} </div>
+    </div>
+    <div class="item-actions">
+      <button class="mini-btn" type="button" data-action="notifications-open-unread">查看未读通知</button>
+      <button class="mini-btn" type="button" data-action="rules-open-high-priority">查看高优先级规则</button>
+      <button class="mini-btn" type="button" data-action="dashboard-evaluate-rules">重新执行评估</button>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">处置建议</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "通知来源", value: ruleSourceNotifications > 0 ? `当前页 ${formatNumber(ruleSourceNotifications, 0)} 条来自规则评估` : "当前页暂无规则来源通知" },
+          { label: "最近通知", value: latestNotification ? summarizeText(latestNotification.title, 28) : "暂无通知" },
+          { label: "建议动作", value: unreadNotifications > 0 ? "先标记已读或删除无效通知" : "可继续复核规则启停和优先级" }
+        ])}
+      </div>
     </div>
   `;
   renderExecutiveDashboard();
@@ -4324,6 +4455,7 @@ async function evaluateRules() {
   try {
     setRulesStatus("正在执行规则评估...");
     const response = await api(`/api/rules/evaluate${buildQuery({ familyId })}`, { method: "POST" });
+    latestRuleEvaluation = response;
     const detailText = (response.details || []).slice(0, 3).join("；") || "无附加细节";
     setRulesStatus(`规则评估完成：触发 ${formatNumber(response.triggeredRuleCount, 0)} 条，生成通知 ${formatNumber(response.generatedNotificationCount, 0)} 条。${detailText}`);
     await Promise.all([loadRules(), loadNotifications()]);
