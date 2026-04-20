@@ -1689,6 +1689,13 @@ async function loadTransactions(page = transactionPageIndex) {
       api(`/api/transaction-records/search${buildQuery({ familyId, transactionType, page: pageToLoad, size })}`),
       api(`/api/transaction-records/family/${familyId}/monthly-summary${buildQuery({ months: 6 })}`)
     ]);
+    if ((page.items || []).length === 0 && (page.totalElements || 0) > 0 && pageToLoad > 0) {
+      const fallbackPage = Math.max((page.totalPages || 1) - 1, 0);
+      if (fallbackPage !== pageToLoad) {
+        await loadTransactions(fallbackPage);
+        return;
+      }
+    }
     transactionItems = page.items || [];
     transactionPageIndex = page.page || 0;
     transactionTotalPages = page.totalPages || 0;
@@ -1908,6 +1915,7 @@ async function deleteTransaction(recordId) {
   try {
     await api(`/api/transaction-records/${recordId}`, { method: "DELETE" });
     setBusinessStatus("交易记录已删除。");
+    transactionPageIndex = transactionPageIndex > 0 && transactionItems.length <= 1 ? transactionPageIndex - 1 : transactionPageIndex;
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`交易记录删除失败：${error.message}`, true);
@@ -2400,6 +2408,13 @@ async function loadNotifications(page = notificationsPageIndex) {
   try {
     setRulesStatus("加载通知中...");
     const page = await api(`/api/notifications/search${buildQuery(params)}`);
+    if ((page.items || []).length === 0 && (page.totalElements || 0) > 0 && params.page > 0) {
+      const fallbackPage = Math.max((page.totalPages || 1) - 1, 0);
+      if (fallbackPage !== params.page) {
+        await loadNotifications(fallbackPage);
+        return;
+      }
+    }
     notificationsPage = page.items || [];
     notificationsPageIndex = page.page || 0;
     notificationsTotalPages = page.totalPages || 0;
@@ -2429,7 +2444,7 @@ async function deleteNotification(notificationId) {
   try {
     await api(`/api/notifications/${notificationId}`, { method: "DELETE" });
     setRulesStatus("通知已删除。");
-    await loadNotifications();
+    await reloadNotificationsAfterMutation();
   } catch (error) {
     setRulesStatus(`删除通知失败：${error.message}`, true);
   }
@@ -2472,6 +2487,16 @@ function getPagerInputPage(inputId, totalPages, fallbackPageIndex) {
   }
   const maxPage = Math.max(Number(totalPages) || 1, 1);
   return Math.min(value, maxPage) - 1;
+}
+
+async function reloadTransactionsAfterMutation() {
+  const fallbackPage = transactionPageIndex > 0 && transactionItems.length <= 1 ? transactionPageIndex - 1 : transactionPageIndex;
+  await loadTransactions(fallbackPage);
+}
+
+async function reloadNotificationsAfterMutation() {
+  const fallbackPage = notificationsPageIndex > 0 && notificationsPage.length <= 1 ? notificationsPageIndex - 1 : notificationsPageIndex;
+  await loadNotifications(fallbackPage);
 }
 
 function handleDocumentClick(event) {
@@ -2730,6 +2755,20 @@ function bindEvents() {
   byId("transactionPageSize").addEventListener("change", () => {
     transactionPageIndex = 0;
     loadTransactions(0);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    if (event.target?.id === "transactionsPageInput") {
+      event.preventDefault();
+      loadTransactions(getPagerInputPage("transactionsPageInput", transactionTotalPages, transactionPageIndex));
+      return;
+    }
+    if (event.target?.id === "notificationsPageInput") {
+      event.preventDefault();
+      loadNotifications(getPagerInputPage("notificationsPageInput", notificationsTotalPages, notificationsPageIndex));
+    }
   });
   document.addEventListener("click", handleDocumentClick);
 }
