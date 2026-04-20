@@ -508,6 +508,42 @@
         <section class="panel panel-half">
           <div class="panel-head">
             <div>
+              <p class="panel-eyebrow">Workspace State</p>
+              <h2>当前业务上下文</h2>
+            </div>
+          </div>
+          <div id="businessStateBoard" class="summary-board">
+            <div class="summary-item">登录并加载业务数据后显示当前工作上下文</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Selection</p>
+              <h2>选中对象与操作范围</h2>
+            </div>
+          </div>
+          <div id="businessSelectionBoard" class="summary-board">
+            <div class="summary-item">加载业务数据后显示当前选中对象、批量范围和建议动作</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Recent Action</p>
+              <h2>最近业务操作</h2>
+            </div>
+          </div>
+          <div id="businessActionFeedbackBoard" class="summary-board">
+            <div class="summary-item">执行新增、编辑、启停、删除后，这里会显示最近一次业务操作结果</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
               <p class="panel-eyebrow">Accounts</p>
               <h2>账户列表</h2>
             </div>
@@ -689,6 +725,9 @@
           <div id="budgetDetailPanel" class="summary-board">
             <div class="summary-item">点击左侧预算查看详情</div>
           </div>
+          <div id="budgetActionBoard" class="summary-board">
+            <div class="summary-item">加载预算后显示异常预算处置建议</div>
+          </div>
         </section>
 
         <section class="panel panel-half">
@@ -717,7 +756,18 @@
                 <option value="20">20</option>
               </select>
             </label>
+            <div class="filter-action-group">
+              <button id="resetTransactionFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
+              <button id="exportTransactionsBtn" class="ghost-btn" type="button">导出当前结果</button>
+            </div>
           </div>
+          <div class="quick-tags">
+            <button id="transactionQuickAllBtn" class="tag-btn is-active" type="button">全部交易</button>
+            <button id="transactionQuickMissingCategoryBtn" class="tag-btn" type="button">缺少分类</button>
+            <button id="transactionQuickMissingReferenceBtn" class="tag-btn" type="button">缺少说明</button>
+            <button id="transactionQuickLargeAmountBtn" class="tag-btn" type="button">大额交易</button>
+          </div>
+          <div id="transactionFilterSummary" class="filter-summary">当前未启用筛选</div>
           <div id="transactionsStats" class="stats-strip">
             <div class="stats-pill">总数：-</div>
             <div class="stats-pill">收入：-</div>
@@ -741,6 +791,9 @@
           </div>
           <div id="transactionMonthlySummary" class="summary-board">
             <div class="summary-item">月度收支摘要将在加载交易后显示</div>
+          </div>
+          <div id="transactionAuditBoard" class="summary-board">
+            <div class="summary-item">加载交易后显示交易核查结论与可疑记录摘要</div>
           </div>
         </section>
       </section>

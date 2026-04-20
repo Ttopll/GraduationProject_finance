@@ -41,7 +41,9 @@ let budgetShowSelectedOnly = false;
 let selectedBudgetIds = [];
 let selectedBudgetId = null;
 let ruleQuickFilter = "all";
+let transactionQuickFilter = "all";
 let selectedTransactionId = null;
+let latestBusinessAction = null;
 let businessFormType = null;
 let businessFormMode = "create";
 let notificationsPageIndex = 0;
@@ -265,6 +267,13 @@ function focusBusinessArea(mode = "overview") {
   if (mode === "recent-transactions") {
     transactionPageIndex = 0;
     byId("transactionTypeFilter").value = "";
+    transactionQuickFilter = "all";
+    updateQuickTagButtons({
+      all: "transactionQuickAllBtn",
+      "missing-category": "transactionQuickMissingCategoryBtn",
+      "missing-reference": "transactionQuickMissingReferenceBtn",
+      "large-amount": "transactionQuickLargeAmountBtn"
+    }, transactionQuickFilter);
     loadTransactions(0);
   }
 }
@@ -758,6 +767,55 @@ function hasActiveBudgetFilters() {
   return Boolean((byId("budgetEnabledFilter")?.value || "") || (byId("budgetPeriodFilter")?.value || "").trim() || budgetQuickFilter !== "all");
 }
 
+function getFilteredTransactions(items = transactionItems) {
+  const transactionType = byId("transactionTypeFilter")?.value || "";
+  return (items || []).filter((item) => {
+    if (transactionType && !includesKeyword(item.transactionType, transactionType)) {
+      return false;
+    }
+    if (transactionQuickFilter === "missing-category" && item.categoryId) {
+      return false;
+    }
+    if (transactionQuickFilter === "missing-reference" && String(item.note || "").trim()) {
+      return false;
+    }
+    if (transactionQuickFilter === "missing-reference" && String(item.externalTradeNo || "").trim()) {
+      return false;
+    }
+    if (transactionQuickFilter === "large-amount" && Math.abs(Number(item.amount || 0)) < 1000) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function hasActiveTransactionFilters() {
+  return Boolean((byId("transactionTypeFilter")?.value || "") || transactionQuickFilter !== "all");
+}
+
+function renderTransactionFilterSummary(filteredCount, totalCount) {
+  const summary = byId("transactionFilterSummary");
+  if (!summary) {
+    return;
+  }
+  const parts = [];
+  const type = byId("transactionTypeFilter")?.value || "";
+  if (type) {
+    parts.push(`类型=${{ INCOME: "收入", EXPENSE: "支出", TRANSFER: "转账" }[type] || type}`);
+  }
+  if (transactionQuickFilter !== "all") {
+    parts.push(`快捷=${{
+      "missing-category": "缺少分类",
+      "missing-reference": "缺少说明",
+      "large-amount": "大额交易"
+    }[transactionQuickFilter] || transactionQuickFilter}`);
+  }
+  const pageSize = byId("transactionPageSize")?.value || "8";
+  summary.textContent = parts.length === 0
+    ? `当前未启用筛选，本页返回 ${formatNumber(totalCount, 0)} 条；每页 ${pageSize} 条`
+    : `已筛选：${parts.join("，")}；命中 ${formatNumber(filteredCount, 0)} / ${formatNumber(totalCount, 0)} 条；每页 ${pageSize} 条`;
+}
+
 function renderAccountFilterSummary(filteredCount, totalCount) {
   const summary = byId("accountFilterSummary");
   if (!summary) {
@@ -872,6 +930,19 @@ function resetBudgetFilters() {
   renderBudgets(getFilteredBudgets(budgets));
 }
 
+function resetTransactionFilters() {
+  byId("transactionTypeFilter").value = "";
+  byId("transactionPageSize").value = "8";
+  transactionQuickFilter = "all";
+  updateQuickTagButtons({
+    all: "transactionQuickAllBtn",
+    "missing-category": "transactionQuickMissingCategoryBtn",
+    "missing-reference": "transactionQuickMissingReferenceBtn",
+    "large-amount": "transactionQuickLargeAmountBtn"
+  }, transactionQuickFilter);
+  loadTransactions(0);
+}
+
 function applyAccountQuickFilter(filter) {
   accountQuickFilter = filter;
   updateQuickTagButtons({
@@ -903,6 +974,17 @@ function applyBudgetQuickFilter(filter) {
     monthly: "budgetQuickMonthlyBtn"
   }, budgetQuickFilter);
   renderBudgets(getFilteredBudgets(budgets));
+}
+
+function applyTransactionQuickFilter(filter) {
+  transactionQuickFilter = filter;
+  updateQuickTagButtons({
+    all: "transactionQuickAllBtn",
+    "missing-category": "transactionQuickMissingCategoryBtn",
+    "missing-reference": "transactionQuickMissingReferenceBtn",
+    "large-amount": "transactionQuickLargeAmountBtn"
+  }, transactionQuickFilter);
+  renderTransactions(transactionItems);
 }
 
 function applyRuleQuickFilter(filter) {
@@ -943,6 +1025,25 @@ function exportCurrentBudgets() {
     })
   ]);
   setBusinessStatus(`预算当前结果已导出，共 ${formatNumber(items.length, 0)} 条。`);
+}
+
+function exportCurrentTransactions() {
+  const items = getFilteredTransactions(transactionItems);
+  downloadCsv("transactions_current_view.csv", [
+    ["ID", "交易对象", "类型", "金额", "时间", "分类", "账户", "来源平台", "备注/外部单号"],
+    ...items.map((item) => [
+      item.id,
+      item.merchantName || item.counterpartyName || `交易#${item.id}`,
+      item.transactionType,
+      item.amount,
+      item.transactionTime || "",
+      item.categoryId ? formatCategoryRef(item.categoryId) : "未分类",
+      formatAccountRef(item.accountId),
+      item.sourcePlatform || "-",
+      item.note || item.externalTradeNo || "-"
+    ])
+  ]);
+  setBusinessStatus(`交易当前结果已导出，共 ${formatNumber(items.length, 0)} 条。`);
 }
 
 function toggleSelection(list, id, checked) {
@@ -1115,7 +1216,9 @@ function clearSession() {
   selectedAccountId = null;
   selectedCategoryId = null;
   selectedBudgetId = null;
+  transactionQuickFilter = "all";
   selectedTransactionId = null;
+  latestBusinessAction = null;
   localStorage.removeItem(STORAGE_TOKEN_KEY);
   localStorage.removeItem(STORAGE_SESSION_KEY);
   renderSession(null);
@@ -1129,6 +1232,7 @@ function clearSession() {
   renderTransactions([]);
   renderTransactionMonthlySummary([]);
   renderBusinessOverviewPanel();
+  renderBusinessActionFeedback();
   renderSidebarStatusPanel();
   renderAcceptanceWorkspace();
   setRulesStatus("请先登录后再加载规则与通知。", true);
@@ -1237,6 +1341,214 @@ function setRulesStatus(message, isError = false) {
 
 function setBusinessStatus(message, isError = false) {
   setStatus("businessStatus", message, isError);
+}
+
+function recordBusinessAction(action) {
+  const entityIds = Array.isArray(action.entityIds)
+    ? action.entityIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+    : (action.entityId ? [Number(action.entityId)] : []);
+  latestBusinessAction = {
+    scope: action.scope || "业务",
+    operation: action.operation || "更新",
+    target: action.target || "-",
+    detail: action.detail || "",
+    count: Number(action.count || 0),
+    tone: action.tone || "info",
+    success: action.success !== false,
+    entityId: entityIds[0] || null,
+    entityIds,
+    time: new Date().toISOString()
+  };
+  renderBusinessActionFeedback();
+}
+
+function getBusinessScopeState(scope) {
+  if (scope === "账户") {
+    return { selectedId: selectedAccountId, items: accounts, action: "business-feedback-open-account" };
+  }
+  if (scope === "分类") {
+    return { selectedId: selectedCategoryId, items: categories, action: "business-feedback-open-category" };
+  }
+  if (scope === "预算") {
+    return { selectedId: selectedBudgetId, items: budgets, action: "business-feedback-open-budget" };
+  }
+  if (scope === "交易") {
+    return { selectedId: selectedTransactionId, items: transactionItems, action: "business-feedback-open-transaction" };
+  }
+  return { selectedId: null, items: [], action: "business-feedback-open-scope" };
+}
+
+function isLatestBusinessActionTarget(scope, entityId) {
+  return Boolean(
+    latestBusinessAction
+    && latestBusinessAction.scope === scope
+    && (latestBusinessAction.entityIds || []).some((id) => Number(id) === Number(entityId || 0))
+  );
+}
+
+function getLatestBusinessActionListMessage(scope) {
+  if (!latestBusinessAction || latestBusinessAction.scope !== scope) {
+    return null;
+  }
+  return `${latestBusinessAction.operation}：${latestBusinessAction.detail || "已完成最近一次操作"}`;
+}
+
+function getLatestBusinessActionEntityIds(scope) {
+  if (!latestBusinessAction || latestBusinessAction.scope !== scope) {
+    return [];
+  }
+  return (latestBusinessAction.entityIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id));
+}
+
+function showLatestBusinessActionResultsOnly() {
+  if (!latestBusinessAction) {
+    return;
+  }
+  switchView("business");
+  const ids = getLatestBusinessActionEntityIds(latestBusinessAction.scope);
+  if (latestBusinessAction.scope === "账户") {
+    selectedAccountIds = ids;
+    accountShowSelectedOnly = true;
+    if (ids[0]) {
+      selectedAccountId = ids[0];
+    }
+    renderAccounts(getFilteredAccounts(accounts));
+    return;
+  }
+  if (latestBusinessAction.scope === "分类") {
+    selectedCategoryIds = ids;
+    categoryShowSelectedOnly = true;
+    if (ids[0]) {
+      selectedCategoryId = ids[0];
+    }
+    renderCategories(getFilteredCategories(categories));
+    return;
+  }
+  if (latestBusinessAction.scope === "预算") {
+    selectedBudgetIds = ids;
+    budgetShowSelectedOnly = true;
+    if (ids[0]) {
+      selectedBudgetId = ids[0];
+    }
+    renderBudgets(getFilteredBudgets(budgets));
+    return;
+  }
+  if (latestBusinessAction.scope === "交易") {
+    if (ids[0]) {
+      selectedTransactionId = ids[0];
+    }
+    renderTransactions(transactionItems);
+  }
+}
+
+function focusLatestBusinessActionTarget() {
+  if (!latestBusinessAction) {
+    return;
+  }
+  switchView("business");
+  if (latestBusinessAction.scope === "账户" && latestBusinessAction.entityId) {
+    selectedAccountId = Number(latestBusinessAction.entityId);
+    renderAccounts(getFilteredAccounts(accounts));
+    renderAccountDetail(accounts.find((item) => Number(item.id) === selectedAccountId) || null);
+    return;
+  }
+  if (latestBusinessAction.scope === "分类" && latestBusinessAction.entityId) {
+    selectedCategoryId = Number(latestBusinessAction.entityId);
+    renderCategories(getFilteredCategories(categories));
+    renderCategoryDetail(categories.find((item) => Number(item.id) === selectedCategoryId) || null);
+    return;
+  }
+  if (latestBusinessAction.scope === "预算" && latestBusinessAction.entityId) {
+    selectedBudgetId = Number(latestBusinessAction.entityId);
+    renderBudgets(getFilteredBudgets(budgets));
+    renderBudgetDetail(budgets.find((item) => Number(item.id) === selectedBudgetId) || null);
+    return;
+  }
+  if (latestBusinessAction.scope === "交易") {
+    if (latestBusinessAction.entityId) {
+      selectedTransactionId = Number(latestBusinessAction.entityId);
+    }
+    renderTransactions(transactionItems);
+    renderTransactionDetail(transactionItems.find((item) => Number(item.id) === Number(latestBusinessAction.entityId || selectedTransactionId)) || null);
+  }
+}
+
+function syncLatestBusinessActionSelection() {
+  if (!latestBusinessAction || !latestBusinessAction.success || !latestBusinessAction.entityIds?.length) {
+    return;
+  }
+  const visibleIds = latestBusinessAction.entityIds.map((id) => Number(id));
+  if (latestBusinessAction.scope === "账户" && latestBusinessAction.operation !== "删除") {
+    selectedAccountIds = visibleIds.filter((id) => accounts.some((item) => Number(item.id) === id));
+    if (selectedAccountIds[0]) {
+      selectedAccountId = selectedAccountIds[0];
+    }
+  }
+  if (latestBusinessAction.scope === "分类" && latestBusinessAction.operation !== "删除") {
+    selectedCategoryIds = visibleIds.filter((id) => categories.some((item) => Number(item.id) === id));
+    if (selectedCategoryIds[0]) {
+      selectedCategoryId = selectedCategoryIds[0];
+    }
+  }
+  if (latestBusinessAction.scope === "预算" && latestBusinessAction.operation !== "删除") {
+    selectedBudgetIds = visibleIds.filter((id) => budgets.some((item) => Number(item.id) === id));
+    if (selectedBudgetIds[0]) {
+      selectedBudgetId = selectedBudgetIds[0];
+    }
+  }
+  if (latestBusinessAction.scope === "交易" && latestBusinessAction.operation !== "删除") {
+    const matchedIds = visibleIds.filter((id) => transactionItems.some((item) => Number(item.id) === id));
+    if (matchedIds[0]) {
+      selectedTransactionId = matchedIds[0];
+    }
+  }
+}
+
+function renderBusinessActionFeedback() {
+  const host = byId("businessActionFeedbackBoard");
+  if (!host) {
+    return;
+  }
+  if (!token || !getCurrentFamilyId()) {
+    host.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看最近业务操作</div>';
+    return;
+  }
+  if (!latestBusinessAction) {
+    host.innerHTML = '<div class="summary-item">当前还没有业务操作记录，执行新增、编辑、启停或删除后会在这里回显结果</div>';
+    return;
+  }
+  const action = latestBusinessAction;
+  const tone = action.tone || (action.success ? "info" : "danger");
+  const scopeState = getBusinessScopeState(action.scope);
+  const canFocusTarget = Boolean(action.entityIds?.length && scopeState.items.some((item) => action.entityIds.includes(Number(item.id))));
+  const focusLabel = action.count > 1 ? "查看当前结果" : "定位受影响对象";
+  host.innerHTML = `
+    ${renderResultOverview([
+      { label: "操作模块", value: action.scope, meta: action.operation, tone },
+      { label: "影响对象", value: action.target, meta: action.count > 0 ? `影响 ${formatNumber(action.count, 0)} 项` : "单项操作" },
+      { label: "执行结果", value: action.success ? "已完成" : "失败", meta: action.detail || "-", tone: action.success ? tone : "danger" }
+    ])}
+    ${renderAlertStrip([
+      { text: `${action.scope}${action.operation}${action.success ? "已完成" : "失败"}：${action.detail || "请结合右侧列表继续核对结果"}`, tone: action.success ? tone : "danger" }
+    ])}
+    <div class="detail-section">
+      <div class="detail-section-title">操作快照</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "模块", value: action.scope },
+          { label: "动作", value: action.operation },
+          { label: "对象", value: action.target },
+          { label: "影响范围", value: action.count > 0 ? `${formatNumber(action.count, 0)} 项` : "1 项" },
+          { label: "执行时间", value: formatDateTime(action.time) }
+        ])}
+      </div>
+    </div>
+    <div class="item-actions">
+      <button class="mini-btn" type="button" data-action="business-feedback-open-scope">打开对应模块</button>
+      <button class="mini-btn" type="button" data-action="business-feedback-open-target" ${canFocusTarget ? "" : "disabled"}>${focusLabel}</button>
+      <button class="mini-btn" type="button" data-action="business-feedback-filter-targets" ${canFocusTarget ? "" : "disabled"}>仅看最近受影响</button>
+    </div>
+  `;
 }
 
 function renderMetric(id, value) {
@@ -1381,10 +1693,12 @@ function renderImportStateBoard(result = latestImport) {
   }
   if (!result) {
     host.innerHTML = `
-      <div class="summary-item">
-        <strong>尚未执行导入</strong>
-        <div>当前没有最近批次，建议先执行导入，再判断质量、异常和后续动作。</div>
-      </div>
+      ${renderResultOverview([
+        { label: "当前状态", value: "未执行", meta: "尚未产生可复核的导入批次", tone: "warning" },
+        { label: "核心数据", value: "待导入", meta: "零售、世行、FRED 仍未入库", tone: "warning" },
+        { label: "建议动作", value: "先执行导入", meta: "推荐使用默认批次 5000 并清空后重导", tone: "warning" }
+      ])}
+      ${renderAlertStrip([{ text: "当前没有最近批次，建议先执行导入，再判断质量、异常和后续动作。", tone: "warning" }])}
     `;
     return;
   }
@@ -1392,27 +1706,10 @@ function renderImportStateBoard(result = latestImport) {
   const status = result.importStatus || "";
   const hasFailure = isImportFailed(status);
   const hasDegrade = Number(result.fredImported || 0) === 0;
-  const cards = [
-    {
-      label: "总体质量",
-      tone: quality.tone || "warning",
-      meta: quality.detail || quality.label
-    },
-    {
-      label: "零售与世行",
-      tone: Number(result.retailImported || 0) > 0 && Number(result.worldBankImported || 0) > 0 ? "success" : "warning",
-      meta: `retail ${formatNumber(result.retailImported, 0)} / world ${formatNumber(result.worldBankImported, 0)}`
-    },
-    {
-      label: "FRED 状态",
-      tone: hasDegrade ? "warning" : "success",
-      meta: hasDegrade ? "当前为软降级，宏观序列未入库" : `已导入 ${formatNumber(result.fredImported, 0)} 条宏观点`
-    },
-    {
-      label: "后续动作",
-      tone: hasFailure ? "danger" : (hasDegrade ? "warning" : "success"),
-      meta: hasFailure ? "建议先复查参数并重新导入" : (hasDegrade ? "可先继续分析，但答辩前建议补抓 FRED" : "可以直接切换分析页刷新汇总")
-    }
+  const alerts = [
+    ...(hasFailure ? [{ text: `最近批次状态异常：${status || "未知"}，当前不适合直接继续分析。`, tone: "danger" }] : []),
+    ...(hasDegrade ? [{ text: "FRED 当前处于软降级状态，宏观序列展示会缺数。", tone: "warning" }] : []),
+    ...(!hasFailure && !hasDegrade ? [{ text: "最近批次整体可用，可以直接切换分析页刷新汇总。", tone: "success" }] : [])
   ];
   const actions = [
     ...(hasFailure ? [{ label: "重新导入", command: "acceptance-run" }] : []),
@@ -1420,16 +1717,24 @@ function renderImportStateBoard(result = latestImport) {
     ...(hasDegrade ? [{ label: "查看降级批次", command: "imports-degraded" }] : [{ label: "查看导入异常", command: "imports-issues" }])
   ];
   host.innerHTML = `
-    <div class="import-state-grid">
-      ${cards.map((item) => `
-        <div class="import-state-item ${item.tone}">
-          <div class="import-state-head">
-            <strong>${escapeHtml(item.label)}</strong>
-            <span class="status-chip ${item.tone === "danger" ? "danger" : (item.tone === "warning" ? "warning" : "success")}">${item.tone === "danger" ? "异常" : (item.tone === "warning" ? "待确认" : "完成")}</span>
-          </div>
-          <div class="import-state-meta">${escapeHtml(item.meta)}</div>
-        </div>
-      `).join("")}
+    ${renderResultOverview([
+      { label: "导入质量", value: quality.label, meta: quality.detail, tone: quality.tone || "warning" },
+      { label: "导入状态", value: status || "未知", meta: `批次 ${formatNumber(result.importBatchId, 0)}`, tone: hasFailure ? "danger" : (!isImportSuccessful(status) ? "warning" : "success") },
+      { label: "核心数据", value: `${formatNumber(result.retailImported, 0)} / ${formatNumber(result.worldBankImported, 0)}`, meta: "零售 / 世行", tone: Number(result.retailImported || 0) > 0 && Number(result.worldBankImported || 0) > 0 ? "success" : "danger" },
+      { label: "FRED 状态", value: hasDegrade ? "软降级" : "已接通", meta: hasDegrade ? "当前宏观序列未入库" : `已导入 ${formatNumber(result.fredImported, 0)} 条`, tone: hasDegrade ? "warning" : "success" },
+      { label: "下一步", value: hasFailure ? "先修导入" : "可继续分析", meta: hasFailure ? "建议复查目录、批次和接口状态" : (hasDegrade ? "可先分析，但答辩前建议补抓 FRED" : "建议立即刷新分析汇总"), tone: hasFailure ? "danger" : (hasDegrade ? "warning" : "success") }
+    ])}
+    ${renderAlertStrip(alerts)}
+    <div class="detail-section">
+      <div class="detail-section-title">导入状态摘要</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "处理目录", value: result.processedDir || "-" },
+          { label: "批大小", value: formatNumber(result.batchSize, 0) },
+          { label: "清空重导", value: formatBoolean(result.truncatedBeforeImport) },
+          { label: "导入时间", value: formatDateTime(result.importedAt) }
+        ])}
+      </div>
     </div>
     <div class="item-actions">
       ${actions.map((item) => `
@@ -1448,28 +1753,34 @@ function renderAnalysisStateBoard(state = "idle", summary = latestSummary, error
   }
   if (state === "loading") {
     host.innerHTML = `
-      <div class="summary-item warning">
-        <strong>分析汇总加载中</strong>
-        <div>正在请求真实数据分析汇总，稍后会同步更新国家趋势、FRED 状态、自动结论和原始回执。</div>
-      </div>
+      ${renderResultOverview([
+        { label: "分析状态", value: "加载中", meta: "正在请求真实数据分析汇总", tone: "warning" },
+        { label: "国家趋势", value: "等待返回", meta: "稍后同步更新世行趋势点", tone: "warning" },
+        { label: "宏观序列", value: "等待返回", meta: "稍后同步更新 FRED 状态", tone: "warning" }
+      ])}
+      ${renderAlertStrip([{ text: "正在请求真实数据分析汇总，稍后会同步更新国家趋势、FRED 状态、自动结论和原始回执。", tone: "warning" }])}
     `;
     return;
   }
   if (state === "error") {
     host.innerHTML = `
-      <div class="summary-item danger">
-        <strong>分析汇总加载失败</strong>
-        <div>${escapeHtml(errorMessage || "当前未拿到分析结果，请检查接口状态和参数。")}</div>
-      </div>
+      ${renderResultOverview([
+        { label: "分析状态", value: "失败", meta: errorMessage || "当前未拿到分析结果", tone: "danger" },
+        { label: "建议动作", value: "检查接口", meta: "确认导入、参数和服务状态", tone: "danger" },
+        { label: "回退方案", value: "查看原始回执", meta: "必要时先回看最近导入结果", tone: "warning" }
+      ])}
+      ${renderAlertStrip([{ text: errorMessage || "当前未拿到分析结果，请检查接口状态和参数。", tone: "danger" }])}
     `;
     return;
   }
   if (!summary) {
     host.innerHTML = `
-      <div class="summary-item">
-        <strong>尚未生成分析汇总</strong>
-        <div>当前分析页还没有真实结果，建议先完成导入，再执行分析汇总。</div>
-      </div>
+      ${renderResultOverview([
+        { label: "分析状态", value: "未生成", meta: "当前分析页还没有真实结果", tone: "warning" },
+        { label: "国家趋势", value: "待刷新", meta: "世行趋势仍未计算", tone: "warning" },
+        { label: "宏观序列", value: "待刷新", meta: "FRED 序列仍未计算", tone: "warning" }
+      ])}
+      ${renderAlertStrip([{ text: "建议先完成导入，再执行分析汇总。", tone: "warning" }])}
     `;
     return;
   }
@@ -1479,43 +1790,30 @@ function renderAnalysisStateBoard(state = "idle", summary = latestSummary, error
   const worldBankPoints = worldBankTrend.points?.length || 0;
   const fredPoints = fredSeries.points?.length || 0;
   const conclusions = summary?.conclusions || [];
-  const cards = [
-    {
-      label: "零售数据",
-      tone: Number(retailOverview.totalRecords || 0) > 0 ? "success" : "warning",
-      meta: `记录 ${formatNumber(retailOverview.totalRecords, 0)} 条 / 金额 ${formatNumber(retailOverview.totalAmount)}`
-    },
-    {
-      label: "国家趋势",
-      tone: worldBankPoints > 0 ? "success" : "danger",
-      meta: worldBankPoints > 0 ? `${escapeHtml(worldBankTrend.countryIso3 || "-")} 共 ${formatNumber(worldBankPoints, 0)} 个趋势点` : "世行趋势为空，当前无法支撑国家趋势结论"
-    },
-    {
-      label: "宏观序列",
-      tone: fredPoints > 0 ? "success" : "warning",
-      meta: fredPoints > 0 ? `${escapeHtml(fredSeries.seriesId || "-")} 共 ${formatNumber(fredPoints, 0)} 个点` : "FRED 当前无点数，属于软降级展示"
-    },
-    {
-      label: "自动结论",
-      tone: conclusions.length > 0 ? "success" : "warning",
-      meta: conclusions.length > 0 ? `已生成 ${formatNumber(conclusions.length, 0)} 条结论，可直接用于汇报说明` : "当前没有自动结论输出"
-    }
+  const alerts = [
+    ...(worldBankPoints === 0 ? [{ text: "世行趋势为空，当前无法支撑国家趋势结论。", tone: "danger" }] : []),
+    ...(fredPoints === 0 ? [{ text: "FRED 当前无点数，宏观序列按软降级展示。", tone: "warning" }] : []),
+    ...(conclusions.length === 0 ? [{ text: "当前没有自动结论输出，汇报时需手动组织结论。", tone: "warning" }] : []),
+    ...(worldBankPoints > 0 && conclusions.length > 0 ? [{ text: "当前已形成可解释的分析结果，可直接用于汇报和演示。", tone: "success" }] : [])
   ];
   host.innerHTML = `
-    <div class="analysis-state-grid">
-      ${cards.map((item) => `
-        <div class="analysis-state-item ${item.tone}">
-          <div class="analysis-state-title">
-            <strong>${escapeHtml(item.label)}</strong>
-            <span class="status-chip ${item.tone === "danger" ? "danger" : (item.tone === "warning" ? "warning" : "success")}">${item.tone === "danger" ? "异常" : (item.tone === "warning" ? "待确认" : "完成")}</span>
-          </div>
-          <div class="analysis-state-meta">${escapeHtml(item.meta)}</div>
-        </div>
-      `).join("")}
-    </div>
-    <div class="summary-item">
-      <strong>分析完成说明</strong>
-      <div>自动结论来自当前汇总结果；原始回执区域用于解释这些结论对应的零售、世行和 FRED 原始结构。</div>
+    ${renderResultOverview([
+      { label: "零售数据", value: formatNumber(retailOverview.totalRecords, 0), meta: `金额 ${formatNumber(retailOverview.totalAmount)}`, tone: Number(retailOverview.totalRecords || 0) > 0 ? "success" : "warning" },
+      { label: "国家趋势", value: worldBankPoints > 0 ? formatNumber(worldBankPoints, 0) : "0", meta: worldBankPoints > 0 ? `${worldBankTrend.countryIso3 || "-"} 趋势点` : "世行趋势为空", tone: worldBankPoints > 0 ? "success" : "danger" },
+      { label: "宏观序列", value: fredPoints > 0 ? formatNumber(fredPoints, 0) : "0", meta: fredPoints > 0 ? `${fredSeries.seriesId || "-"} 已接通` : "当前软降级", tone: fredPoints > 0 ? "success" : "warning" },
+      { label: "自动结论", value: formatNumber(conclusions.length, 0), meta: conclusions.length > 0 ? "已可用于汇报说明" : "当前没有自动结论", tone: conclusions.length > 0 ? "success" : "warning" }
+    ])}
+    ${renderAlertStrip(alerts)}
+    <div class="detail-section">
+      <div class="detail-section-title">分析状态摘要</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "国家参数", value: worldBankTrend.countryIso3 || byId("countryIso3")?.value || "-" },
+          { label: "FRED 序列", value: fredSeries.seriesId || byId("seriesId")?.value || "-" },
+          { label: "Top Countries", value: formatNumber(byId("topCountries")?.value || 0, 0) },
+          { label: "说明", value: "原始回执区可作为结果解释依据", meta: "自动结论对应零售、世行和 FRED 的原始结构" }
+        ])}
+      </div>
     </div>
   `;
 }
@@ -1715,6 +2013,7 @@ function renderDescriptionPairs(items) {
     <div class="detail-pair">
       <div class="detail-pair-label">${escapeHtml(item.label)}</div>
       <div class="detail-pair-value">${escapeHtml(item.value)}</div>
+      ${item.meta ? `<div class="detail-pair-meta">${escapeHtml(item.meta)}</div>` : ""}
     </div>
   `).join("");
 }
@@ -2308,13 +2607,19 @@ function renderRuleDetail(item) {
 }
 
 function updateRulesStats(items) {
-  const total = items?.length || 0;
+  const visibleTotal = items?.length || 0;
+  const total = allRules.length || visibleTotal;
   const enabled = (items || []).filter((item) => Number(item.enabled) === 1).length;
-  const disabled = total - enabled;
+  const disabled = visibleTotal - enabled;
+  const highPriority = (items || []).filter((item) => Number(item.priority || 0) >= 8).length;
+  const typeCount = new Set((items || []).map((item) => String(item.ruleType || "").trim()).filter(Boolean)).size;
   byId("rulesStats").innerHTML = `
     <div class="stats-pill">总数：${formatNumber(total, 0)}</div>
+    <div class="stats-pill">当前结果：${formatNumber(visibleTotal, 0)}</div>
     <div class="stats-pill">启用：${formatNumber(enabled, 0)}</div>
     <div class="stats-pill">停用：${formatNumber(disabled, 0)}</div>
+    <div class="stats-pill">高优先级：${formatNumber(highPriority, 0)}</div>
+    <div class="stats-pill">规则类型：${formatNumber(typeCount, 0)}</div>
   `;
 }
 
@@ -2522,6 +2827,102 @@ function renderBusinessOverviewPanel() {
   renderExecutiveDashboard();
 }
 
+function renderBusinessWorkspacePanels() {
+  const stateHost = byId("businessStateBoard");
+  const selectionHost = byId("businessSelectionBoard");
+  if (!stateHost || !selectionHost) {
+    return;
+  }
+  if (!token || !getCurrentFamilyId()) {
+    stateHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看当前业务上下文</div>';
+    selectionHost.innerHTML = '<div class="summary-item">请先登录并选择家庭后查看选中对象与操作范围</div>';
+    return;
+  }
+
+  const filteredAccounts = getFilteredAccounts(accounts);
+  const filteredCategories = getFilteredCategories(categories);
+  const filteredBudgets = getFilteredBudgets(budgets);
+  const visibleTransactions = transactionItems || [];
+  const sharedAccounts = accounts.filter((item) => Number(item.isShared) === 1).length;
+  const disabledAccounts = accounts.filter((item) => Number(item.status) !== 1).length;
+  const disabledCategories = categories.filter((item) => Number(item.enabled) !== 1).length;
+  const alertBudgetCount = budgetUsage.filter((item) => item.alertTriggered || item.exceeded).length;
+  const exceededBudgetCount = budgetUsage.filter((item) => item.exceeded).length;
+  const incomeTransactions = visibleTransactions.filter((item) => includesKeyword(item.transactionType, "INCOME")).length;
+  const expenseTransactions = visibleTransactions.filter((item) => includesKeyword(item.transactionType, "EXPENSE")).length;
+  const selectedAccount = accounts.find((item) => item.id === selectedAccountId) || null;
+  const selectedCategory = categories.find((item) => item.id === selectedCategoryId) || null;
+  const selectedBudget = budgets.find((item) => item.id === selectedBudgetId) || null;
+  const selectedTransaction = transactionItems.find((item) => item.id === selectedTransactionId) || null;
+
+  const riskItems = [
+    ...(exceededBudgetCount > 0 ? [{ text: `存在 ${exceededBudgetCount} 个超支预算，应优先处理预算异常`, tone: "danger" }] : []),
+    ...(alertBudgetCount > exceededBudgetCount ? [{ text: `另有 ${alertBudgetCount - exceededBudgetCount} 个预算处于预警线附近`, tone: "warning" }] : []),
+    ...(disabledAccounts > 0 ? [{ text: `共有 ${disabledAccounts} 个账户处于停用状态，需确认是否仍保留`, tone: "warning" }] : []),
+    ...(disabledCategories > 0 ? [{ text: `共有 ${disabledCategories} 个分类已停用，建议核对预算与交易引用`, tone: "warning" }] : []),
+    ...(sharedAccounts > 0 ? [{ text: `当前存在 ${sharedAccounts} 个共享账户，适合复核成员权限`, tone: "info" }] : []),
+    ...(transactionTotalElements === 0 ? [{ text: "当前交易列表没有真实返回，交易链路仍需检查", tone: "warning" }] : [])
+  ];
+
+  const workspaceHealth = exceededBudgetCount > 0
+    ? "当前业务存在预算超支，需要先处理预算异常。"
+    : alertBudgetCount > 0 || disabledAccounts > 0 || disabledCategories > 0
+      ? "当前业务可继续操作，但仍有预警项和配置项需要跟进。"
+      : transactionTotalElements > 0
+        ? "当前业务数据整体健康，适合继续做新增、编辑和联调验证。"
+        : "当前已加载基础业务数据，但交易链路仍需补齐验证。";
+
+  stateHost.innerHTML = `
+    ${renderResultOverview([
+      { label: "筛选命中", value: `${formatNumber(filteredAccounts.length, 0)} / ${formatNumber(filteredCategories.length, 0)} / ${formatNumber(filteredBudgets.length, 0)} / ${formatNumber(visibleTransactions.length, 0)}`, meta: "账户 / 分类 / 预算 / 当前页交易" },
+      { label: "风险项", value: formatNumber(riskItems.length, 0), meta: riskItems.length > 0 ? "已识别当前页重点处理事项" : "当前未发现明显阻塞项", tone: riskItems.length > 0 ? "warning" : "" },
+      { label: "工作区判断", value: exceededBudgetCount > 0 ? "优先处理预算" : (selectedAccountIds.length + selectedCategoryIds.length + selectedBudgetIds.length > 0 ? "可批量处理" : "可继续单项维护"), meta: workspaceHealth, tone: exceededBudgetCount > 0 ? "danger" : "" }
+    ])}
+    <div class="detail-section">
+      <div class="detail-section-title">当前上下文</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "账户结果", value: `${formatNumber(filteredAccounts.length, 0)} / ${formatNumber(accounts.length, 0)}` },
+          { label: "分类结果", value: `${formatNumber(filteredCategories.length, 0)} / ${formatNumber(categories.length, 0)}` },
+          { label: "预算结果", value: `${formatNumber(filteredBudgets.length, 0)} / ${formatNumber(budgets.length, 0)}` },
+          { label: "交易结果", value: `${formatNumber(visibleTransactions.length, 0)} / ${formatNumber(transactionTotalElements, 0)}` },
+          { label: "共享账户", value: `${formatNumber(sharedAccounts, 0)} 个` },
+          { label: "预算异常", value: `${formatNumber(alertBudgetCount, 0)} 项` },
+          { label: "当前页收入", value: `${formatNumber(incomeTransactions, 0)} 条` },
+          { label: "当前页支出", value: `${formatNumber(expenseTransactions, 0)} 条` }
+        ])}
+      </div>
+    </div>
+    ${renderAlertStrip(riskItems)}
+  `;
+
+  selectionHost.innerHTML = `
+    ${renderResultOverview([
+      { label: "批量账户", value: formatNumber(selectedAccountIds.length, 0), meta: selectedAccountIds.length > 0 ? "可执行批量启停" : "当前未勾选账户" },
+      { label: "批量分类", value: formatNumber(selectedCategoryIds.length, 0), meta: selectedCategoryIds.length > 0 ? "可执行批量启停" : "当前未勾选分类" },
+      { label: "批量预算", value: formatNumber(selectedBudgetIds.length, 0), meta: selectedBudgetIds.length > 0 ? "可执行批量启停" : "当前未勾选预算" }
+    ])}
+    <div class="detail-section">
+      <div class="detail-section-title">当前选中对象</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "账户", value: selectedAccount ? `${selectedAccount.accountName} / ${selectedAccount.accountType}` : "未选中" },
+          { label: "分类", value: selectedCategory ? `${selectedCategory.categoryName} / ${selectedCategory.categoryType}` : "未选中" },
+          { label: "预算", value: selectedBudget ? `${selectedBudget.budgetName} / ${formatNumber(selectedBudget.amount)}` : "未选中" },
+          { label: "交易", value: selectedTransaction ? `${selectedTransaction.merchantName || selectedTransaction.counterpartyName || `交易#${selectedTransaction.id}`} / ${formatNumber(selectedTransaction.amount)}` : "未选中" }
+        ])}
+      </div>
+    </div>
+    <div class="item-actions">
+      <button class="mini-btn" type="button" data-action="create-account">新增账户</button>
+      <button class="mini-btn" type="button" data-action="create-category">新增分类</button>
+      <button class="mini-btn" type="button" data-action="create-budget">新增预算</button>
+      <button class="mini-btn" type="button" data-action="create-transaction">新增交易</button>
+    </div>
+  `;
+  renderBusinessActionFeedback();
+}
+
 function renderRulesOverviewPanel() {
   const rulesHost = byId("rulesOverviewBoard");
   const notificationsHost = byId("notificationsOverviewBoard");
@@ -2546,59 +2947,77 @@ function renderRulesOverviewPanel() {
   const criticalNotifications = notificationsPage.filter((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL"));
   const disabledRules = allRules.length - enabledRules;
   const riskTone = unreadNotifications > 0 || highPriorityRules > 0 ? "warning" : "success";
+  const ruleAlerts = [
+    ...(highPriorityRules.length > 0 ? [{ text: `当前有 ${formatNumber(highPriorityRules.length, 0)} 条高优先级规则，建议优先复核。`, tone: "warning" }] : []),
+    ...(disabledRules > 0 ? [{ text: `当前有 ${formatNumber(disabledRules, 0)} 条停用规则，需确认是否应恢复。`, tone: "info" }] : []),
+    ...(allRules.length === 0 ? [{ text: "当前没有规则数据，风控链路仍未完整接通。", tone: "warning" }] : [])
+  ];
+  const notificationAlerts = [
+    ...(criticalNotifications.length > 0 ? [{ text: `存在 ${formatNumber(criticalNotifications.length, 0)} 条高等级通知，应优先处理。`, tone: "danger" }] : []),
+    ...(unreadNotifications > 0 ? [{ text: `当前仍有 ${formatNumber(unreadNotifications, 0)} 条未读通知待处理。`, tone: "warning" }] : []),
+    ...(notificationsPage.length === 0 ? [{ text: "当前页没有通知数据，建议先刷新通知列表。", tone: "info" }] : [])
+  ];
 
   rulesHost.innerHTML = `
-    <div class="business-summary-grid">
-      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-all">
-        <strong>规则总数</strong>
-        <div>${formatNumber(allRules.length, 0)}</div>
-      </button>
-      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-enabled">
-        <strong>启用规则</strong>
-        <div>${formatNumber(enabledRules, 0)}</div>
-      </button>
-      <button class="business-summary-item overview-action-card" type="button" data-action="rules-open-high-priority">
-        <strong>高优先级</strong>
-        <div>${formatNumber(highPriorityRules, 0)}</div>
-      </button>
-    </div>
+    ${renderResultOverview([
+      { label: "规则总数", value: formatNumber(allRules.length, 0), meta: "当前家庭全部规则", tone: allRules.length > 0 ? "success" : "warning" },
+      { label: "启用规则", value: formatNumber(enabledRules, 0), meta: `启用率 ${allRules.length > 0 ? formatNumber((enabledRules / allRules.length) * 100) : "0"}%`, tone: enabledRules > 0 ? "success" : "warning" },
+      { label: "高优先级", value: formatNumber(highPriorityRules.length, 0), meta: "优先关注可能影响通知产出的规则", tone: highPriorityRules.length > 0 ? "warning" : "success" },
+      { label: "当前筛选", value: formatNumber(filteredRules.length, 0), meta: ruleQuickFilter === "high" ? "当前仅看高优先级规则" : "当前展示规则筛选结果" }
+    ])}
+    ${renderAlertStrip(ruleAlerts)}
     <div class="detail-section">
       <div class="detail-section-title">规则状态</div>
       <div class="detail-descriptions">
         ${renderDescriptionPairs([
           { label: "当前筛选命中", value: `${formatNumber(filteredRules.length, 0)} 条` },
           { label: "停用规则", value: `${formatNumber(allRules.length - enabledRules, 0)} 条` },
-          { label: "重点提示", value: highPriorityRules > 0 ? "建议优先复核高优先级规则" : "当前无高优先级堆积" }
+          { label: "规则类型", value: `${formatNumber(new Set(allRules.map((item) => String(item.ruleType || "").trim()).filter(Boolean)).size, 0)} 类` },
+          { label: "重点提示", value: highPriorityRules.length > 0 ? "建议优先复核高优先级规则" : "当前无高优先级堆积" }
         ])}
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="rules-open-all">查看全部规则</button>
+        <button class="mini-btn" type="button" data-action="rules-open-enabled">查看启用规则</button>
+        <button class="mini-btn" type="button" data-action="rules-open-high-priority">查看高优先级规则</button>
       </div>
     </div>
   `;
 
   notificationsHost.innerHTML = `
-    <div class="business-summary-grid">
-      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-all">
-        <strong>当前页通知</strong>
-        <div>${formatNumber(notificationsPage.length, 0)}</div>
-      </button>
-      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-unread">
-        <strong>未读通知</strong>
-        <div>${formatNumber(unreadNotifications, 0)}</div>
-      </button>
-      <button class="business-summary-item overview-action-card" type="button" data-action="notifications-open-rule-source">
-        <strong>规则来源</strong>
-        <div>${formatNumber(ruleSourceNotifications, 0)}</div>
-      </button>
-    </div>
+    ${renderResultOverview([
+      { label: "当前页通知", value: formatNumber(notificationsPage.length, 0), meta: `总计 ${formatNumber(notificationsTotalElements || notificationsPage.length, 0)} 条` },
+      { label: "未读通知", value: formatNumber(unreadNotifications, 0), meta: "建议先处理未读消息", tone: unreadNotifications > 0 ? "warning" : "success" },
+      { label: "规则来源", value: formatNumber(ruleSourceNotifications, 0), meta: "便于追踪规则评估产出" },
+      { label: "高等级通知", value: formatNumber(criticalNotifications.length, 0), meta: "高等级消息需要优先处理", tone: criticalNotifications.length > 0 ? "danger" : "success" }
+    ])}
+    ${renderAlertStrip(notificationAlerts)}
     <div class="detail-section">
       <div class="detail-section-title">最近动态</div>
-      <div class="detail-section-body">${latestNotification ? `${escapeHtml(latestNotification.title)} / ${escapeHtml(latestNotification.levelCode || "-")}` : "当前没有通知数据"}</div>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs([
+          { label: "最近通知", value: latestNotification ? summarizeText(latestNotification.title, 28) : "暂无通知" },
+          { label: "通知等级", value: latestNotification?.levelCode || "-" },
+          { label: "来源类型", value: latestNotification?.sourceType || "-" },
+          { label: "创建时间", value: latestNotification ? formatDateTime(latestNotification.createdAt) : "-" }
+        ])}
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="notifications-open-all">查看全部通知</button>
+        <button class="mini-btn" type="button" data-action="notifications-open-unread">查看未读通知</button>
+        <button class="mini-btn" type="button" data-action="notifications-open-rule-source">查看规则来源通知</button>
+      </div>
     </div>
   `;
   stateHost.innerHTML = `
-    <div class="summary-item ${riskTone}">
-      <strong>当前风控判断</strong>
-      <div>${unreadNotifications > 0 || highPriorityRules > 0 ? "当前仍存在待处理风险项，建议先看未读通知和高优先级规则。" : "当前规则与通知状态相对稳定，可以进入常规巡检。"} </div>
-    </div>
+    ${renderResultOverview([
+      { label: "当前判断", value: unreadNotifications > 0 || highPriorityRules.length > 0 ? "存在待处理风险" : "状态稳定", meta: unreadNotifications > 0 || highPriorityRules.length > 0 ? "建议先看未读通知和高优先级规则" : "可进入常规巡检", tone: riskTone },
+      { label: "最近评估", value: latestRuleEvaluation ? "已执行" : "未执行", meta: latestRuleEvaluation ? `触发 ${formatNumber(latestRuleEvaluation.triggeredRuleCount, 0)} / 通知 ${formatNumber(latestRuleEvaluation.generatedNotificationCount, 0)}` : "尚未执行本轮评估", tone: latestRuleEvaluation ? "success" : "warning" },
+      { label: "高等级通知", value: formatNumber(criticalNotifications.length, 0), meta: "高等级越多，当前压力越高", tone: criticalNotifications.length > 0 ? "danger" : "success" }
+    ])}
+    ${renderAlertStrip([
+      { text: unreadNotifications > 0 || highPriorityRules.length > 0 ? "当前仍存在待处理风险项，建议先看未读通知和高优先级规则。" : "当前规则与通知状态相对稳定，可以进入常规巡检。", tone: riskTone }
+    ])}
     <div class="detail-section">
       <div class="detail-section-title">核心指标</div>
       <div class="detail-descriptions">
@@ -2666,6 +3085,48 @@ function renderExecutiveDashboard() {
   const latestImportQuality = latestImportRecord ? getImportQualityConclusion(latestImportRecord.result) : null;
   const worldBankPoints = worldBankTrend.points?.length || 0;
   const fredPoints = fredSeries.points?.length || 0;
+  const analysisReady = Boolean(latestSummary);
+  const importReadyForUse = Boolean(latestImportRecord && !isImportFailed(latestImportStatus));
+  const businessReady = Boolean(accounts.length || categories.length || budgets.length || transactionTotalElements);
+  const rulesReady = Boolean(allRules.length || notificationsPage.length);
+  const dashboardReadyCount = [importReadyForUse, analysisReady, businessReady, rulesReady].filter(Boolean).length;
+  const latestBusinessActionLabel = latestBusinessAction
+    ? `${latestBusinessAction.scope}${latestBusinessAction.operation}`
+    : "暂无";
+  const latestBusinessActionMeta = latestBusinessAction
+    ? `${latestBusinessAction.target} / ${formatDateTime(latestBusinessAction.time)}`
+    : "尚未执行业务维护动作";
+  const recentCriticalNotification = notificationsPage.find((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL")) || null;
+  const dashboardChecks = [
+    {
+      label: "导入链路",
+      ready: importReadyForUse,
+      danger: Boolean(latestImportRecord && isImportFailed(latestImportStatus)),
+      meta: latestImportRecord ? `${latestImportQuality?.label || "待确认"} / ${latestImportStatus || "未知"}` : "尚未执行导入",
+      action: "dashboard-open-import-issues"
+    },
+    {
+      label: "分析链路",
+      ready: analysisReady,
+      danger: Boolean(latestSummary && (worldBankPoints === 0 || fredPoints === 0)),
+      meta: analysisReady ? `零售 ${formatNumber(retailOverview.totalRecords, 0)} / 世行 ${formatNumber(worldBankPoints, 0)} / FRED ${formatNumber(fredPoints, 0)}` : "尚未刷新分析汇总",
+      action: "dashboard-open-analysis-anomalies"
+    },
+    {
+      label: "业务链路",
+      ready: businessReady,
+      danger: budgetAlerts > 0,
+      meta: `账户 ${formatNumber(accounts.length, 0)} / 分类 ${formatNumber(categories.length, 0)} / 预算异常 ${formatNumber(budgetAlerts, 0)}`,
+      action: "dashboard-open-exceeded-budgets"
+    },
+    {
+      label: "规则通知",
+      ready: rulesReady,
+      danger: unreadNotifications > 0 || highPriorityRules.length > 0,
+      meta: `规则 ${formatNumber(allRules.length, 0)} / 未读 ${formatNumber(unreadNotifications, 0)} / 高优先级 ${formatNumber(highPriorityRules.length, 0)}`,
+      action: "dashboard-open-rule-notifications"
+    }
+  ];
   const analysisIssues = [
     ...(latestSummary && worldBankPoints === 0 ? [{
       tone: "danger",
@@ -2717,6 +3178,66 @@ function renderExecutiveDashboard() {
       count: "导入",
       action: "dashboard-open-import-issues"
     }] : [])
+  ];
+  const groupedTodoSections = [
+    {
+      title: "数据与分析",
+      items: [...importIssues, ...analysisIssues].slice(0, 4)
+    },
+    {
+      title: "业务与预算",
+      items: exceededBudgetItems.slice(0, 3).map(({ budget, usage }) => ({
+        tone: usage?.exceeded ? "danger" : "warning",
+        label: usage?.exceeded ? "预算超支" : "预算预警",
+        text: budget.budgetName,
+        meta: `已支出 ${formatNumber(usage?.spentAmount)} / 剩余 ${formatNumber(usage?.remainingAmount)}`,
+        count: "业务",
+        action: "dashboard-open-exceeded-budgets"
+      }))
+    },
+    {
+      title: "规则与通知",
+      items: [
+        ...unreadTodoNotifications.slice(0, 2).map((item) => ({
+          tone: "warning",
+          label: "未读通知",
+          text: item.title,
+          meta: `${formatDateTime(item.createdAt)} / ${item.sourceType || "来源未标记"}`,
+          count: "通知",
+          action: "dashboard-open-unread-notifications"
+        })),
+        ...highPriorityRules.slice(0, 2).map((item) => ({
+          tone: "info",
+          label: "高优先级规则",
+          text: item.ruleName,
+          meta: `${item.ruleType || "类型未标记"} / 优先级 ${formatNumber(item.priority, 0)}`,
+          count: "规则",
+          action: "dashboard-open-high-priority-rules"
+        }))
+      ].slice(0, 4)
+    }
+  ];
+  const systemSnapshotItems = [
+    {
+      label: "最近导入",
+      value: latestImportRecord?.result?.importBatchId ? `批次 ${formatNumber(latestImportRecord.result.importBatchId, 0)}` : "未执行",
+      meta: latestImportStatus || "等待导入"
+    },
+    {
+      label: "最新分析",
+      value: analysisReady ? "已生成" : "未生成",
+      meta: analysisReady ? `零售 ${formatNumber(retailOverview.totalRecords, 0)} / 世行 ${formatNumber(worldBankPoints, 0)} / FRED ${formatNumber(fredPoints, 0)}` : "等待刷新分析汇总"
+    },
+    {
+      label: "最近业务操作",
+      value: latestBusinessActionLabel,
+      meta: latestBusinessActionMeta
+    },
+    {
+      label: "规则评估",
+      value: latestRuleEvaluation ? "本轮已执行" : "未执行",
+      meta: latestRuleEvaluation ? `触发 ${formatNumber(latestRuleEvaluation.triggeredRuleCount, 0)} / 通知 ${formatNumber(latestRuleEvaluation.generatedNotificationCount, 0)}` : "等待手动执行规则评估"
+    }
   ];
   const todoItems = [
     ...importIssues,
@@ -2775,6 +3296,29 @@ function renderExecutiveDashboard() {
         <div class="result-card-value">${formatNumber(enabledRules, 0)}</div>
         <div class="result-card-meta">启用规则 / 当前页未读通知 ${formatNumber(unreadNotifications, 0)}</div>
       </button>
+      <div class="result-card ${dashboardReadyCount === dashboardChecks.length ? "success" : "warning"}">
+        <div class="result-card-label">首页就绪度</div>
+        <div class="result-card-value">${formatNumber(dashboardReadyCount, 0)}/${formatNumber(dashboardChecks.length, 0)}</div>
+        <div class="result-card-meta">${dashboardReadyCount === dashboardChecks.length ? "关键模块都已接通" : "仍有模块待刷新或待处理"}</div>
+      </div>
+    </div>
+    <div class="summary-item">
+      <strong>首页关键检查</strong>
+      <div class="acceptance-check-grid">
+        ${dashboardChecks.map((item) => {
+          const tone = item.danger ? "danger" : (item.ready ? "success" : "warning");
+          const stateText = item.danger ? "异常" : (item.ready ? "就绪" : "待完成");
+          return `
+            <button class="acceptance-check-item ${tone}" type="button" data-action="${item.action}">
+              <div class="acceptance-check-head">
+                <strong>${escapeHtml(item.label)}</strong>
+                <span class="status-chip ${item.danger ? "danger" : (item.ready ? "enabled" : "warning")}">${stateText}</span>
+              </div>
+              <div class="acceptance-check-meta">${escapeHtml(item.meta)}</div>
+            </button>
+          `;
+        }).join("")}
+      </div>
     </div>
     <div class="toolbar-grid dashboard-grid">
       <div class="toolbar-card">
@@ -2791,9 +3335,20 @@ function renderExecutiveDashboard() {
         <div class="toolbar-title">业务与风控</div>
         <div>共享账户：${formatNumber(accounts.filter((item) => Number(item.isShared) === 1).length, 0)}</div>
         <div>预算异常：${formatNumber(budgetAlerts, 0)}</div>
+        <div>最近业务动作：${escapeHtml(latestBusinessActionLabel)}</div>
         <div class="action-row">
           <button class="mini-btn" type="button" data-view="business">打开业务管理</button>
           <button class="mini-btn" type="button" data-view="rules">打开规则通知</button>
+        </div>
+      </div>
+      <div class="toolbar-card">
+        <div class="toolbar-title">最近联动动作</div>
+        <div>业务操作：${escapeHtml(latestBusinessActionMeta)}</div>
+        <div>规则评估：${latestRuleEvaluation ? `触发 ${formatNumber(latestRuleEvaluation.triggeredRuleCount, 0)} / 通知 ${formatNumber(latestRuleEvaluation.generatedNotificationCount, 0)}` : "尚未执行本轮规则评估"}</div>
+        <div>${recentCriticalNotification ? `高等级通知：${escapeHtml(summarizeText(recentCriticalNotification.title, 26))}` : "当前没有高等级通知堆积"}</div>
+        <div class="action-row">
+          <button class="mini-btn" type="button" data-action="dashboard-evaluate-rules">执行规则评估</button>
+          <button class="mini-btn" type="button" data-action="business-feedback-open-scope">打开业务结果</button>
         </div>
       </div>
     </div>
@@ -2844,6 +3399,41 @@ function renderExecutiveDashboard() {
       </div>
     </div>
     <div class="summary-item">
+      <strong>跨模块待办分组</strong>
+      <div class="toolbar-grid dashboard-grid">
+        ${groupedTodoSections.map((section) => `
+          <div class="toolbar-card">
+            <div class="toolbar-title">${escapeHtml(section.title)}</div>
+            <div class="todo-list">
+              ${section.items.length > 0 ? section.items.map((item) => `
+                <button class="todo-item ${item.tone}" type="button" data-action="${item.action}">
+                  <span class="todo-item-main">
+                    <span class="todo-item-header">
+                      <span class="todo-item-label">${escapeHtml(item.label)}</span>
+                      <span class="todo-item-count">${escapeHtml(item.count || "-")}</span>
+                    </span>
+                    <span class="todo-item-text">${escapeHtml(item.text)}</span>
+                    <span class="todo-item-meta">${escapeHtml(item.meta)}</span>
+                  </span>
+                </button>
+              `).join("") : '<div class="todo-empty">当前没有需要优先处理的事项</div>'}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div class="summary-item">
+      <strong>最近操作与系统快照</strong>
+      <div class="detail-descriptions">
+        ${renderDescriptionPairs(systemSnapshotItems)}
+      </div>
+      <div class="action-row">
+        <button class="mini-btn" type="button" data-action="dashboard-open-import-issues">查看导入状态</button>
+        <button class="mini-btn" type="button" data-action="dashboard-open-analysis-anomalies">查看分析快照</button>
+        <button class="mini-btn" type="button" data-action="business-feedback-open-scope">查看最近业务结果</button>
+      </div>
+    </div>
+    <div class="summary-item">
       <strong>首页快捷操作</strong>
       <div class="action-row dashboard-actions">
         <button class="mini-btn" type="button" data-action="dashboard-refresh-summary">刷新分析汇总</button>
@@ -2882,6 +3472,7 @@ function renderExecutiveDashboard() {
         <div class="action-row">
           <button class="mini-btn" type="button" data-action="dashboard-open-import-issues">查看更多导入/分析</button>
           <button class="mini-btn" type="button" data-action="dashboard-open-rule-notifications">查看更多规则通知</button>
+          <button class="mini-btn" type="button" data-view="acceptance">查看验收联通</button>
         </div>
       </div>
     </div>
@@ -3021,6 +3612,7 @@ function renderAccountDetail(item) {
     host.innerHTML = '<div class="summary-item">点击左侧账户查看详情</div>';
     return;
   }
+  const highlightedByAction = isLatestBusinessActionTarget("账户", item.id);
   host.innerHTML = `
     <div class="detail-panel">
       <div class="detail-header">
@@ -3032,8 +3624,10 @@ function renderAccountDetail(item) {
         <div class="detail-badge-row">
           <span class="status-chip ${Number(item.status) === 1 ? "enabled" : "disabled"}">${Number(item.status) === 1 ? "启用中" : "已停用"}</span>
           <span class="status-chip muted">${escapeHtml(item.accountType)}</span>
+          ${highlightedByAction ? '<span class="status-chip warning">最近受影响</span>' : ""}
         </div>
       </div>
+      ${highlightedByAction ? `<div class="summary-item"><strong>最近操作</strong><div>${escapeHtml(latestBusinessAction.operation)}：${escapeHtml(latestBusinessAction.detail || "-")}</div></div>` : ""}
       <div class="detail-section">
         <div class="detail-section-title">账户属性</div>
         <div class="detail-descriptions">
@@ -3072,6 +3666,7 @@ function renderAccounts(items) {
     renderEmptyBoard("accountList", token ? (hasActiveAccountFilters() ? "当前筛选条件下未找到账户，请调整条件或重置筛选" : "当前家庭暂无账户数据") : "请先登录并选择家庭");
     renderAccountDetail(null);
     renderBusinessMetrics();
+    renderBusinessWorkspacePanels();
     return;
   }
   host.classList.remove("empty-board");
@@ -3080,16 +3675,20 @@ function renderAccounts(items) {
   const totalBalance = items.reduce((sum, item) => sum + Number(item.currentBalance || 0), 0);
   const creditCount = items.filter((item) => includesKeyword(item.accountType, "CREDIT")).length;
   const disabledCount = items.filter((item) => Number(item.status) !== 1).length;
+  const recentActionMessage = getLatestBusinessActionListMessage("账户");
+  const recentActionCount = items.filter((item) => isLatestBusinessActionTarget("账户", item.id)).length;
   host.innerHTML = `
     ${renderBatchToolbar("account", selectedAccountIds.length, items.length, { enable: "启用", disable: "停用" })}
     ${renderResultOverview([
       { label: "当前结果总余额", value: formatNumber(totalBalance), meta: `覆盖 ${formatNumber(items.length, 0)} 个账户` },
       { label: "信用账户", value: formatNumber(creditCount, 0), meta: "便于检查授信类账户" },
-      { label: "停用账户", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍需保留" : "当前无停用账户", tone: disabledCount > 0 ? "warning" : "" }
+      { label: "停用账户", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍需保留" : "当前无停用账户", tone: disabledCount > 0 ? "warning" : "" },
+      ...(recentActionMessage ? [{ label: "最近操作", value: formatNumber(recentActionCount, 0), meta: recentActionMessage, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     ${renderAlertStrip([
       ...(disabledCount > 0 ? [{ text: `当前结果中有 ${disabledCount} 个停用账户，可批量启用或清理`, tone: "warning" }] : []),
-      ...(items.some((item) => Number(item.isShared) === 1) ? [{ text: "包含共享账户，适合优先检查成员权限与归属", tone: "info" }] : [])
+      ...(items.some((item) => Number(item.isShared) === 1) ? [{ text: "包含共享账户，适合优先检查成员权限与归属", tone: "info" }] : []),
+      ...(recentActionMessage ? [{ text: `账户列表最近操作：${recentActionMessage}`, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个账户</span>
@@ -3107,14 +3706,14 @@ function renderAccounts(items) {
       </div>
       <div class="data-table-body">
         ${items.map((item) => `
-          <div class="data-table-row accounts-table-row ${item.id === selectedAccountId ? "is-active" : ""}" data-action="select-account" data-account-id="${item.id}">
+          <div class="data-table-row accounts-table-row ${item.id === selectedAccountId ? "is-active" : ""} ${isLatestBusinessActionTarget("账户", item.id) ? "is-active" : ""}" data-action="select-account" data-account-id="${item.id}">
             <div class="data-cell data-cell-checkbox">
               <input type="checkbox" data-action="toggle-account-select" data-account-id="${item.id}" ${selectedAccountIds.includes(Number(item.id)) ? "checked" : ""}>
             </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">账户名称</span>
               <span class="data-cell-value">${escapeHtml(item.accountName)}</span>
-              <span class="data-cell-meta">${formatTableMeta(item.institutionName || "-", formatMemberRef(item.ownerMemberId))}</span>
+              <span class="data-cell-meta">${formatTableMeta(item.institutionName || "-", formatMemberRef(item.ownerMemberId), isLatestBusinessActionTarget("账户", item.id) ? "最近受影响" : "")}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">类型</span>
@@ -3149,6 +3748,7 @@ function renderAccounts(items) {
   selectedAccountId = selected?.id ?? null;
   renderAccountDetail(selected || null);
   renderBusinessMetrics();
+  renderBusinessWorkspacePanels();
 }
 
 function updateCategoriesStats(items) {
@@ -3170,6 +3770,7 @@ function renderCategoryDetail(item) {
     host.innerHTML = '<div class="summary-item">点击左侧分类查看详情</div>';
     return;
   }
+  const highlightedByAction = isLatestBusinessActionTarget("分类", item.id);
   host.innerHTML = `
     <div class="detail-panel">
       <div class="detail-header">
@@ -3181,8 +3782,10 @@ function renderCategoryDetail(item) {
         <div class="detail-badge-row">
           <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用中" : "已停用"}</span>
           <span class="status-chip muted">${escapeHtml(item.categoryType)}</span>
+          ${highlightedByAction ? '<span class="status-chip warning">最近受影响</span>' : ""}
         </div>
       </div>
+      ${highlightedByAction ? `<div class="summary-item"><strong>最近操作</strong><div>${escapeHtml(latestBusinessAction.operation)}：${escapeHtml(latestBusinessAction.detail || "-")}</div></div>` : ""}
       <div class="detail-section">
         <div class="detail-section-title">分类属性</div>
         <div class="detail-descriptions">
@@ -3215,6 +3818,7 @@ function renderCategories(items) {
     renderEmptyBoard("categoryList", token ? (hasActiveCategoryFilters() ? "当前筛选条件下未找到分类，请调整条件或重置筛选" : "当前家庭暂无分类数据") : "请先登录并选择家庭");
     renderCategoryDetail(null);
     renderBusinessMetrics();
+    renderBusinessWorkspacePanels();
     return;
   }
   host.classList.remove("empty-board");
@@ -3223,16 +3827,20 @@ function renderCategories(items) {
   const expenseCount = items.filter((item) => includesKeyword(item.categoryType, "EXPENSE")).length;
   const rootCount = items.filter((item) => !item.parentId).length;
   const disabledCount = items.filter((item) => Number(item.enabled) !== 1).length;
+  const recentActionMessage = getLatestBusinessActionListMessage("分类");
+  const recentActionCount = items.filter((item) => isLatestBusinessActionTarget("分类", item.id)).length;
   host.innerHTML = `
     ${renderBatchToolbar("category", selectedCategoryIds.length, items.length, { enable: "启用", disable: "停用" })}
     ${renderResultOverview([
       { label: "支出分类", value: formatNumber(expenseCount, 0), meta: `当前结果 ${formatNumber(items.length, 0)} 项` },
       { label: "根分类", value: formatNumber(rootCount, 0), meta: "便于检查分类层级结构" },
-      { label: "停用分类", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍被预算或交易引用" : "当前无停用项", tone: disabledCount > 0 ? "warning" : "" }
+      { label: "停用分类", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍被预算或交易引用" : "当前无停用项", tone: disabledCount > 0 ? "warning" : "" },
+      ...(recentActionMessage ? [{ label: "最近操作", value: formatNumber(recentActionCount, 0), meta: recentActionMessage, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     ${renderAlertStrip([
       ...(disabledCount > 0 ? [{ text: `当前结果中有 ${disabledCount} 个停用分类，建议优先核对引用关系`, tone: "warning" }] : []),
-      ...(rootCount === 0 && items.length > 0 ? [{ text: "当前结果未包含根分类，可能筛选到了某个子层级", tone: "info" }] : [])
+      ...(rootCount === 0 && items.length > 0 ? [{ text: "当前结果未包含根分类，可能筛选到了某个子层级", tone: "info" }] : []),
+      ...(recentActionMessage ? [{ text: `分类列表最近操作：${recentActionMessage}`, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个分类</span>
@@ -3250,14 +3858,14 @@ function renderCategories(items) {
       </div>
       <div class="data-table-body">
         ${items.map((item) => `
-          <div class="data-table-row categories-table-row ${item.id === selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-category-id="${item.id}">
+          <div class="data-table-row categories-table-row ${item.id === selectedCategoryId ? "is-active" : ""} ${isLatestBusinessActionTarget("分类", item.id) ? "is-active" : ""}" data-action="select-category" data-category-id="${item.id}">
             <div class="data-cell data-cell-checkbox">
               <input type="checkbox" data-action="toggle-category-select" data-category-id="${item.id}" ${selectedCategoryIds.includes(Number(item.id)) ? "checked" : ""}>
             </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">分类名称</span>
               <span class="data-cell-value">${escapeHtml(item.categoryName)}</span>
-              <span class="data-cell-meta">${formatTableMeta(formatCategoryRef(item.parentId), item.scopeType || "-")}</span>
+              <span class="data-cell-meta">${formatTableMeta(formatCategoryRef(item.parentId), item.scopeType || "-", isLatestBusinessActionTarget("分类", item.id) ? "最近受影响" : "")}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">类型</span>
@@ -3292,6 +3900,7 @@ function renderCategories(items) {
   selectedCategoryId = selected?.id ?? null;
   renderCategoryDetail(selected || null);
   renderBusinessMetrics();
+  renderBusinessWorkspacePanels();
 }
 
 function getBudgetUsageItem(budgetId) {
@@ -3313,11 +3922,34 @@ function updateBudgetsStats(items) {
 
 function renderBudgetDetail(item) {
   const host = byId("budgetDetailPanel");
+  const actionHost = byId("budgetActionBoard");
+  const alertBudgets = budgets
+    .map((budget) => ({ budget, usage: getBudgetUsageItem(budget.id) }))
+    .filter(({ usage }) => usage?.alertTriggered || usage?.exceeded)
+    .sort((left, right) => Number(right.usage?.spentAmount || 0) - Number(left.usage?.spentAmount || 0))
+    .slice(0, 3);
   if (!item) {
     host.innerHTML = '<div class="summary-item">点击左侧预算查看详情</div>';
+    if (actionHost) {
+      actionHost.innerHTML = alertBudgets.length > 0 ? `
+        ${renderResultOverview([
+          { label: "异常预算", value: formatNumber(alertBudgets.length, 0), meta: "当前家庭存在预算预警或超支" },
+          { label: "建议动作", value: "优先检查异常项", meta: "从左侧选择异常预算可查看详细执行情况", tone: "warning" }
+        ])}
+        ${renderAlertStrip(alertBudgets.map(({ budget, usage }) => ({
+          text: `${budget.budgetName}：${usage?.exceeded ? "已超支" : "预警中"}，已支出 ${formatNumber(usage?.spentAmount)}`,
+          tone: usage?.exceeded ? "danger" : "warning"
+        })))}
+      ` : '<div class="summary-item">当前没有预算异常项，右侧将显示所选预算的处置建议</div>';
+    }
     return;
   }
   const usage = getBudgetUsageItem(item.id);
+  const spentAmount = Number(usage?.spentAmount || 0);
+  const budgetAmount = Number(usage?.budgetAmount ?? item.amount ?? 0);
+  const usageRatio = budgetAmount > 0 ? spentAmount / budgetAmount : 0;
+  const statusText = usage?.exceeded ? "已超支" : usage?.alertTriggered ? "已预警" : "正常";
+  const highlightedByAction = isLatestBusinessActionTarget("预算", item.id);
   host.innerHTML = `
     <div class="detail-panel">
       <div class="detail-header">
@@ -3329,8 +3961,10 @@ function renderBudgetDetail(item) {
         <div class="detail-badge-row">
           <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${Number(item.enabled) === 1 ? "启用中" : "已停用"}</span>
           <span class="status-chip ${usage?.alertTriggered || usage?.exceeded ? "warning" : "muted"}">${usage?.exceeded ? "已超支" : usage?.alertTriggered ? "已预警" : "正常"}</span>
+          ${highlightedByAction ? '<span class="status-chip warning">最近受影响</span>' : ""}
         </div>
       </div>
+      ${highlightedByAction ? `<div class="summary-item"><strong>最近操作</strong><div>${escapeHtml(latestBusinessAction.operation)}：${escapeHtml(latestBusinessAction.detail || "-")}</div></div>` : ""}
       <div class="detail-section">
         <div class="detail-section-title">预算属性</div>
         <div class="detail-descriptions">
@@ -3362,6 +3996,39 @@ function renderBudgetDetail(item) {
       </div>
     </div>
   `;
+  if (actionHost) {
+    actionHost.innerHTML = `
+      ${renderResultOverview([
+        { label: "当前预算状态", value: statusText, meta: usage?.exceeded ? "已超过预算额度" : usage?.alertTriggered ? "已到达预警线" : "当前执行平稳", tone: usage?.exceeded ? "danger" : (usage?.alertTriggered ? "warning" : "") },
+        { label: "执行比例", value: budgetAmount > 0 ? `${formatNumber(usageRatio * 100)}%` : "-", meta: `已支出 ${formatNumber(spentAmount)} / 预算 ${formatNumber(budgetAmount)}` },
+        { label: "同页异常预算", value: formatNumber(alertBudgets.length, 0), meta: alertBudgets.length > 0 ? "下方已列出当前最需要处理的预算" : "当前没有其他异常预算", tone: alertBudgets.length > 0 ? "warning" : "" }
+      ])}
+      ${renderAlertStrip([
+        ...(usage?.exceeded ? [{ text: "该预算已超支，建议先调整预算金额或复核异常支出。", tone: "danger" }] : []),
+        ...(usage?.alertTriggered && !usage?.exceeded ? [{ text: "该预算已到预警线，建议在本周期内限制新增支出。", tone: "warning" }] : []),
+        ...(Number(item.enabled) !== 1 ? [{ text: "该预算当前处于停用状态，确认是否还需要继续维护。", tone: "info" }] : []),
+        ...(!usage?.alertTriggered && !usage?.exceeded ? [{ text: "该预算当前执行正常，可继续作为对照组观察。", tone: "info" }] : [])
+      ])}
+      <div class="detail-section">
+        <div class="detail-section-title">异常预算摘要</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs(
+            alertBudgets.length > 0
+              ? alertBudgets.map(({ budget, usage: riskUsage }) => ({
+                  label: budget.budgetName,
+                  value: `${riskUsage?.exceeded ? "超支" : "预警"} / 已支出 ${formatNumber(riskUsage?.spentAmount)}`
+                }))
+              : [{ label: "当前结果", value: "暂无其他异常预算" }]
+          )}
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="edit-budget" data-budget-id="${item.id}">调整预算</button>
+        <button class="mini-btn" type="button" data-action="toggle-budget" data-budget-id="${item.id}" data-enabled="${item.enabled}">${Number(item.enabled) === 1 ? "停用预算" : "启用预算"}</button>
+        <button class="mini-btn" type="button" data-action="create-budget">新增预算</button>
+      </div>
+    `;
+  }
 }
 
 function renderBudgets(items) {
@@ -3373,6 +4040,7 @@ function renderBudgets(items) {
     renderEmptyBoard("budgetList", token ? (hasActiveBudgetFilters() ? "当前筛选条件下未找到预算，请调整条件或重置筛选" : "当前家庭暂无预算数据") : "请先登录并选择家庭");
     renderBudgetDetail(null);
     renderBusinessMetrics();
+    renderBusinessWorkspacePanels();
     return;
   }
   host.classList.remove("empty-board");
@@ -3387,16 +4055,20 @@ function renderBudgets(items) {
     return usage?.exceeded;
   }).length;
   const totalBudgetAmount = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const recentActionMessage = getLatestBusinessActionListMessage("预算");
+  const recentActionCount = items.filter((item) => isLatestBusinessActionTarget("预算", item.id)).length;
   host.innerHTML = `
     ${renderBatchToolbar("budget", selectedBudgetIds.length, items.length, { enable: "启用", disable: "停用" })}
     ${renderResultOverview([
       { label: "预算总额", value: formatNumber(totalBudgetAmount), meta: `覆盖 ${formatNumber(items.length, 0)} 个预算` },
       { label: "预警预算", value: formatNumber(alertCount, 0), meta: "建议优先复核支出进度", tone: alertCount > 0 ? "warning" : "" },
-      { label: "超支预算", value: formatNumber(exceededCount, 0), meta: exceededCount > 0 ? "属于当前待处理项" : "当前无超支项", tone: exceededCount > 0 ? "danger" : "" }
+      { label: "超支预算", value: formatNumber(exceededCount, 0), meta: exceededCount > 0 ? "属于当前待处理项" : "当前无超支项", tone: exceededCount > 0 ? "danger" : "" },
+      ...(recentActionMessage ? [{ label: "最近操作", value: formatNumber(recentActionCount, 0), meta: recentActionMessage, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     ${renderAlertStrip([
       ...(exceededCount > 0 ? [{ text: `当前结果中有 ${exceededCount} 个超支预算，建议先处理异常预算`, tone: "danger" }] : []),
-      ...(alertCount > exceededCount ? [{ text: `另有 ${alertCount - exceededCount} 个预算处于预警线附近`, tone: "warning" }] : [])
+      ...(alertCount > exceededCount ? [{ text: `另有 ${alertCount - exceededCount} 个预算处于预警线附近`, tone: "warning" }] : []),
+      ...(recentActionMessage ? [{ text: `预算列表最近操作：${recentActionMessage}`, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
     ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个预算</span>
@@ -3416,14 +4088,14 @@ function renderBudgets(items) {
         ${items.map((item) => {
           const usage = getBudgetUsageItem(item.id);
           return `
-          <div class="data-table-row budgets-table-row ${item.id === selectedBudgetId ? "is-active" : ""}" data-action="select-budget" data-budget-id="${item.id}">
+          <div class="data-table-row budgets-table-row ${item.id === selectedBudgetId ? "is-active" : ""} ${isLatestBusinessActionTarget("预算", item.id) ? "is-active" : ""}" data-action="select-budget" data-budget-id="${item.id}">
             <div class="data-cell data-cell-checkbox">
               <input type="checkbox" data-action="toggle-budget-select" data-budget-id="${item.id}" ${selectedBudgetIds.includes(Number(item.id)) ? "checked" : ""}>
             </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">预算名称</span>
               <span class="data-cell-value">${escapeHtml(item.budgetName)}</span>
-              <span class="data-cell-meta">${formatTableMeta(formatCategoryRef(item.categoryId), formatMemberRef(item.createdByMemberId))}</span>
+              <span class="data-cell-meta">${formatTableMeta(formatCategoryRef(item.categoryId), formatMemberRef(item.createdByMemberId), isLatestBusinessActionTarget("预算", item.id) ? "最近受影响" : "")}</span>
             </div>
             <div class="data-cell">
               <span class="data-cell-label">周期</span>
@@ -3459,15 +4131,18 @@ function renderBudgets(items) {
   selectedBudgetId = selected?.id ?? null;
   renderBudgetDetail(selected || null);
   renderBusinessMetrics();
+  renderBusinessWorkspacePanels();
 }
 
 function updateTransactionsStats(items) {
   const income = items.filter((item) => String(item.transactionType).toUpperCase() === "INCOME").length;
   const expense = items.filter((item) => String(item.transactionType).toUpperCase() === "EXPENSE").length;
+  const missingCategory = items.filter((item) => !item.categoryId).length;
   byId("transactionsStats").innerHTML = `
     <div class="stats-pill">总数：${formatNumber(transactionTotalElements, 0)}</div>
     <div class="stats-pill">收入：${formatNumber(income, 0)}</div>
     <div class="stats-pill">支出：${formatNumber(expense, 0)}</div>
+    <div class="stats-pill">缺分类：${formatNumber(missingCategory, 0)}</div>
   `;
 }
 
@@ -3496,10 +4171,36 @@ function renderTransactionMonthlySummary(items) {
 
 function renderTransactionDetail(item) {
   const host = byId("transactionDetailPanel");
+  const auditHost = byId("transactionAuditBoard");
+  const visibleTransactions = transactionItems || [];
+  const missingCategoryCount = visibleTransactions.filter((transaction) => !transaction.categoryId).length;
+  const missingNoteCount = visibleTransactions.filter((transaction) => !String(transaction.note || "").trim() && !String(transaction.externalTradeNo || "").trim()).length;
+  const transferCount = visibleTransactions.filter((transaction) => includesKeyword(transaction.transactionType, "TRANSFER")).length;
+  const suspiciousTransactions = [...visibleTransactions]
+    .sort((left, right) => Math.abs(Number(right.amount || 0)) - Math.abs(Number(left.amount || 0)))
+    .slice(0, 3);
+  const latestMonthly = (transactionMonthlySummary || [])[0] || null;
   if (!item) {
     host.innerHTML = '<div class="summary-item">点击左侧交易查看详情</div>';
+    if (auditHost) {
+      auditHost.innerHTML = suspiciousTransactions.length > 0 ? `
+        ${renderResultOverview([
+          { label: "当前页交易", value: formatNumber(visibleTransactions.length, 0), meta: `总计 ${formatNumber(transactionTotalElements, 0)} 条` },
+          { label: "待核查", value: formatNumber(missingCategoryCount + missingNoteCount, 0), meta: "缺少分类或补充说明的记录应优先复核", tone: missingCategoryCount + missingNoteCount > 0 ? "warning" : "" },
+          { label: "最大金额", value: formatNumber(Math.abs(Number(suspiciousTransactions[0]?.amount || 0))), meta: "以下列出当前页金额最大的几条交易" }
+        ])}
+        ${renderAlertStrip([
+          ...(missingCategoryCount > 0 ? [{ text: `有 ${missingCategoryCount} 条交易缺少分类，统计口径可能失真`, tone: "warning" }] : []),
+          ...(missingNoteCount > 0 ? [{ text: `有 ${missingNoteCount} 条交易缺少备注或外部单号，追踪性较弱`, tone: "info" }] : [])
+        ])}
+      ` : '<div class="summary-item">当前没有交易数据，加载交易后这里会显示核查结论</div>';
+    }
     return;
   }
+  const hasCategory = Boolean(item.categoryId);
+  const hasReference = Boolean(String(item.note || "").trim() || String(item.externalTradeNo || "").trim());
+  const auditTone = !hasCategory ? "danger" : (!hasReference ? "warning" : "");
+  const highlightedByAction = isLatestBusinessActionTarget("交易", item.id);
   host.innerHTML = `
     <div class="detail-panel">
       <div class="detail-header">
@@ -3511,8 +4212,10 @@ function renderTransactionDetail(item) {
         <div class="detail-badge-row">
           <span class="status-chip muted">${escapeHtml(item.transactionType)}</span>
           <span class="status-chip ${Number(item.status) === 1 ? "enabled" : "disabled"}">${Number(item.status) === 1 ? "有效" : "停用"}</span>
+          ${highlightedByAction ? '<span class="status-chip warning">最近受影响</span>' : ""}
         </div>
       </div>
+      ${highlightedByAction ? `<div class="summary-item"><strong>最近操作</strong><div>${escapeHtml(latestBusinessAction.operation)}：${escapeHtml(latestBusinessAction.detail || "-")}</div></div>` : ""}
       <div class="detail-section">
         <div class="detail-section-title">交易属性</div>
         <div class="detail-descriptions">
@@ -3539,24 +4242,76 @@ function renderTransactionDetail(item) {
       </div>
     </div>
   `;
+  if (auditHost) {
+    auditHost.innerHTML = `
+      ${renderResultOverview([
+        { label: "核查状态", value: !hasCategory ? "缺少分类" : (!hasReference ? "补充信息不足" : "信息完整"), meta: !hasCategory ? "建议先补齐分类，避免影响预算与统计分析" : (!hasReference ? "建议补充备注或外部单号" : "当前记录可直接用于联调与展示"), tone: auditTone },
+        { label: "当前页转账", value: formatNumber(transferCount, 0), meta: "转账类交易适合重点检查账户流向" },
+        { label: "最近月净额", value: latestMonthly ? formatNumber(latestMonthly.netAmount) : "-", meta: latestMonthly ? `${latestMonthly.month} 收支结果` : "暂无月报汇总" }
+      ])}
+      ${renderAlertStrip([
+        ...(!hasCategory ? [{ text: "当前选中交易没有分类，预算归集和报表统计会受影响。", tone: "danger" }] : []),
+        ...(!hasReference ? [{ text: "当前选中交易缺少备注或外部单号，建议补充追踪信息。", tone: "warning" }] : []),
+        ...(includesKeyword(item.transactionType, "TRANSFER") ? [{ text: "当前为转账交易，请核对转出和转入账户是否匹配。", tone: "info" }] : []),
+        ...(latestMonthly && Number(latestMonthly.netAmount || 0) < 0 ? [{ text: `最近月份 ${latestMonthly.month} 净额为负，建议关注支出压力。`, tone: "warning" }] : [])
+      ])}
+      <div class="detail-section">
+        <div class="detail-section-title">可疑交易摘要</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs(
+            suspiciousTransactions.length > 0
+              ? suspiciousTransactions.map((transaction) => ({
+                  label: transaction.merchantName || transaction.counterpartyName || `交易#${transaction.id}`,
+                  value: `${formatNumber(transaction.amount)} / ${transaction.transactionType}`
+                }))
+              : [{ label: "当前结果", value: "暂无需要核查的交易" }]
+          )}
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="edit-transaction" data-transaction-id="${item.id}">修正交易</button>
+        <button class="mini-btn" type="button" data-action="create-transaction">新增交易</button>
+      </div>
+    `;
+  }
 }
 
 function renderTransactions(items) {
   const host = byId("transactionList");
   const pageSize = Number(byId("transactionPageSize")?.value || 8);
-  if (!items || items.length === 0) {
+  const filteredItems = getFilteredTransactions(items || []);
+  renderTransactionFilterSummary(filteredItems.length, (items || []).length);
+  if (!filteredItems || filteredItems.length === 0) {
     updateTransactionsStats([]);
     renderEmptyBoard("transactionList", token ? "当前筛选条件下暂无交易数据" : "请先登录并选择家庭");
     renderTransactionDetail(null);
     renderBusinessMetrics();
     renderPager("transactionsPager", transactionPageIndex, transactionTotalPages, transactionTotalElements, pageSize, "transactions");
+    renderBusinessWorkspacePanels();
     return;
   }
   host.classList.remove("empty-board");
-  updateTransactionsStats(items);
+  updateTransactionsStats(filteredItems);
+  const missingCategoryCount = filteredItems.filter((item) => !item.categoryId).length;
+  const missingReferenceCount = filteredItems.filter((item) => !String(item.note || "").trim() && !String(item.externalTradeNo || "").trim()).length;
+  const largeAmountCount = filteredItems.filter((item) => Math.abs(Number(item.amount || 0)) >= 1000).length;
+  const recentActionMessage = getLatestBusinessActionListMessage("交易");
+  const recentActionCount = filteredItems.filter((item) => isLatestBusinessActionTarget("交易", item.id)).length;
   host.innerHTML = `
+    ${renderResultOverview([
+      { label: "当前页结果", value: formatNumber(filteredItems.length, 0), meta: `本页返回 ${formatNumber((items || []).length, 0)} 条` },
+      { label: "缺少分类", value: formatNumber(missingCategoryCount, 0), meta: missingCategoryCount > 0 ? "建议优先补齐分类字段" : "当前结果分类完整", tone: missingCategoryCount > 0 ? "warning" : "" },
+      { label: "大额交易", value: formatNumber(largeAmountCount, 0), meta: largeAmountCount > 0 ? "适合复核金额和账户流向" : "当前结果无大额记录" },
+      ...(recentActionMessage ? [{ label: "最近操作", value: formatNumber(recentActionCount, 0), meta: recentActionMessage, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
+    ])}
+    ${renderAlertStrip([
+      ...(missingCategoryCount > 0 ? [{ text: `当前结果中有 ${missingCategoryCount} 条交易缺少分类，建议先做数据修正`, tone: "warning" }] : []),
+      ...(missingReferenceCount > 0 ? [{ text: `当前结果中有 ${missingReferenceCount} 条交易缺少备注或外部单号`, tone: "info" }] : []),
+      ...(hasActiveTransactionFilters() ? [{ text: "当前列表已启用核查型筛选，适合逐条复核后继续编辑。", tone: "info" }] : []),
+      ...(recentActionMessage ? [{ text: `交易列表最近操作：${recentActionMessage}`, tone: latestBusinessAction.success ? "info" : "danger" }] : [])
+    ])}
     <div class="table-section-meta">
-      <span>当前页显示 ${formatNumber(items.length, 0)} 条交易，共 ${formatNumber(transactionTotalElements, 0)} 条</span>
+      <span>当前页显示 ${formatNumber(filteredItems.length, 0)} 条交易，共 ${formatNumber(transactionTotalElements, 0)} 条</span>
       <span>支持直接在列表编辑或删除交易，右侧查看完整详情与月报</span>
     </div>
     <div class="data-table">
@@ -3569,8 +4324,8 @@ function renderTransactions(items) {
         <div>操作</div>
       </div>
       <div class="data-table-body">
-        ${items.map((item) => `
-          <div class="data-table-row transactions-table-row ${item.id === selectedTransactionId ? "is-active" : ""}" data-action="select-transaction" data-transaction-id="${item.id}">
+        ${filteredItems.map((item) => `
+          <div class="data-table-row transactions-table-row ${item.id === selectedTransactionId ? "is-active" : ""} ${isLatestBusinessActionTarget("交易", item.id) ? "is-active" : ""}" data-action="select-transaction" data-transaction-id="${item.id}">
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">交易对象</span>
               <span class="data-cell-value">${escapeHtml(item.merchantName || item.counterpartyName || `交易#${item.id}`)}</span>
@@ -3578,7 +4333,8 @@ function renderTransactions(items) {
                 item.targetAccountId
                   ? `${formatAccountRef(item.accountId)} -> ${formatAccountRef(item.targetAccountId)}`
                   : formatAccountRef(item.accountId),
-                item.categoryId ? formatCategoryRef(item.categoryId) : ""
+                item.categoryId ? formatCategoryRef(item.categoryId) : "",
+                isLatestBusinessActionTarget("交易", item.id) ? "最近受影响" : ""
               )}</span>
             </div>
             <div class="data-cell">
@@ -3609,10 +4365,11 @@ function renderTransactions(items) {
       </div>
     </div>
   `;
-  const selected = items.find((item) => item.id === selectedTransactionId) || items[0];
+  const selected = filteredItems.find((item) => item.id === selectedTransactionId) || filteredItems[0];
   selectedTransactionId = selected?.id ?? null;
   renderTransactionDetail(selected || null);
   renderBusinessMetrics();
+  renderBusinessWorkspacePanels();
   renderPager("transactionsPager", transactionPageIndex, transactionTotalPages, transactionTotalElements, pageSize, "transactions");
 }
 
@@ -3717,6 +4474,7 @@ async function loadBusinessOverview() {
     transactionTotalPages = transactionPage.totalPages || 0;
     transactionTotalElements = transactionPage.totalElements || transactionItems.length;
     transactionMonthlySummary = summary || [];
+    syncLatestBusinessActionSelection();
     renderBusinessLists();
     renderTransactions(transactionItems);
     renderTransactionMonthlySummary(transactionMonthlySummary);
@@ -3740,9 +4498,19 @@ async function toggleAccount(accountId, status) {
     const action = Number(status) === 1 ? "disable" : "enable";
     await api(`/api/accounts/${accountId}/${action}`, { method: "POST" });
     setBusinessStatus(`${Number(status) === 1 ? "停用" : "启用"}账户成功。`);
+    recordBusinessAction({
+      scope: "账户",
+      operation: Number(status) === 1 ? "停用" : "启用",
+      target: `账户#${accountId}`,
+      detail: `已${Number(status) === 1 ? "停用" : "启用"}该账户，可继续核对列表状态和余额信息。`,
+      tone: "info",
+      success: true,
+      entityId: accountId
+    });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`账户状态更新失败：${error.message}`, true);
+    recordBusinessAction({ scope: "账户", operation: "状态更新", target: `账户#${accountId}`, detail: error.message, tone: "danger", success: false, entityId: accountId });
   }
 }
 
@@ -3753,9 +4521,11 @@ async function deleteAccount(accountId) {
   try {
     await api(`/api/accounts/${accountId}`, { method: "DELETE" });
     setBusinessStatus("账户已删除。");
+    recordBusinessAction({ scope: "账户", operation: "删除", target: `账户#${accountId}`, detail: "账户已删除，建议检查共享关系与关联交易。", tone: "warning", success: true, entityId: accountId });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`账户删除失败：${error.message}`, true);
+    recordBusinessAction({ scope: "账户", operation: "删除", target: `账户#${accountId}`, detail: error.message, tone: "danger", success: false, entityId: accountId });
   }
 }
 
@@ -3772,9 +4542,19 @@ async function toggleCategory(categoryId, enabled) {
     const action = Number(enabled) === 1 ? "disable" : "enable";
     await api(`/api/categories/${categoryId}/${action}`, { method: "POST" });
     setBusinessStatus(`${Number(enabled) === 1 ? "停用" : "启用"}分类成功。`);
+    recordBusinessAction({
+      scope: "分类",
+      operation: Number(enabled) === 1 ? "停用" : "启用",
+      target: `分类#${categoryId}`,
+      detail: `已${Number(enabled) === 1 ? "停用" : "启用"}该分类，建议核对预算与交易引用。`,
+      tone: Number(enabled) === 1 ? "warning" : "info",
+      success: true,
+      entityId: categoryId
+    });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`分类状态更新失败：${error.message}`, true);
+    recordBusinessAction({ scope: "分类", operation: "状态更新", target: `分类#${categoryId}`, detail: error.message, tone: "danger", success: false, entityId: categoryId });
   }
 }
 
@@ -3785,9 +4565,11 @@ async function deleteCategory(categoryId) {
   try {
     await api(`/api/categories/${categoryId}`, { method: "DELETE" });
     setBusinessStatus("分类已删除。");
+    recordBusinessAction({ scope: "分类", operation: "删除", target: `分类#${categoryId}`, detail: "分类已删除，建议关注预算与交易是否仍引用该分类。", tone: "warning", success: true, entityId: categoryId });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`分类删除失败：${error.message}`, true);
+    recordBusinessAction({ scope: "分类", operation: "删除", target: `分类#${categoryId}`, detail: error.message, tone: "danger", success: false, entityId: categoryId });
   }
 }
 
@@ -3804,9 +4586,19 @@ async function toggleBudget(budgetId, enabled) {
     const action = Number(enabled) === 1 ? "disable" : "enable";
     await api(`/api/budgets/${budgetId}/${action}`, { method: "POST" });
     setBusinessStatus(`${Number(enabled) === 1 ? "停用" : "启用"}预算成功。`);
+    recordBusinessAction({
+      scope: "预算",
+      operation: Number(enabled) === 1 ? "停用" : "启用",
+      target: `预算#${budgetId}`,
+      detail: `已${Number(enabled) === 1 ? "停用" : "启用"}该预算，建议继续关注执行进度和预警状态。`,
+      tone: Number(enabled) === 1 ? "warning" : "info",
+      success: true,
+      entityId: budgetId
+    });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`预算状态更新失败：${error.message}`, true);
+    recordBusinessAction({ scope: "预算", operation: "状态更新", target: `预算#${budgetId}`, detail: error.message, tone: "danger", success: false, entityId: budgetId });
   }
 }
 
@@ -3817,9 +4609,11 @@ async function deleteBudget(budgetId) {
   try {
     await api(`/api/budgets/${budgetId}`, { method: "DELETE" });
     setBusinessStatus("预算已删除。");
+    recordBusinessAction({ scope: "预算", operation: "删除", target: `预算#${budgetId}`, detail: "预算已删除，建议重新检查预算异常和月报口径。", tone: "warning", success: true, entityId: budgetId });
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`预算删除失败：${error.message}`, true);
+    recordBusinessAction({ scope: "预算", operation: "删除", target: `预算#${budgetId}`, detail: error.message, tone: "danger", success: false, entityId: budgetId });
   }
 }
 
@@ -3870,10 +4664,12 @@ async function deleteTransaction(recordId) {
   try {
     await api(`/api/transaction-records/${recordId}`, { method: "DELETE" });
     setBusinessStatus("交易记录已删除。");
+    recordBusinessAction({ scope: "交易", operation: "删除", target: `交易#${recordId}`, detail: "交易记录已删除，建议继续核查分类完整性与月报变化。", tone: "warning", success: true, entityId: recordId });
     transactionPageIndex = transactionPageIndex > 0 && transactionItems.length <= 1 ? transactionPageIndex - 1 : transactionPageIndex;
     await loadBusinessOverview();
   } catch (error) {
     setBusinessStatus(`交易记录删除失败：${error.message}`, true);
+    recordBusinessAction({ scope: "交易", operation: "删除", target: `交易#${recordId}`, detail: error.message, tone: "danger", success: false, entityId: recordId });
   }
 }
 
@@ -3886,6 +4682,7 @@ async function batchToggleAccounts(enabled) {
     await api(`/api/accounts/${id}/${action}`, { method: "POST" });
   }
   setBusinessStatus(`账户批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedAccountIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "账户", operation: `批量${enabled ? "启用" : "停用"}`, target: "已选账户", detail: `已处理 ${formatNumber(selectedAccountIds.length, 0)} 个账户。`, count: selectedAccountIds.length, tone: "info", success: true, entityIds: [...selectedAccountIds] });
   selectedAccountIds = [];
   await loadBusinessOverview();
 }
@@ -3898,6 +4695,7 @@ async function batchDeleteAccounts() {
     await api(`/api/accounts/${id}`, { method: "DELETE" });
   }
   setBusinessStatus(`账户批量删除完成，共处理 ${formatNumber(selectedAccountIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "账户", operation: "批量删除", target: "已选账户", detail: `已删除 ${formatNumber(selectedAccountIds.length, 0)} 个账户。`, count: selectedAccountIds.length, tone: "warning", success: true, entityIds: [...selectedAccountIds] });
   selectedAccountIds = [];
   await loadBusinessOverview();
 }
@@ -3911,6 +4709,7 @@ async function batchToggleCategories(enabled) {
     await api(`/api/categories/${id}/${action}`, { method: "POST" });
   }
   setBusinessStatus(`分类批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedCategoryIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "分类", operation: `批量${enabled ? "启用" : "停用"}`, target: "已选分类", detail: `已处理 ${formatNumber(selectedCategoryIds.length, 0)} 个分类。`, count: selectedCategoryIds.length, tone: enabled ? "info" : "warning", success: true, entityIds: [...selectedCategoryIds] });
   selectedCategoryIds = [];
   await loadBusinessOverview();
 }
@@ -3923,6 +4722,7 @@ async function batchDeleteCategories() {
     await api(`/api/categories/${id}`, { method: "DELETE" });
   }
   setBusinessStatus(`分类批量删除完成，共处理 ${formatNumber(selectedCategoryIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "分类", operation: "批量删除", target: "已选分类", detail: `已删除 ${formatNumber(selectedCategoryIds.length, 0)} 个分类。`, count: selectedCategoryIds.length, tone: "warning", success: true, entityIds: [...selectedCategoryIds] });
   selectedCategoryIds = [];
   await loadBusinessOverview();
 }
@@ -3936,6 +4736,7 @@ async function batchToggleBudgets(enabled) {
     await api(`/api/budgets/${id}/${action}`, { method: "POST" });
   }
   setBusinessStatus(`预算批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedBudgetIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "预算", operation: `批量${enabled ? "启用" : "停用"}`, target: "已选预算", detail: `已处理 ${formatNumber(selectedBudgetIds.length, 0)} 个预算。`, count: selectedBudgetIds.length, tone: enabled ? "info" : "warning", success: true, entityIds: [...selectedBudgetIds] });
   selectedBudgetIds = [];
   await loadBusinessOverview();
 }
@@ -3948,6 +4749,7 @@ async function batchDeleteBudgets() {
     await api(`/api/budgets/${id}`, { method: "DELETE" });
   }
   setBusinessStatus(`预算批量删除完成，共处理 ${formatNumber(selectedBudgetIds.length, 0)} 项。`);
+  recordBusinessAction({ scope: "预算", operation: "批量删除", target: "已选预算", detail: `已删除 ${formatNumber(selectedBudgetIds.length, 0)} 个预算。`, count: selectedBudgetIds.length, tone: "warning", success: true, entityIds: [...selectedBudgetIds] });
   selectedBudgetIds = [];
   await loadBusinessOverview();
 }
@@ -3969,7 +4771,7 @@ async function submitBusinessForm(event) {
   setBusinessFormSubmitting(true);
   try {
     if (businessFormType === "account") {
-      await api(isEdit ? `/api/accounts/${selectedAccountId}` : "/api/accounts", {
+      const response = await api(isEdit ? `/api/accounts/${selectedAccountId}` : "/api/accounts", {
         method: isEdit ? "PUT" : "POST",
         body: {
           ...(isEdit ? {} : { familyId: Number(form.familyId) }),
@@ -3986,10 +4788,11 @@ async function submitBusinessForm(event) {
         }
       });
       setBusinessStatus(isEdit ? "账户编辑成功。" : "账户新增成功。");
+      recordBusinessAction({ scope: "账户", operation: isEdit ? "编辑" : "新增", target: form.accountName || "账户", detail: isEdit ? "账户信息已更新。" : "账户已创建，可继续检查余额和共享设置。", tone: "info", success: true, entityId: response?.id || selectedAccountId });
     }
 
     if (businessFormType === "category") {
-      await api(isEdit ? `/api/categories/${selectedCategoryId}` : "/api/categories", {
+      const response = await api(isEdit ? `/api/categories/${selectedCategoryId}` : "/api/categories", {
         method: isEdit ? "PUT" : "POST",
         body: {
           ...(isEdit ? {} : { familyId: Number(form.familyId) }),
@@ -4002,10 +4805,11 @@ async function submitBusinessForm(event) {
         }
       });
       setBusinessStatus(isEdit ? "分类编辑成功。" : "分类新增成功。");
+      recordBusinessAction({ scope: "分类", operation: isEdit ? "编辑" : "新增", target: form.categoryName || "分类", detail: isEdit ? "分类信息已更新。" : "分类已创建，可继续检查层级和作用域。", tone: "info", success: true, entityId: response?.id || selectedCategoryId });
     }
 
     if (businessFormType === "budget") {
-      await api(isEdit ? `/api/budgets/${selectedBudgetId}` : "/api/budgets", {
+      const response = await api(isEdit ? `/api/budgets/${selectedBudgetId}` : "/api/budgets", {
         method: isEdit ? "PUT" : "POST",
         body: {
           ...(isEdit ? {} : { familyId: Number(form.familyId) }),
@@ -4020,10 +4824,11 @@ async function submitBusinessForm(event) {
         }
       });
       setBusinessStatus(isEdit ? "预算编辑成功。" : "预算新增成功。");
+      recordBusinessAction({ scope: "预算", operation: isEdit ? "编辑" : "新增", target: form.budgetName || "预算", detail: isEdit ? "预算信息已更新。" : "预算已创建，可继续检查执行和预警设置。", tone: "info", success: true, entityId: response?.id || selectedBudgetId });
     }
 
     if (businessFormType === "transaction") {
-      await api(isEdit ? `/api/transaction-records/${selectedTransactionId}` : "/api/transaction-records", {
+      const response = await api(isEdit ? `/api/transaction-records/${selectedTransactionId}` : "/api/transaction-records", {
         method: isEdit ? "PUT" : "POST",
         body: {
           ...(isEdit ? {} : { familyId: Number(form.familyId) }),
@@ -4041,6 +4846,7 @@ async function submitBusinessForm(event) {
         }
       });
       setBusinessStatus(isEdit ? "交易编辑成功。" : "交易新增成功。");
+      recordBusinessAction({ scope: "交易", operation: isEdit ? "编辑" : "新增", target: form.merchantName || form.counterpartyName || "交易", detail: isEdit ? "交易记录已更新。" : "交易记录已创建，可继续核查分类和备注完整性。", tone: "info", success: true, entityId: response?.id || selectedTransactionId });
     }
 
     closeBusinessForm();
@@ -4048,6 +4854,7 @@ async function submitBusinessForm(event) {
   } catch (error) {
     setBusinessFormStatus(`提交失败：${error.message}`, true);
     setBusinessStatus(`表单提交失败：${error.message}`, true);
+    recordBusinessAction({ scope: businessFormType === "account" ? "账户" : businessFormType === "category" ? "分类" : businessFormType === "budget" ? "预算" : "交易", operation: businessFormMode === "edit" ? "编辑" : "新增", target: "表单提交", detail: error.message, tone: "danger", success: false });
   } finally {
     setBusinessFormSubmitting(false);
   }
@@ -4077,13 +4884,18 @@ function handleBusinessFormInput(event) {
 }
 
 function updateNotificationsStats(items) {
-  const total = items?.length || 0;
+  const visibleTotal = items?.length || 0;
   const read = (items || []).filter((item) => Number(item.readStatus) === 1).length;
-  const unread = total - read;
+  const unread = visibleTotal - read;
+  const critical = (items || []).filter((item) => includesKeyword(item.levelCode, "HIGH") || includesKeyword(item.levelCode, "CRITICAL")).length;
+  const ruleSource = (items || []).filter((item) => includesKeyword(item.sourceType, "RULE")).length;
   byId("notificationsStats").innerHTML = `
-    <div class="stats-pill">总数：${formatNumber(notificationsTotalElements || total, 0)}</div>
+    <div class="stats-pill">总数：${formatNumber(notificationsTotalElements || visibleTotal, 0)}</div>
+    <div class="stats-pill">当前页：${formatNumber(visibleTotal, 0)}</div>
     <div class="stats-pill">未读：${formatNumber(unread, 0)}</div>
     <div class="stats-pill">已读：${formatNumber(read, 0)}</div>
+    <div class="stats-pill">高等级：${formatNumber(critical, 0)}</div>
+    <div class="stats-pill">规则来源：${formatNumber(ruleSource, 0)}</div>
   `;
 }
 
@@ -4766,6 +5578,24 @@ function handleDocumentClick(event) {
     case "business-open-recent-transactions":
       focusBusinessArea("recent-transactions");
       break;
+    case "business-feedback-open-scope":
+      switchView("business");
+      if (latestBusinessAction?.scope === "交易") {
+        renderTransactions(transactionItems);
+      } else if (latestBusinessAction?.scope === "账户") {
+        renderAccounts(getFilteredAccounts(accounts));
+      } else if (latestBusinessAction?.scope === "分类") {
+        renderCategories(getFilteredCategories(categories));
+      } else if (latestBusinessAction?.scope === "预算") {
+        renderBudgets(getFilteredBudgets(budgets));
+      }
+      break;
+    case "business-feedback-open-target":
+      focusLatestBusinessActionTarget();
+      break;
+    case "business-feedback-filter-targets":
+      showLatestBusinessActionResultsOnly();
+      break;
     case "close-business-form":
       closeBusinessForm();
       break;
@@ -5203,6 +6033,12 @@ function bindEvents() {
     transactionPageIndex = 0;
     loadTransactions(0);
   });
+  byId("resetTransactionFiltersBtn").addEventListener("click", resetTransactionFilters);
+  byId("exportTransactionsBtn").addEventListener("click", exportCurrentTransactions);
+  byId("transactionQuickAllBtn").addEventListener("click", () => applyTransactionQuickFilter("all"));
+  byId("transactionQuickMissingCategoryBtn").addEventListener("click", () => applyTransactionQuickFilter("missing-category"));
+  byId("transactionQuickMissingReferenceBtn").addEventListener("click", () => applyTransactionQuickFilter("missing-reference"));
+  byId("transactionQuickLargeAmountBtn").addEventListener("click", () => applyTransactionQuickFilter("large-amount"));
   byId("accountStatusFilter").addEventListener("change", () => {
     renderAccounts(getFilteredAccounts(accounts));
   });
