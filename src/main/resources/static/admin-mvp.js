@@ -1,5 +1,6 @@
 let token = "";
 let latestSummary = null;
+let latestImport = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -91,6 +92,20 @@ function renderRaw(payload) {
   byId("rawPayload").textContent = JSON.stringify(payload, null, 2);
 }
 
+function renderLatestImport(result) {
+  const host = byId("latestImportResult");
+  if (!result) {
+    host.innerHTML = '<div class="summary-item">暂无导入结果</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="summary-item">处理目录：${result.processedDir ?? "-"}</div>
+    <div class="summary-item">retailImported：${result.retailImported ?? 0}</div>
+    <div class="summary-item">worldBankImported：${result.worldBankImported ?? 0}</div>
+    <div class="summary-item">fredImported：${result.fredImported ?? 0}</div>
+  `;
+}
+
 function renderSummary(summary) {
   latestSummary = summary;
   renderMetric("metricTotalRecords", summary?.retailOverview?.totalRecords ?? "-");
@@ -118,13 +133,18 @@ async function login() {
 
 async function importData() {
   byId("importStatus").textContent = "正在导入真实数据...";
+  byId("importStatusMirror").textContent = "正在导入真实数据...";
   try {
     const result = await api("/api/real-data-analysis/import?processedDir=data/processed&truncateBeforeImport=true&batchSize=5000", "POST");
+    latestImport = result;
     byId("importStatus").textContent = `导入完成：retail=${result.retailImported}, worldBank=${result.worldBankImported}, fred=${result.fredImported}`;
+    byId("importStatusMirror").textContent = byId("importStatus").textContent;
+    renderLatestImport(result);
     renderRaw(result);
     return result;
   } catch (error) {
     byId("importStatus").textContent = `导入失败：${error.message}`;
+    byId("importStatusMirror").textContent = byId("importStatus").textContent;
     throw error;
   }
 }
@@ -146,22 +166,50 @@ async function loadDefenseSummary() {
 
 async function runAcceptance() {
   byId("importStatus").textContent = "正在执行一键验收...";
+  byId("importStatusMirror").textContent = "正在执行一键验收...";
   try {
     await importData();
     await loadDefenseSummary();
     byId("importStatus").textContent = "一键验收完成";
+    byId("importStatusMirror").textContent = "一键验收完成";
   } catch (error) {
     byId("importStatus").textContent = `一键验收失败：${error.message}`;
+    byId("importStatusMirror").textContent = byId("importStatus").textContent;
   }
+}
+
+function switchView(viewName) {
+  const mapping = {
+    analysis: { title: "真实数据分析总控台", id: "analysisView" },
+    imports: { title: "真实数据导入管理", id: "importsView" },
+    rules: { title: "规则与通知管理", id: "rulesView" },
+    acceptance: { title: "系统验收与回归", id: "acceptanceView" }
+  };
+  const target = mapping[viewName] || mapping.analysis;
+
+  document.querySelectorAll(".menu-item").forEach((node) => {
+    node.classList.toggle("is-active", node.dataset.view === viewName);
+  });
+  document.querySelectorAll(".view-section").forEach((node) => {
+    node.classList.toggle("is-active", node.id === target.id);
+  });
+  byId("pageTitle").textContent = target.title;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   byId("loginBtn").addEventListener("click", login);
   byId("importBtn").addEventListener("click", importData);
+  byId("importBtnMirror").addEventListener("click", importData);
   byId("summaryBtn").addEventListener("click", loadDefenseSummary);
   byId("acceptanceBtn").addEventListener("click", runAcceptance);
+  byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
+  document.querySelectorAll(".menu-item").forEach((node) => {
+    node.addEventListener("click", () => switchView(node.dataset.view));
+  });
   renderConclusions([]);
   renderCountryList([]);
   renderWorldBank(null);
   renderFred(null);
+  renderLatestImport(null);
+  switchView("analysis");
 });

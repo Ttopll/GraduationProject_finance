@@ -17,10 +17,10 @@
         </div>
       </div>
       <nav class="menu">
-        <button class="menu-item is-active" type="button">真实数据分析</button>
-        <button class="menu-item" type="button">导入管理</button>
-        <button class="menu-item" type="button">规则与通知</button>
-        <button class="menu-item" type="button">系统验收</button>
+        <button class="menu-item is-active" type="button" data-view="analysis">真实数据分析</button>
+        <button class="menu-item" type="button" data-view="imports">导入管理</button>
+        <button class="menu-item" type="button" data-view="rules">规则与通知</button>
+        <button class="menu-item" type="button" data-view="acceptance">系统验收</button>
       </nav>
       <section class="sidebar-panel">
         <p class="panel-label">当前目标</p>
@@ -32,14 +32,14 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">数据治理与分析后台</p>
-          <h1>真实数据分析总控台</h1>
+          <h1 id="pageTitle">真实数据分析总控台</h1>
         </div>
         <div class="session-box">
           <div id="loginStatus" class="session-status">未登录</div>
         </div>
       </header>
 
-      <section class="workspace-grid">
+      <section id="analysisView" class="workspace-grid view-section is-active">
         <section class="panel panel-auth">
           <div class="panel-head">
             <div>
@@ -155,6 +155,78 @@
             </div>
           </div>
           <pre id="rawPayload" class="raw-box">(waiting)</pre>
+        </section>
+      </section>
+
+      <section id="importsView" class="workspace-grid view-section">
+        <section class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Import Guide</p>
+              <h2>真实数据导入管理</h2>
+            </div>
+          </div>
+          <div class="summary-board">
+            <div class="summary-item">数据源目录：<code>data/processed</code></div>
+            <div class="summary-item">导入方式：调用 <code>POST /api/real-data-analysis/import</code>，支持清空后重导。</div>
+            <div class="summary-item">目标表：<code>external_retail_transaction</code>、<code>external_world_bank_consumption</code>、<code>external_fred_series</code></div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Execute</p>
+              <h2>导入操作</h2>
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="importBtnMirror" class="primary-btn" type="button">执行导入</button>
+            <button id="acceptanceBtnMirror" class="secondary-btn" type="button">一键验收</button>
+          </div>
+          <div id="importStatusMirror" class="inline-status">等待操作</div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Latest Result</p>
+              <h2>最近一次导入结果</h2>
+            </div>
+          </div>
+          <div id="latestImportResult" class="summary-board">
+            <div class="summary-item">暂无导入结果</div>
+          </div>
+        </section>
+      </section>
+
+      <section id="rulesView" class="workspace-grid view-section">
+        <section class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Next Module</p>
+              <h2>规则与通知</h2>
+            </div>
+          </div>
+          <div class="summary-board">
+            <div class="summary-item">当前阶段先预留正式后台入口，下一步接规则列表、触发记录和通知处理。</div>
+          </div>
+        </section>
+      </section>
+
+      <section id="acceptanceView" class="workspace-grid view-section">
+        <section class="panel panel-wide">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Acceptance</p>
+              <h2>系统验收</h2>
+            </div>
+          </div>
+          <div class="summary-board">
+            <div class="summary-item">推荐先登录，再点击“一键验收”，完成导入与汇总。</div>
+            <div class="summary-item">验收脚本：<code>scripts/run_three_end_mvp_acceptance.ps1</code></div>
+            <div class="summary-item">报告脚本：<code>scripts/generate_three_end_mvp_report.ps1</code></div>
+          </div>
         </section>
       </section>
     </main>

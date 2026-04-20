@@ -166,6 +166,14 @@ input {
   gap: 18px;
 }
 
+.view-section {
+  display: none;
+}
+
+.view-section.is-active {
+  display: grid;
+}
+
 .panel {
   background: var(--bg-panel);
   border-radius: var(--radius-xl);
@@ -231,6 +239,14 @@ input {
 
 .panel-raw {
   grid-column: span 5;
+}
+
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
+.panel-half {
+  grid-column: span 6;
 }
 
 .form-row,
@@ -353,7 +369,9 @@ input {
   .panel-trend,
   .panel-fred,
   .panel-conclusion,
-  .panel-raw {
+  .panel-raw,
+  .panel-half,
+  .panel-wide {
     grid-column: 1 / -1;
   }
 
