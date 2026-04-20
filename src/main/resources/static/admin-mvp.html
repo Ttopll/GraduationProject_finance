@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>家庭财务管理后台</title>
+  <title>家庭财务管理系统后台</title>
   <link rel="stylesheet" href="/admin-mvp.css">
 </head>
 <body>
@@ -16,23 +16,26 @@
           <div class="brand-subtitle">Admin Console</div>
         </div>
       </div>
+
       <nav class="menu">
         <button class="menu-item is-active" type="button" data-view="analysis">真实数据分析</button>
         <button class="menu-item" type="button" data-view="imports">导入管理</button>
         <button class="menu-item" type="button" data-view="rules">规则与通知</button>
         <button class="menu-item" type="button" data-view="acceptance">系统验收</button>
       </nav>
+
       <section class="sidebar-panel">
         <p class="panel-label">当前目标</p>
-        <p class="panel-text">按若依风格承接真实数据导入、分析结果、结论输出和后续模块扩展。</p>
+        <p class="panel-text">把管理员端推进成可持续扩展的后台工作台，而不是一次性演示页。当前优先完成真实数据导入、分析联动、规则通知运营视图。</p>
       </section>
     </aside>
 
     <main class="main-area">
       <header class="topbar">
         <div>
-          <p class="eyebrow">数据治理与分析后台</p>
+          <p id="pageEyebrow" class="eyebrow">数据治理与分析后台</p>
           <h1 id="pageTitle">真实数据分析总控台</h1>
+          <div id="pageBreadcrumb" class="breadcrumb">后台首页 / 真实数据分析</div>
         </div>
         <div class="topbar-controls">
           <label class="field-group compact-group">
@@ -44,10 +47,18 @@
             <select id="memberSelect" class="field-input"></select>
           </label>
           <div class="session-box">
+            <div class="session-label">登录状态</div>
             <div id="loginStatus" class="session-status">未登录</div>
           </div>
         </div>
       </header>
+
+      <div class="view-tabs">
+        <button class="view-tab is-active" type="button" data-view="analysis">分析面板</button>
+        <button class="view-tab" type="button" data-view="imports">导入中心</button>
+        <button class="view-tab" type="button" data-view="rules">规则通知</button>
+        <button class="view-tab" type="button" data-view="acceptance">验收联通</button>
+      </div>
 
       <section id="analysisView" class="workspace-grid view-section is-active">
         <section class="panel panel-auth">
@@ -68,13 +79,13 @@
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">Actions</p>
-              <h2>导入与验收</h2>
+              <h2>导入与分析</h2>
             </div>
           </div>
           <div class="action-row">
             <button id="importBtn" class="secondary-btn" type="button">执行导入</button>
-            <button id="acceptanceBtn" class="primary-btn" type="button">一键验收</button>
-            <button id="summaryBtn" class="ghost-btn" type="button">加载汇总</button>
+            <button id="summaryBtn" class="primary-btn" type="button">加载汇总</button>
+            <button id="acceptanceBtn" class="ghost-btn" type="button">一键验收</button>
           </div>
           <div id="importStatus" class="inline-status">等待操作</div>
         </section>
@@ -94,6 +105,10 @@
             <label class="field-group">
               <span>FRED 序列</span>
               <input id="seriesId" class="field-input" value="PCE">
+            </label>
+            <label class="field-group">
+              <span>Top Countries</span>
+              <input id="topCountries" class="field-input" type="number" min="1" max="20" value="10">
             </label>
           </div>
         </section>
@@ -121,7 +136,7 @@
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">Retail Mix</p>
-              <h2>国家交易额 Top 10</h2>
+              <h2>国家交易额 Top 列表</h2>
             </div>
           </div>
           <div id="countryList" class="list-board"></div>
@@ -151,7 +166,7 @@
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">Conclusions</p>
-              <h2>自动生成结论</h2>
+              <h2>自动结论输出</h2>
             </div>
           </div>
           <div id="conclusionList" class="conclusion-board"></div>
@@ -169,30 +184,70 @@
       </section>
 
       <section id="importsView" class="workspace-grid view-section">
-        <section class="panel panel-wide">
+        <section class="panel panel-wide import-overview-panel">
           <div class="panel-head">
             <div>
-              <p class="panel-eyebrow">Import Guide</p>
+              <p class="panel-eyebrow">Import Center</p>
               <h2>真实数据导入管理</h2>
             </div>
+            <div class="action-row compact-actions">
+              <button id="importBtnMirror" class="primary-btn" type="button">执行导入</button>
+              <button id="acceptanceBtnMirror" class="secondary-btn" type="button">一键验收</button>
+            </div>
           </div>
-          <div class="summary-board">
-            <div class="summary-item">数据源目录：<code>data/processed</code></div>
-            <div class="summary-item">导入方式：调用 <code>POST /api/real-data-analysis/import</code>，支持清空后重导。</div>
-            <div class="summary-item">目标表：<code>external_retail_transaction</code>、<code>external_world_bank_consumption</code>、<code>external_fred_series</code></div>
+          <div class="import-overview-grid">
+            <div class="summary-item highlight-item">
+              <div class="summary-kicker">默认目录</div>
+              <strong>data/processed</strong>
+              <div>对接 `POST /api/real-data-analysis/import`，支持清空后重导。</div>
+            </div>
+            <div class="summary-item highlight-item">
+              <div class="summary-kicker">目标表</div>
+              <strong>3 张真实数据表</strong>
+              <div>`external_retail_transaction` / `external_world_bank_consumption` / `external_fred_series`</div>
+            </div>
+            <div class="summary-item highlight-item">
+              <div class="summary-kicker">操作建议</div>
+              <strong>先导入，再刷新分析</strong>
+              <div>导入记录会进入本地历史，支持一键回看参数与结果。</div>
+            </div>
           </div>
         </section>
 
         <section class="panel panel-half">
           <div class="panel-head">
             <div>
-              <p class="panel-eyebrow">Execute</p>
-              <h2>导入操作</h2>
+              <p class="panel-eyebrow">Parameters</p>
+              <h2>导入参数</h2>
             </div>
           </div>
-          <div class="action-row">
-            <button id="importBtnMirror" class="primary-btn" type="button">执行导入</button>
-            <button id="acceptanceBtnMirror" class="secondary-btn" type="button">一键验收</button>
+          <div class="stack-form">
+            <label class="field-group">
+              <span>processedDir</span>
+              <input id="processedDirInput" class="field-input" value="data/processed">
+            </label>
+            <div class="form-row two-column-row">
+              <label class="field-group">
+                <span>batchSize</span>
+                <input id="batchSizeInput" class="field-input" type="number" min="1" value="5000">
+              </label>
+              <label class="field-group toggle-field">
+                <span>truncateBeforeImport</span>
+                <label class="switch-row">
+                  <input id="truncateBeforeImportInput" type="checkbox" checked>
+                  <span>导入前清空目标表</span>
+                </label>
+              </label>
+            </div>
+            <div class="quick-tags">
+              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="1000" data-truncate="true">安全批次</button>
+              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="5000" data-truncate="true">默认批次</button>
+              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="10000" data-truncate="false">增量批次</button>
+            </div>
+            <div class="action-row">
+              <button id="syncAnalysisParamsBtn" class="ghost-btn" type="button">同步到分析面板</button>
+              <button id="clearImportHistoryBtn" class="ghost-btn" type="button">清空本地历史</button>
+            </div>
           </div>
           <div id="importStatusMirror" class="inline-status">等待操作</div>
         </section>
@@ -208,21 +263,118 @@
             <div class="summary-item">暂无导入结果</div>
           </div>
         </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">History</p>
+              <h2>导入历史</h2>
+            </div>
+            <div class="table-hint">仅保存在当前页面内存，用于后台操作回看。</div>
+          </div>
+          <div id="importHistoryList" class="table-board empty-board">
+            <div class="empty-state">暂无导入历史</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Selected Record</p>
+              <h2>选中记录详情</h2>
+            </div>
+          </div>
+          <div id="importHistoryDetail" class="summary-board">
+            <div class="summary-item">请选择左侧某次导入记录</div>
+          </div>
+        </section>
       </section>
 
       <section id="rulesView" class="workspace-grid view-section">
+        <section class="panel panel-wide rules-toolbar-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Operations</p>
+              <h2>规则与通知操作台</h2>
+            </div>
+            <button id="evaluateRulesBtn" class="primary-btn" type="button">执行规则评估</button>
+          </div>
+          <div class="toolbar-grid">
+            <div class="toolbar-card">
+              <div class="toolbar-title">规则筛选</div>
+              <div class="form-row">
+                <label class="field-group compact-group">
+                  <span>启用状态</span>
+                  <select id="ruleEnabledFilter" class="field-input">
+                    <option value="all">全部</option>
+                    <option value="1">仅启用</option>
+                    <option value="0">仅停用</option>
+                  </select>
+                </label>
+                <label class="field-group compact-group">
+                  <span>规则类型</span>
+                  <input id="ruleTypeFilter" class="field-input" placeholder="如 BUDGET">
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="loadRulesBtn" class="secondary-btn" type="button">加载规则</button>
+              </div>
+            </div>
+            <div class="toolbar-card">
+              <div class="toolbar-title">通知筛选</div>
+              <div class="form-row">
+                <label class="field-group compact-group">
+                  <span>已读状态</span>
+                  <select id="notificationReadFilter" class="field-input">
+                    <option value="">全部</option>
+                    <option value="0">未读</option>
+                    <option value="1">已读</option>
+                  </select>
+                </label>
+                <label class="field-group compact-group">
+                  <span>来源类型</span>
+                  <input id="notificationSourceFilter" class="field-input" placeholder="如 RULE">
+                </label>
+                <label class="field-group compact-group">
+                  <span>每页条数</span>
+                  <select id="notificationPageSize" class="field-input">
+                    <option value="8">8</option>
+                    <option value="12">12</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="loadNotificationsBtn" class="secondary-btn" type="button">加载通知</button>
+                <button id="readAllNotificationsBtn" class="ghost-btn" type="button">全部已读</button>
+                <button id="clearReadNotificationsBtn" class="ghost-btn" type="button">清理已读</button>
+              </div>
+            </div>
+          </div>
+          <div id="rulesStatus" class="inline-status">等待操作</div>
+        </section>
+
         <section class="panel panel-half">
           <div class="panel-head">
             <div>
               <p class="panel-eyebrow">Rules</p>
               <h2>规则列表</h2>
             </div>
-            <div class="action-row compact-actions">
-              <button id="loadRulesBtn" class="secondary-btn" type="button">加载规则</button>
+          </div>
+          <div id="rulesList" class="table-board empty-board">
+            <div class="empty-state">暂无规则数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Rule Detail</p>
+              <h2>规则详情</h2>
             </div>
           </div>
-          <div id="rulesList" class="summary-board">
-            <div class="summary-item">暂无规则数据</div>
+          <div id="ruleDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧规则查看详情</div>
           </div>
         </section>
 
@@ -232,26 +384,22 @@
               <p class="panel-eyebrow">Notifications</p>
               <h2>通知列表</h2>
             </div>
-            <div class="action-row compact-actions">
-              <button id="loadNotificationsBtn" class="secondary-btn" type="button">加载通知</button>
-              <button id="readAllNotificationsBtn" class="ghost-btn" type="button">全部已读</button>
-              <button id="clearReadNotificationsBtn" class="ghost-btn" type="button">清理已读</button>
-            </div>
           </div>
-          <div id="notificationsList" class="summary-board">
-            <div class="summary-item">暂无通知数据</div>
+          <div id="notificationsList" class="table-board empty-board">
+            <div class="empty-state">暂无通知数据</div>
           </div>
         </section>
 
-        <section class="panel panel-wide">
+        <section class="panel panel-half">
           <div class="panel-head">
             <div>
-              <p class="panel-eyebrow">Evaluate</p>
-              <h2>规则评估</h2>
+              <p class="panel-eyebrow">Notification Detail</p>
+              <h2>通知详情</h2>
             </div>
-            <button id="evaluateRulesBtn" class="primary-btn" type="button">执行规则评估</button>
           </div>
-          <div id="rulesStatus" class="inline-status">等待操作</div>
+          <div id="notificationDetailPanel" class="summary-board">
+            <div class="summary-item">点击左侧通知查看详情</div>
+          </div>
         </section>
       </section>
 
@@ -264,9 +412,10 @@
             </div>
           </div>
           <div class="summary-board">
-            <div class="summary-item">推荐先登录，再点击“一键验收”，完成导入与汇总。</div>
+            <div class="summary-item">推荐先登录，再执行“一键验收”，自动完成导入与汇总刷新。</div>
             <div class="summary-item">验收脚本：<code>scripts/run_three_end_mvp_acceptance.ps1</code></div>
             <div class="summary-item">报告脚本：<code>scripts/generate_three_end_mvp_report.ps1</code></div>
+            <div class="summary-item">当前管理员端重点已经转向长期可用的后台工作台，不再只做答辩页。</div>
           </div>
         </section>
       </section>
