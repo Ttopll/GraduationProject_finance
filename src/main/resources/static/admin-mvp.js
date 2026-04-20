@@ -23,12 +23,15 @@ let transactionPageIndex = 0;
 let transactionTotalPages = 0;
 let notificationsTotalElements = 0;
 let accountQuickFilter = "all";
+let accountShowSelectedOnly = false;
 let selectedAccountIds = [];
 let selectedAccountId = null;
 let categoryQuickFilter = "all";
+let categoryShowSelectedOnly = false;
 let selectedCategoryIds = [];
 let selectedCategoryId = null;
 let budgetQuickFilter = "all";
+let budgetShowSelectedOnly = false;
 let selectedBudgetIds = [];
 let selectedBudgetId = null;
 let selectedTransactionId = null;
@@ -115,6 +118,22 @@ function updateQuickTagButtons(mapping, activeKey) {
   });
 }
 
+function downloadCsv(filename, rows) {
+  const csv = rows.map((row) => row.map((value) => {
+    const text = String(value ?? "");
+    return `"${text.replace(/"/g, "\"\"")}"`;
+  }).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function getFilteredAccounts(items = accounts) {
   const status = byId("accountStatusFilter")?.value || "";
   const typeKeyword = byId("accountTypeFilter")?.value || "";
@@ -132,6 +151,9 @@ function getFilteredAccounts(items = accounts) {
       return false;
     }
     if (accountQuickFilter === "enabled" && Number(item.status) !== 1) {
+      return false;
+    }
+    if (accountShowSelectedOnly && !selectedAccountIds.includes(Number(item.id))) {
       return false;
     }
     return true;
@@ -167,6 +189,9 @@ function getFilteredCategories(items = categories) {
     if (categoryQuickFilter === "enabled" && Number(item.enabled) !== 1) {
       return false;
     }
+    if (categoryShowSelectedOnly && !selectedCategoryIds.includes(Number(item.id))) {
+      return false;
+    }
     return true;
   });
   return applySort(filtered, byId("categorySortFilter")?.value || "sort-asc", {
@@ -199,6 +224,9 @@ function getFilteredBudgets(items = budgets) {
       return false;
     }
     if (budgetQuickFilter === "monthly" && !includesKeyword(item.periodType, "MONTH")) {
+      return false;
+    }
+    if (budgetShowSelectedOnly && !selectedBudgetIds.includes(Number(item.id))) {
       return false;
     }
     return true;
@@ -289,6 +317,7 @@ function resetAccountFilters() {
   byId("accountTypeFilter").value = "";
   byId("accountSortFilter").value = "name-asc";
   accountQuickFilter = "all";
+  accountShowSelectedOnly = false;
   updateQuickTagButtons({
     all: "accountQuickAllBtn",
     shared: "accountQuickSharedBtn",
@@ -303,6 +332,7 @@ function resetCategoryFilters() {
   byId("categoryTypeFilter").value = "";
   byId("categorySortFilter").value = "sort-asc";
   categoryQuickFilter = "all";
+  categoryShowSelectedOnly = false;
   updateQuickTagButtons({
     all: "categoryQuickAllBtn",
     expense: "categoryQuickExpenseBtn",
@@ -317,6 +347,7 @@ function resetBudgetFilters() {
   byId("budgetPeriodFilter").value = "";
   byId("budgetSortFilter").value = "amount-desc";
   budgetQuickFilter = "all";
+  budgetShowSelectedOnly = false;
   updateQuickTagButtons({
     all: "budgetQuickAllBtn",
     alert: "budgetQuickAlertBtn",
@@ -359,6 +390,36 @@ function applyBudgetQuickFilter(filter) {
   renderBudgets(getFilteredBudgets(budgets));
 }
 
+function exportCurrentAccounts() {
+  const items = getFilteredAccounts(accounts);
+  downloadCsv("accounts_current_view.csv", [
+    ["ID", "账户名称", "类型", "余额", "状态", "共享", "所属成员"],
+    ...items.map((item) => [item.id, item.accountName, item.accountType, item.currentBalance, Number(item.status) === 1 ? "启用" : "停用", Number(item.isShared) === 1 ? "是" : "否", formatMemberRef(item.ownerMemberId)])
+  ]);
+  setBusinessStatus(`账户当前结果已导出，共 ${formatNumber(items.length, 0)} 条。`);
+}
+
+function exportCurrentCategories() {
+  const items = getFilteredCategories(categories);
+  downloadCsv("categories_current_view.csv", [
+    ["ID", "分类名称", "类型", "作用域", "状态", "排序"],
+    ...items.map((item) => [item.id, item.categoryName, item.categoryType, item.scopeType || "-", Number(item.enabled) === 1 ? "启用" : "停用", item.sortOrder ?? ""])
+  ]);
+  setBusinessStatus(`分类当前结果已导出，共 ${formatNumber(items.length, 0)} 条。`);
+}
+
+function exportCurrentBudgets() {
+  const items = getFilteredBudgets(budgets);
+  downloadCsv("budgets_current_view.csv", [
+    ["ID", "预算名称", "周期", "金额", "状态", "预警状态"],
+    ...items.map((item) => {
+      const usage = getBudgetUsageItem(item.id);
+      return [item.id, item.budgetName, item.periodType, item.amount, Number(item.enabled) === 1 ? "启用" : "停用", usage?.exceeded ? "超支" : usage?.alertTriggered ? "预警" : "正常"];
+    })
+  ]);
+  setBusinessStatus(`预算当前结果已导出，共 ${formatNumber(items.length, 0)} 条。`);
+}
+
 function toggleSelection(list, id, checked) {
   const targetId = Number(id);
   const set = new Set(list || []);
@@ -376,16 +437,48 @@ function syncSelectionToVisible(selectedIds, items) {
 }
 
 function renderBatchToolbar(kind, selectedCount, totalCount, labels) {
+  const showSelectedOnly = {
+    account: accountShowSelectedOnly,
+    category: categoryShowSelectedOnly,
+    budget: budgetShowSelectedOnly
+  }[kind];
   return `
     <div class="batch-toolbar">
       <div class="batch-toolbar-info">已选 ${formatNumber(selectedCount, 0)} 项，当前列表 ${formatNumber(totalCount, 0)} 项</div>
       <div class="batch-toolbar-actions">
         <button class="mini-btn" type="button" data-action="${kind}-select-all">全选当前列表</button>
         <button class="mini-btn" type="button" data-action="${kind}-clear-selection">清空选择</button>
+        <button class="mini-btn" type="button" data-action="${kind}-toggle-selected-view">${showSelectedOnly ? "显示全部结果" : "仅看已选"}</button>
+        <button class="mini-btn" type="button" data-action="${kind}-export-current">导出当前结果</button>
         <button class="mini-btn" type="button" data-action="${kind}-batch-enable" ${selectedCount === 0 ? "disabled" : ""}>批量${labels.enable}</button>
         <button class="mini-btn" type="button" data-action="${kind}-batch-disable" ${selectedCount === 0 ? "disabled" : ""}>批量${labels.disable}</button>
         <button class="mini-btn danger" type="button" data-action="${kind}-batch-delete" ${selectedCount === 0 ? "disabled" : ""}>批量删除</button>
       </div>
+    </div>
+  `;
+}
+
+function renderResultOverview(cards) {
+  return `
+    <div class="result-overview">
+      ${cards.map((card) => `
+        <div class="result-card ${card.tone || ""}">
+          <div class="result-card-label">${escapeHtml(card.label)}</div>
+          <div class="result-card-value">${escapeHtml(card.value)}</div>
+          <div class="result-card-meta">${escapeHtml(card.meta || "")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAlertStrip(items) {
+  if (!items || items.length === 0) {
+    return "";
+  }
+  return `
+    <div class="alert-strip">
+      ${items.map((item) => `<div class="alert-chip ${item.tone || ""}">${escapeHtml(item.text)}</div>`).join("")}
     </div>
   `;
 }
@@ -1597,8 +1690,20 @@ function renderAccounts(items) {
   host.classList.remove("empty-board");
   updateAccountsStats(items);
   const allSelected = items.length > 0 && items.every((item) => selectedAccountIds.includes(Number(item.id)));
+  const totalBalance = items.reduce((sum, item) => sum + Number(item.currentBalance || 0), 0);
+  const creditCount = items.filter((item) => includesKeyword(item.accountType, "CREDIT")).length;
+  const disabledCount = items.filter((item) => Number(item.status) !== 1).length;
   host.innerHTML = `
     ${renderBatchToolbar("account", selectedAccountIds.length, items.length, { enable: "启用", disable: "停用" })}
+    ${renderResultOverview([
+      { label: "当前结果总余额", value: formatNumber(totalBalance), meta: `覆盖 ${formatNumber(items.length, 0)} 个账户` },
+      { label: "信用账户", value: formatNumber(creditCount, 0), meta: "便于检查授信类账户" },
+      { label: "停用账户", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍需保留" : "当前无停用账户", tone: disabledCount > 0 ? "warning" : "" }
+    ])}
+    ${renderAlertStrip([
+      ...(disabledCount > 0 ? [{ text: `当前结果中有 ${disabledCount} 个停用账户，可批量启用或清理`, tone: "warning" }] : []),
+      ...(items.some((item) => Number(item.isShared) === 1) ? [{ text: "包含共享账户，适合优先检查成员权限与归属", tone: "info" }] : [])
+    ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个账户</span>
       <span>点击行查看详情，也可直接在行内执行编辑和启停操作</span>
@@ -1728,8 +1833,20 @@ function renderCategories(items) {
   host.classList.remove("empty-board");
   updateCategoriesStats(items);
   const allSelected = items.length > 0 && items.every((item) => selectedCategoryIds.includes(Number(item.id)));
+  const expenseCount = items.filter((item) => includesKeyword(item.categoryType, "EXPENSE")).length;
+  const rootCount = items.filter((item) => !item.parentId).length;
+  const disabledCount = items.filter((item) => Number(item.enabled) !== 1).length;
   host.innerHTML = `
     ${renderBatchToolbar("category", selectedCategoryIds.length, items.length, { enable: "启用", disable: "停用" })}
+    ${renderResultOverview([
+      { label: "支出分类", value: formatNumber(expenseCount, 0), meta: `当前结果 ${formatNumber(items.length, 0)} 项` },
+      { label: "根分类", value: formatNumber(rootCount, 0), meta: "便于检查分类层级结构" },
+      { label: "停用分类", value: formatNumber(disabledCount, 0), meta: disabledCount > 0 ? "建议确认是否仍被预算或交易引用" : "当前无停用项", tone: disabledCount > 0 ? "warning" : "" }
+    ])}
+    ${renderAlertStrip([
+      ...(disabledCount > 0 ? [{ text: `当前结果中有 ${disabledCount} 个停用分类，建议优先核对引用关系`, tone: "warning" }] : []),
+      ...(rootCount === 0 && items.length > 0 ? [{ text: "当前结果未包含根分类，可能筛选到了某个子层级", tone: "info" }] : [])
+    ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个分类</span>
       <span>支持直接从列表编辑分类结构和启停状态</span>
@@ -1862,6 +1979,7 @@ function renderBudgetDetail(item) {
 
 function renderBudgets(items) {
   const host = byId("budgetList");
+  selectedBudgetIds = syncSelectionToVisible(selectedBudgetIds, items);
   renderBudgetFilterSummary(items?.length || 0, budgets.length);
   if (!items || items.length === 0) {
     updateBudgetsStats([]);
@@ -1872,13 +1990,34 @@ function renderBudgets(items) {
   }
   host.classList.remove("empty-board");
   updateBudgetsStats(items);
+  const allSelected = items.length > 0 && items.every((item) => selectedBudgetIds.includes(Number(item.id)));
+  const alertCount = items.filter((item) => {
+    const usage = getBudgetUsageItem(item.id);
+    return usage?.alertTriggered || usage?.exceeded;
+  }).length;
+  const exceededCount = items.filter((item) => {
+    const usage = getBudgetUsageItem(item.id);
+    return usage?.exceeded;
+  }).length;
+  const totalBudgetAmount = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   host.innerHTML = `
+    ${renderBatchToolbar("budget", selectedBudgetIds.length, items.length, { enable: "启用", disable: "停用" })}
+    ${renderResultOverview([
+      { label: "预算总额", value: formatNumber(totalBudgetAmount), meta: `覆盖 ${formatNumber(items.length, 0)} 个预算` },
+      { label: "预警预算", value: formatNumber(alertCount, 0), meta: "建议优先复核支出进度", tone: alertCount > 0 ? "warning" : "" },
+      { label: "超支预算", value: formatNumber(exceededCount, 0), meta: exceededCount > 0 ? "属于当前待处理项" : "当前无超支项", tone: exceededCount > 0 ? "danger" : "" }
+    ])}
+    ${renderAlertStrip([
+      ...(exceededCount > 0 ? [{ text: `当前结果中有 ${exceededCount} 个超支预算，建议先处理异常预算`, tone: "danger" }] : []),
+      ...(alertCount > exceededCount ? [{ text: `另有 ${alertCount - exceededCount} 个预算处于预警线附近`, tone: "warning" }] : [])
+    ])}
     <div class="table-section-meta">
       <span>当前显示 ${formatNumber(items.length, 0)} 个预算</span>
       <span>列表聚焦预算状态，右侧继续展示使用详情</span>
     </div>
     <div class="data-table">
       <div class="data-table-header budgets-table-header">
+        <div><input type="checkbox" data-action="budget-toggle-all" ${allSelected ? "checked" : ""}></div>
         <div>预算名称</div>
         <div>周期</div>
         <div>预算金额</div>
@@ -1891,6 +2030,9 @@ function renderBudgets(items) {
           const usage = getBudgetUsageItem(item.id);
           return `
           <div class="data-table-row budgets-table-row ${item.id === selectedBudgetId ? "is-active" : ""}" data-action="select-budget" data-budget-id="${item.id}">
+            <div class="data-cell data-cell-checkbox">
+              <input type="checkbox" data-action="toggle-budget-select" data-budget-id="${item.id}" ${selectedBudgetIds.includes(Number(item.id)) ? "checked" : ""}>
+            </div>
             <div class="data-cell data-cell-primary">
               <span class="data-cell-label">预算名称</span>
               <span class="data-cell-value">${escapeHtml(item.budgetName)}</span>
@@ -2345,6 +2487,81 @@ async function deleteTransaction(recordId) {
   } catch (error) {
     setBusinessStatus(`交易记录删除失败：${error.message}`, true);
   }
+}
+
+async function batchToggleAccounts(enabled) {
+  if (selectedAccountIds.length === 0) {
+    return;
+  }
+  const action = enabled ? "enable" : "disable";
+  for (const id of selectedAccountIds) {
+    await api(`/api/accounts/${id}/${action}`, { method: "POST" });
+  }
+  setBusinessStatus(`账户批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedAccountIds.length, 0)} 项。`);
+  selectedAccountIds = [];
+  await loadBusinessOverview();
+}
+
+async function batchDeleteAccounts() {
+  if (selectedAccountIds.length === 0 || !window.confirm(`确认删除已选中的 ${selectedAccountIds.length} 个账户吗？`)) {
+    return;
+  }
+  for (const id of selectedAccountIds) {
+    await api(`/api/accounts/${id}`, { method: "DELETE" });
+  }
+  setBusinessStatus(`账户批量删除完成，共处理 ${formatNumber(selectedAccountIds.length, 0)} 项。`);
+  selectedAccountIds = [];
+  await loadBusinessOverview();
+}
+
+async function batchToggleCategories(enabled) {
+  if (selectedCategoryIds.length === 0) {
+    return;
+  }
+  const action = enabled ? "enable" : "disable";
+  for (const id of selectedCategoryIds) {
+    await api(`/api/categories/${id}/${action}`, { method: "POST" });
+  }
+  setBusinessStatus(`分类批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedCategoryIds.length, 0)} 项。`);
+  selectedCategoryIds = [];
+  await loadBusinessOverview();
+}
+
+async function batchDeleteCategories() {
+  if (selectedCategoryIds.length === 0 || !window.confirm(`确认删除已选中的 ${selectedCategoryIds.length} 个分类吗？`)) {
+    return;
+  }
+  for (const id of selectedCategoryIds) {
+    await api(`/api/categories/${id}`, { method: "DELETE" });
+  }
+  setBusinessStatus(`分类批量删除完成，共处理 ${formatNumber(selectedCategoryIds.length, 0)} 项。`);
+  selectedCategoryIds = [];
+  await loadBusinessOverview();
+}
+
+async function batchToggleBudgets(enabled) {
+  if (selectedBudgetIds.length === 0) {
+    return;
+  }
+  const action = enabled ? "enable" : "disable";
+  for (const id of selectedBudgetIds) {
+    await api(`/api/budgets/${id}/${action}`, { method: "POST" });
+  }
+  setBusinessStatus(`预算批量${enabled ? "启用" : "停用"}完成，共处理 ${formatNumber(selectedBudgetIds.length, 0)} 项。`);
+  selectedBudgetIds = [];
+  await loadBusinessOverview();
+}
+
+async function batchDeleteBudgets() {
+  if (selectedBudgetIds.length === 0 || !window.confirm(`确认删除已选中的 ${selectedBudgetIds.length} 个预算吗？`)) {
+    return;
+  }
+  for (const id of selectedBudgetIds) {
+    await api(`/api/budgets/${id}`, { method: "DELETE" });
+  }
+  setBusinessStatus(`预算批量删除完成，共处理 ${formatNumber(selectedBudgetIds.length, 0)} 项。`);
+  selectedBudgetIds = [];
+  await loadBusinessOverview();
 }
 
 async function submitBusinessForm(event) {
@@ -2987,6 +3204,48 @@ function handleDocumentClick(event) {
       renderAccountDetail(item);
       break;
     }
+    case "toggle-account-select":
+      event.stopPropagation();
+      selectedAccountIds = toggleSelection(selectedAccountIds, actionNode.dataset.accountId, event.target.checked);
+      renderAccounts(getFilteredAccounts(accounts));
+      break;
+    case "account-toggle-all":
+      event.stopPropagation();
+      selectedAccountIds = event.target.checked ? getFilteredAccounts(accounts).map((item) => Number(item.id)) : [];
+      renderAccounts(getFilteredAccounts(accounts));
+      break;
+    case "account-select-all":
+      event.stopPropagation();
+      selectedAccountIds = getFilteredAccounts(accounts).map((item) => Number(item.id));
+      renderAccounts(getFilteredAccounts(accounts));
+      break;
+    case "account-clear-selection":
+      event.stopPropagation();
+      selectedAccountIds = [];
+      accountShowSelectedOnly = false;
+      renderAccounts(getFilteredAccounts(accounts));
+      break;
+    case "account-toggle-selected-view":
+      event.stopPropagation();
+      accountShowSelectedOnly = !accountShowSelectedOnly;
+      renderAccounts(getFilteredAccounts(accounts));
+      break;
+    case "account-export-current":
+      event.stopPropagation();
+      exportCurrentAccounts();
+      break;
+    case "account-batch-enable":
+      event.stopPropagation();
+      batchToggleAccounts(true);
+      break;
+    case "account-batch-disable":
+      event.stopPropagation();
+      batchToggleAccounts(false);
+      break;
+    case "account-batch-delete":
+      event.stopPropagation();
+      batchDeleteAccounts();
+      break;
     case "create-account":
       createAccount();
       break;
@@ -3011,6 +3270,48 @@ function handleDocumentClick(event) {
       renderCategoryDetail(item);
       break;
     }
+    case "toggle-category-select":
+      event.stopPropagation();
+      selectedCategoryIds = toggleSelection(selectedCategoryIds, actionNode.dataset.categoryId, event.target.checked);
+      renderCategories(getFilteredCategories(categories));
+      break;
+    case "category-toggle-all":
+      event.stopPropagation();
+      selectedCategoryIds = event.target.checked ? getFilteredCategories(categories).map((item) => Number(item.id)) : [];
+      renderCategories(getFilteredCategories(categories));
+      break;
+    case "category-select-all":
+      event.stopPropagation();
+      selectedCategoryIds = getFilteredCategories(categories).map((item) => Number(item.id));
+      renderCategories(getFilteredCategories(categories));
+      break;
+    case "category-clear-selection":
+      event.stopPropagation();
+      selectedCategoryIds = [];
+      categoryShowSelectedOnly = false;
+      renderCategories(getFilteredCategories(categories));
+      break;
+    case "category-toggle-selected-view":
+      event.stopPropagation();
+      categoryShowSelectedOnly = !categoryShowSelectedOnly;
+      renderCategories(getFilteredCategories(categories));
+      break;
+    case "category-export-current":
+      event.stopPropagation();
+      exportCurrentCategories();
+      break;
+    case "category-batch-enable":
+      event.stopPropagation();
+      batchToggleCategories(true);
+      break;
+    case "category-batch-disable":
+      event.stopPropagation();
+      batchToggleCategories(false);
+      break;
+    case "category-batch-delete":
+      event.stopPropagation();
+      batchDeleteCategories();
+      break;
     case "create-category":
       createCategory();
       break;
@@ -3035,6 +3336,48 @@ function handleDocumentClick(event) {
       renderBudgetDetail(item);
       break;
     }
+    case "toggle-budget-select":
+      event.stopPropagation();
+      selectedBudgetIds = toggleSelection(selectedBudgetIds, actionNode.dataset.budgetId, event.target.checked);
+      renderBudgets(getFilteredBudgets(budgets));
+      break;
+    case "budget-toggle-all":
+      event.stopPropagation();
+      selectedBudgetIds = event.target.checked ? getFilteredBudgets(budgets).map((item) => Number(item.id)) : [];
+      renderBudgets(getFilteredBudgets(budgets));
+      break;
+    case "budget-select-all":
+      event.stopPropagation();
+      selectedBudgetIds = getFilteredBudgets(budgets).map((item) => Number(item.id));
+      renderBudgets(getFilteredBudgets(budgets));
+      break;
+    case "budget-clear-selection":
+      event.stopPropagation();
+      selectedBudgetIds = [];
+      budgetShowSelectedOnly = false;
+      renderBudgets(getFilteredBudgets(budgets));
+      break;
+    case "budget-toggle-selected-view":
+      event.stopPropagation();
+      budgetShowSelectedOnly = !budgetShowSelectedOnly;
+      renderBudgets(getFilteredBudgets(budgets));
+      break;
+    case "budget-export-current":
+      event.stopPropagation();
+      exportCurrentBudgets();
+      break;
+    case "budget-batch-enable":
+      event.stopPropagation();
+      batchToggleBudgets(true);
+      break;
+    case "budget-batch-disable":
+      event.stopPropagation();
+      batchToggleBudgets(false);
+      break;
+    case "budget-batch-delete":
+      event.stopPropagation();
+      batchDeleteBudgets();
+      break;
     case "create-budget":
       createBudget();
       break;

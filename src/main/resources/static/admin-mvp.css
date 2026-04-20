@@ -811,6 +811,104 @@ code {
   font-size: 13px;
 }
 
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.batch-toolbar-info {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.batch-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.result-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.result-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.result-card.warning {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.result-card.danger {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.result-card-label {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.result-card-value {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.result-card-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.alert-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.alert-chip {
+  padding: 9px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.alert-chip.warning {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.alert-chip.danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.alert-chip.info {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .data-table-header,
 .data-table-row {
   display: grid;
@@ -829,17 +927,17 @@ code {
 
 .accounts-table-header,
 .accounts-table-row {
-  grid-template-columns: 1.3fr 0.8fr 0.85fr 1fr 0.75fr 1.05fr;
+  grid-template-columns: 52px 1.3fr 0.8fr 0.85fr 1fr 0.75fr 1.05fr;
 }
 
 .categories-table-header,
 .categories-table-row {
-  grid-template-columns: 1.2fr 0.8fr 0.75fr 1.1fr 0.75fr 1.05fr;
+  grid-template-columns: 52px 1.2fr 0.8fr 0.75fr 1.1fr 0.75fr 1.05fr;
 }
 
 .budgets-table-header,
 .budgets-table-row {
-  grid-template-columns: 1.2fr 0.75fr 0.85fr 1.1fr 0.75fr 1.05fr;
+  grid-template-columns: 52px 1.2fr 0.75fr 0.85fr 1.1fr 0.75fr 1.05fr;
 }
 
 .transactions-table-header,
@@ -898,6 +996,11 @@ code {
 
 .data-cell:last-child {
   border-right: 0;
+}
+
+.data-cell-checkbox {
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .data-cell:not(.data-cell-actions) {
@@ -1211,6 +1314,10 @@ code {
   .data-table {
     border: 0;
     background: transparent;
+  }
+
+  .result-overview {
+    grid-template-columns: 1fr;
   }
 
   .data-table-header {
