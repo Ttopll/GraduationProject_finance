@@ -603,6 +603,103 @@ code {
   gap: 10px;
 }
 
+.detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+  border: 1px solid #d7e6f7;
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.detail-subtitle {
+  margin-top: 6px;
+  color: var(--text-soft);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.detail-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.detail-section {
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.detail-section-title {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  background: #f8fbff;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.detail-descriptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-pair {
+  min-width: 0;
+  padding: 14px 16px;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: #fff;
+}
+
+.detail-pair:nth-child(2n) {
+  border-right: 0;
+}
+
+.detail-pair:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.detail-pair-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.detail-pair-value {
+  color: var(--text-main);
+  font-weight: 600;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.detail-section-body {
+  padding: 16px;
+  color: var(--text-main);
+  line-height: 1.8;
+  word-break: break-word;
+}
+
 .stats-strip {
   display: flex;
   gap: 10px;
@@ -736,7 +833,8 @@ code {
 @media (max-width: 1280px) {
   .import-overview-grid,
   .toolbar-grid,
-  .detail-grid {
+  .detail-grid,
+  .detail-descriptions {
     grid-template-columns: 1fr;
   }
 }
@@ -796,6 +894,31 @@ code {
   .table-row,
   .country-item {
     flex-direction: column;
+  }
+
+  .detail-header {
+    flex-direction: column;
+  }
+
+  .detail-badge-row {
+    justify-content: flex-start;
+  }
+
+  .detail-descriptions {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-pair,
+  .detail-pair:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .detail-pair:not(:last-child) {
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .detail-pair:last-child {
+    border-bottom: 0;
   }
 
   .table-side {

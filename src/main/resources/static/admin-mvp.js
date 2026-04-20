@@ -400,26 +400,58 @@ function updateMemberOptions() {
   `).join("");
 }
 
+function renderDescriptionPairs(items) {
+  return items.map((item) => `
+    <div class="detail-pair">
+      <div class="detail-pair-label">${escapeHtml(item.label)}</div>
+      <div class="detail-pair-value">${escapeHtml(item.value)}</div>
+    </div>
+  `).join("");
+}
+
 function renderRuleDetail(item) {
   const host = byId("ruleDetailPanel");
   if (!item) {
     host.innerHTML = '<div class="summary-item">点击左侧规则查看详情</div>';
     return;
   }
+  const statusText = Number(item.enabled) === 1 ? "启用中" : "已停用";
   host.innerHTML = `
-    <div class="summary-item"><strong>${escapeHtml(item.ruleName)}</strong></div>
-    <div class="detail-grid">
-      <div class="detail-item"><strong>规则类型</strong><div>${escapeHtml(item.ruleType)}</div></div>
-      <div class="detail-item"><strong>指标类型</strong><div>${escapeHtml(item.metricType)}</div></div>
-      <div class="detail-item"><strong>时间范围</strong><div>${escapeHtml(item.timeScope)}</div></div>
-      <div class="detail-item"><strong>运算符</strong><div>${escapeHtml(item.operatorType)}</div></div>
-      <div class="detail-item"><strong>阈值</strong><div>${formatNumber(item.thresholdValue)}</div></div>
-      <div class="detail-item"><strong>优先级</strong><div>${formatNumber(item.priority, 0)}</div></div>
-      <div class="detail-item"><strong>动作类型</strong><div>${escapeHtml(item.actionType)}</div></div>
-      <div class="detail-item"><strong>启用状态</strong><div>${Number(item.enabled) === 1 ? "启用中" : "已停用"}</div></div>
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div>
+          <h3 class="detail-title">${escapeHtml(item.ruleName)}</h3>
+          <div class="detail-subtitle">规则定义详情，包含指标、阈值、动作和启停状态。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">${statusText}</span>
+          <span class="status-chip muted">${escapeHtml(item.ruleType)}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">基础属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "规则类型", value: item.ruleType },
+            { label: "指标类型", value: item.metricType },
+            { label: "时间范围", value: item.timeScope },
+            { label: "运算符", value: item.operatorType },
+            { label: "阈值", value: formatNumber(item.thresholdValue) },
+            { label: "优先级", value: formatNumber(item.priority, 0) },
+            { label: "动作类型", value: item.actionType },
+            { label: "启用状态", value: statusText }
+          ])}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">消息模板</div>
+        <div class="detail-section-body">${escapeHtml(item.messageTemplate)}</div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">扩展阈值 JSON</div>
+        <div class="detail-section-body">${escapeHtml(item.thresholdJson || "-")}</div>
+      </div>
     </div>
-    <div class="summary-item"><strong>消息模板</strong><div>${escapeHtml(item.messageTemplate)}</div></div>
-    <div class="summary-item"><strong>扩展阈值 JSON</strong><div>${escapeHtml(item.thresholdJson || "-")}</div></div>
   `;
 }
 
@@ -508,20 +540,40 @@ function renderNotificationDetail(item) {
     host.innerHTML = '<div class="summary-item">点击左侧通知查看详情</div>';
     return;
   }
+  const readText = Number(item.readStatus) === 1 ? "已读" : "未读";
   host.innerHTML = `
-    <div class="summary-item"><strong>${escapeHtml(item.title)}</strong></div>
-    <div class="detail-grid">
-      <div class="detail-item"><strong>来源类型</strong><div>${escapeHtml(item.sourceType)}</div></div>
-      <div class="detail-item"><strong>等级</strong><div>${escapeHtml(item.levelCode)}</div></div>
-      <div class="detail-item"><strong>已读状态</strong><div>${Number(item.readStatus) === 1 ? "已读" : "未读"}</div></div>
-      <div class="detail-item"><strong>目标成员</strong><div>${formatNumber(item.targetMemberId, 0)}</div></div>
-      <div class="detail-item"><strong>发送时间</strong><div>${formatDateTime(item.sentAt)}</div></div>
-      <div class="detail-item"><strong>创建时间</strong><div>${formatDateTime(item.createdAt)}</div></div>
-    </div>
-    <div class="summary-item"><strong>内容</strong><div>${escapeHtml(item.content)}</div></div>
-    <div class="item-actions">
-      <button class="mini-btn" type="button" data-action="mark-notification-read" data-notification-id="${item.id}">标记已读</button>
-      <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除通知</button>
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div>
+          <h3 class="detail-title">${escapeHtml(item.title)}</h3>
+          <div class="detail-subtitle">通知详情，展示来源、等级、目标成员和发送状态。</div>
+        </div>
+        <div class="detail-badge-row">
+          <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">${readText}</span>
+          <span class="status-chip muted">${escapeHtml(item.levelCode)}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">通知属性</div>
+        <div class="detail-descriptions">
+          ${renderDescriptionPairs([
+            { label: "来源类型", value: item.sourceType },
+            { label: "通知等级", value: item.levelCode },
+            { label: "已读状态", value: readText },
+            { label: "目标成员", value: formatNumber(item.targetMemberId, 0) },
+            { label: "发送时间", value: formatDateTime(item.sentAt) },
+            { label: "创建时间", value: formatDateTime(item.createdAt) }
+          ])}
+        </div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">通知内容</div>
+        <div class="detail-section-body">${escapeHtml(item.content)}</div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="mark-notification-read" data-notification-id="${item.id}">标记已读</button>
+        <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除通知</button>
+      </div>
     </div>
   `;
 }
