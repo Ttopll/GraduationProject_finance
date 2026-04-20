@@ -3,7 +3,8 @@
     "pages/login/login",
     "pages/retail/retail",
     "pages/worldbank/worldbank",
-    "pages/fred/fred"
+    "pages/fred/fred",
+    "pages/summary/summary"
   ],
   "window": {
     "navigationBarTitleText": "Finance Mini MVP",

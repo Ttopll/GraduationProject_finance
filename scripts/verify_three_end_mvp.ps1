@@ -66,6 +66,7 @@ $import = Invoke-RestMethod -Uri $importUrl -Method Post -Headers $headers
 $retail = Invoke-RestMethod -Uri "$base/api/real-data-analysis/retail-overview?topCountries=10" -Method Get -Headers $headers
 $worldBank = Invoke-RestMethod -Uri "$base/api/real-data-analysis/world-bank-trend?countryIso3=$CountryIso3" -Method Get -Headers $headers
 $fred = Invoke-RestMethod -Uri "$base/api/real-data-analysis/fred-series?seriesId=$FredSeriesId" -Method Get -Headers $headers
+$summary = Invoke-RestMethod -Uri "$base/api/real-data-analysis/defense-summary?countryIso3=$CountryIso3&seriesId=$FredSeriesId&topCountries=10" -Method Get -Headers $headers
 
 $top1 = $null
 if ($retail.topCountries -and $retail.topCountries.Count -gt 0) {
@@ -91,11 +92,14 @@ if ($first -and $last -and [decimal]$first.value -gt 0) {
 
 $fredCount = @($fred.points).Count
 
-$conclusions = @(
-    "国家趋势结论：$($worldBank.countryName)（$($worldBank.countryIso3)）从 $($first.year) 年 $($first.value) 增至 $($last.year) 年 $($last.value)，累计变化 $growthPct%。",
-    "交易结构结论：$($top1.country) 交易额占比约 $topShare%。",
-    "FRED状态结论：$FredSeriesId 数据点数为 $fredCount。"
-)
+$conclusions = @($summary.conclusions)
+if ($conclusions.Count -eq 0) {
+    $conclusions = @(
+        "国家趋势结论：$($worldBank.countryName)（$($worldBank.countryIso3)）从 $($first.year) 年 $($first.value) 增至 $($last.year) 年 $($last.value)，累计变化 $growthPct%。",
+        "交易结构结论：$($top1.country) 交易额占比约 $topShare%。",
+        "FRED状态结论：$FredSeriesId 数据点数为 $fredCount。"
+    )
+}
 
 $result = [PSCustomObject]@{
     executedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
@@ -119,6 +123,7 @@ $result = [PSCustomObject]@{
         seriesId = $FredSeriesId
         pointCount = $fredCount
     }
+    defenseSummary = $summary
     conclusions = $conclusions
 }
 

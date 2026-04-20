@@ -154,7 +154,29 @@ public class RealDataAnalysisService {
                 normalized,
                 rows.stream()
                         .map(row -> new RealDataAnalysisApiModels.FredPoint(row.getMetricDate(), row.getMetricValue()))
-                        .toList()
+                .toList()
+        );
+    }
+
+    public RealDataAnalysisApiModels.DefenseSummaryResponse defenseSummary(
+            String countryIso3,
+            String seriesId,
+            Integer topCountries
+    ) {
+        RealDataAnalysisApiModels.RetailOverviewResponse retail = retailOverview(topCountries);
+        RealDataAnalysisApiModels.WorldBankTrendResponse worldBank = worldBankTrend(countryIso3);
+        RealDataAnalysisApiModels.FredSeriesResponse fred = fredSeries(seriesId);
+
+        List<String> conclusions = new ArrayList<>();
+        conclusions.add(buildWorldBankConclusion(worldBank));
+        conclusions.add(buildRetailConclusion(retail));
+        conclusions.add(buildFredConclusion(fred));
+
+        return new RealDataAnalysisApiModels.DefenseSummaryResponse(
+                retail,
+                worldBank,
+                fred,
+                conclusions
         );
     }
 
@@ -382,5 +404,62 @@ public class RealDataAnalysisService {
             normalized = normalized.substring(1, normalized.length() - 1);
         }
         return normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private String buildWorldBankConclusion(RealDataAnalysisApiModels.WorldBankTrendResponse worldBankTrend) {
+        List<RealDataAnalysisApiModels.WorldBankPoint> points = worldBankTrend.points();
+        if (points == null || points.isEmpty()) {
+            return "国家趋势结论：当前无可用 World Bank 趋势点。";
+        }
+        RealDataAnalysisApiModels.WorldBankPoint first = points.get(0);
+        RealDataAnalysisApiModels.WorldBankPoint last = points.get(points.size() - 1);
+        BigDecimal growthPct = null;
+        if (first.value() != null && first.value().compareTo(BigDecimal.ZERO) > 0 && last.value() != null) {
+            growthPct = last.value()
+                    .divide(first.value(), 8, RoundingMode.HALF_UP)
+                    .subtract(BigDecimal.ONE)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+        return String.format(
+                Locale.ROOT,
+                "国家趋势结论：%s（%s）从 %d 年 %s 增至 %d 年 %s，累计变化 %s%%。",
+                worldBankTrend.countryName(),
+                worldBankTrend.countryIso3(),
+                first.year(),
+                first.value(),
+                last.year(),
+                last.value(),
+                growthPct == null ? "0.00" : growthPct.toPlainString()
+        );
+    }
+
+    private String buildRetailConclusion(RealDataAnalysisApiModels.RetailOverviewResponse retailOverview) {
+        List<RealDataAnalysisApiModels.CountryAmountItem> items = retailOverview.topCountries();
+        if (items == null || items.isEmpty() || items.get(0).totalAmount() == null || retailOverview.totalAmount() == null
+                || retailOverview.totalAmount().compareTo(BigDecimal.ZERO) == 0) {
+            return "交易结构结论：当前无可用国家分布数据。";
+        }
+        RealDataAnalysisApiModels.CountryAmountItem topCountry = items.get(0);
+        BigDecimal sharePct = topCountry.totalAmount()
+                .divide(retailOverview.totalAmount(), 8, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
+        return String.format(
+                Locale.ROOT,
+                "交易结构结论：%s 交易额占比约 %s%%。",
+                topCountry.country(),
+                sharePct.toPlainString()
+        );
+    }
+
+    private String buildFredConclusion(RealDataAnalysisApiModels.FredSeriesResponse fredSeries) {
+        int count = fredSeries.points() == null ? 0 : fredSeries.points().size();
+        return String.format(
+                Locale.ROOT,
+                "FRED状态结论：%s 数据点数为 %d。",
+                fredSeries.seriesId(),
+                count
+        );
     }
 }

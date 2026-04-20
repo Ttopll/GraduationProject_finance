@@ -44,5 +44,9 @@ Page({
     } finally {
       this.setData({ loading: false });
     }
+  },
+
+  gotoSummary() {
+    wx.navigateTo({ url: "/pages/summary/summary" });
   }
 });

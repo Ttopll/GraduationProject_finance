@@ -1,0 +1,29 @@
+﻿<view class="container">
+  <view class="card">
+    <view class="title">Defense Summary</view>
+    <view class="row-inline">
+      <input placeholder="国家ISO3" value="{{countryIso3}}" bindinput="onCountryInput" />
+      <input placeholder="FRED序列" value="{{seriesId}}" bindinput="onSeriesInput" />
+      <button size="mini" type="primary" loading="{{loading}}" bindtap="loadSummary">刷新</button>
+      <button size="mini" type="warn" loading="{{importing}}" bindtap="importData">执行导入</button>
+    </view>
+
+    <view wx:if="{{importResult}}" class="summary-block">
+      <view>导入结果: retail={{importResult.retailImported}}, worldBank={{importResult.worldBankImported}}, fred={{importResult.fredImported}}</view>
+    </view>
+
+    <view wx:if="{{summary}}" class="summary-block">
+      <view>零售总记录: {{summary.retailOverview.totalRecords}}</view>
+      <view>零售总金额: {{summary.retailOverview.totalAmount}}</view>
+      <view>国家趋势点数: {{summary.worldBankTrend.points.length}}</view>
+      <view>FRED点数: {{summary.fredSeries.points.length}}</view>
+    </view>
+
+    <view class="subtitle">自动结论</view>
+    <view wx:for="{{conclusions}}" wx:key="*this" class="conclusion-item">
+      {{index + 1}}. {{item}}
+    </view>
+
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+  </view>
+</view>

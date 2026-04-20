@@ -4,6 +4,7 @@
     <view class="row-inline">
       <input placeholder="序列ID，如 PCE" value="{{seriesId}}" bindinput="onSeriesInput" />
       <button size="mini" type="primary" loading="{{loading}}" bindtap="loadSeries">查询</button>
+      <button size="mini" bindtap="gotoSummary">汇总结论</button>
     </view>
 
     <view>数据点数量: {{pointCount}}</view>

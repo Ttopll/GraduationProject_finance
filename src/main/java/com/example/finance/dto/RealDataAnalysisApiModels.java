@@ -61,4 +61,12 @@ public final class RealDataAnalysisApiModels {
             BigDecimal value
     ) {
     }
+
+    public record DefenseSummaryResponse(
+            RetailOverviewResponse retailOverview,
+            WorldBankTrendResponse worldBankTrend,
+            FredSeriesResponse fredSeries,
+            List<String> conclusions
+    ) {
+    }
 }

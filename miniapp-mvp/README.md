@@ -8,6 +8,7 @@ A minimal WeChat Mini Program scaffold for this project.
 - Page 2: Retail overview (`/api/real-data-analysis/retail-overview`)
 - Page 3: World Bank trend (`/api/real-data-analysis/world-bank-trend`)
 - Page 4: FRED series (`/api/real-data-analysis/fred-series`)
+- Page 5: Defense summary (`/api/real-data-analysis/defense-summary`)
 
 ## Local backend
 
@@ -24,4 +25,4 @@ If your backend runs elsewhere, update `app.js`.
 3. Import `miniapp-mvp` as a Mini Program project.
 4. In DevTools local settings, disable domain validation for local debugging.
 5. Login with an existing user.
-6. Verify retail overview, world-bank trend, and fred-series load.
+6. Verify retail overview, world-bank trend, fred-series, and defense-summary load.

@@ -47,4 +47,13 @@ public class RealDataAnalysisController {
     ) {
         return realDataAnalysisService.fredSeries(seriesId);
     }
+
+    @GetMapping("/defense-summary")
+    public RealDataAnalysisApiModels.DefenseSummaryResponse defenseSummary(
+            @RequestParam(defaultValue = "CHN") String countryIso3,
+            @RequestParam(defaultValue = "PCE") String seriesId,
+            @RequestParam(defaultValue = "10") Integer topCountries
+    ) {
+        return realDataAnalysisService.defenseSummary(countryIso3, seriesId, topCountries);
+    }
 }

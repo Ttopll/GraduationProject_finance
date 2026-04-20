@@ -35,7 +35,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                        .requestMatchers("/", "/index.html", "/demo", "/demo/**").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/demo",
+                                "/demo/**",
+                                "/admin-mvp.html",
+                                "/admin-mvp.css",
+                                "/admin-mvp.js"
+                        ).permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

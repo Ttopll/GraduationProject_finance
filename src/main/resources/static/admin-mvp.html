@@ -1,184 +1,164 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin MVP - Real Data Ops</title>
-  <style>
-    body { font-family: "Segoe UI", sans-serif; background: #f3f6fb; margin: 0; color: #0f172a; }
-    .wrap { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 8px 30px rgba(2,6,23,.08); margin-bottom: 16px; }
-    h1 { margin: 0 0 12px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-    input, button { padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; }
-    button { cursor: pointer; background: #0f172a; color: #fff; border: none; }
-    button.secondary { background: #1d4ed8; }
-    pre { background: #0b1220; color: #dbeafe; padding: 12px; border-radius: 8px; overflow: auto; }
-    .hint { color: #475569; font-size: 13px; }
-    .conclusion { background: #eef6ff; border-left: 4px solid #1d4ed8; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家庭财务管理后台</title>
+  <link rel="stylesheet" href="/admin-mvp.css">
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Admin MVP</h1>
-      <div class="hint">目标: 登录 -> 导入真实数据 -> 查询 3 个分析接口 -> 自动生成答辩结论</div>
-    </div>
-
-    <div class="card">
-      <h3>1) 登录</h3>
-      <div class="row">
-        <input id="username" placeholder="username" />
-        <input id="password" type="password" placeholder="password" />
-        <button onclick="login()">登录</button>
+  <div class="admin-layout">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-logo">FM</div>
+        <div>
+          <div class="brand-title">家庭财务管理系统</div>
+          <div class="brand-subtitle">Admin Console</div>
+        </div>
       </div>
-      <div id="loginStatus" class="hint">未登录</div>
-    </div>
+      <nav class="menu">
+        <button class="menu-item is-active" type="button">真实数据分析</button>
+        <button class="menu-item" type="button">导入管理</button>
+        <button class="menu-item" type="button">规则与通知</button>
+        <button class="menu-item" type="button">系统验收</button>
+      </nav>
+      <section class="sidebar-panel">
+        <p class="panel-label">当前目标</p>
+        <p class="panel-text">按若依风格承接真实数据导入、分析结果、结论输出和后续模块扩展。</p>
+      </section>
+    </aside>
 
-    <div class="card">
-      <h3>2) 导入真实数据</h3>
-      <div class="row">
-        <button class="secondary" onclick="importData()">执行导入</button>
-      </div>
-      <pre id="importOut">(import result)</pre>
-    </div>
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">数据治理与分析后台</p>
+          <h1>真实数据分析总控台</h1>
+        </div>
+        <div class="session-box">
+          <div id="loginStatus" class="session-status">未登录</div>
+        </div>
+      </header>
 
-    <div class="card">
-      <h3>3) 查询分析接口</h3>
-      <div class="row">
-        <button class="secondary" onclick="loadRetailOverview()">retail-overview</button>
-        <input id="countryIso3" value="CHN" style="width:120px" />
-        <button class="secondary" onclick="loadWorldBankTrend()">world-bank-trend</button>
-        <input id="seriesId" value="PCE" style="width:120px" />
-        <button class="secondary" onclick="loadFredSeries()">fred-series</button>
-      </div>
-      <pre id="retailOut">(retail overview)</pre>
-      <pre id="worldBankOut">(world bank trend)</pre>
-      <pre id="fredOut">(fred series)</pre>
-    </div>
+      <section class="workspace-grid">
+        <section class="panel panel-auth">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Auth</p>
+              <h2>后台登录</h2>
+            </div>
+          </div>
+          <div class="form-row">
+            <input id="username" class="field-input" placeholder="用户名">
+            <input id="password" class="field-input" type="password" placeholder="密码">
+            <button id="loginBtn" class="primary-btn" type="button">登录</button>
+          </div>
+        </section>
 
-    <div class="card">
-      <h3>4) 自动生成答辩结论</h3>
-      <button class="secondary" onclick="generateConclusion()">生成结论</button>
-      <div id="conclusion" class="conclusion">(waiting)</div>
-    </div>
+        <section class="panel panel-actions">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Actions</p>
+              <h2>导入与验收</h2>
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="importBtn" class="secondary-btn" type="button">执行导入</button>
+            <button id="acceptanceBtn" class="primary-btn" type="button">一键验收</button>
+            <button id="summaryBtn" class="ghost-btn" type="button">加载汇总</button>
+          </div>
+          <div id="importStatus" class="inline-status">等待操作</div>
+        </section>
+
+        <section class="panel panel-filter">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Filters</p>
+              <h2>分析参数</h2>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="field-group">
+              <span>国家 ISO3</span>
+              <input id="countryIso3" class="field-input" value="CHN">
+            </label>
+            <label class="field-group">
+              <span>FRED 序列</span>
+              <input id="seriesId" class="field-input" value="PCE">
+            </label>
+          </div>
+        </section>
+
+        <section class="metrics-row">
+          <article class="metric-card">
+            <p class="metric-label">零售记录数</p>
+            <div id="metricTotalRecords" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">零售总金额</p>
+            <div id="metricTotalAmount" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">国家趋势点数</p>
+            <div id="metricWorldBankPoints" class="metric-value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">FRED 点数</p>
+            <div id="metricFredPoints" class="metric-value">-</div>
+          </article>
+        </section>
+
+        <section class="panel panel-chart">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Retail Mix</p>
+              <h2>国家交易额 Top 10</h2>
+            </div>
+          </div>
+          <div id="countryList" class="list-board"></div>
+        </section>
+
+        <section class="panel panel-trend">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">World Bank</p>
+              <h2>国家趋势摘要</h2>
+            </div>
+          </div>
+          <div id="worldBankSummary" class="summary-board"></div>
+        </section>
+
+        <section class="panel panel-fred">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">FRED</p>
+              <h2>宏观序列状态</h2>
+            </div>
+          </div>
+          <div id="fredSummary" class="summary-board"></div>
+        </section>
+
+        <section class="panel panel-conclusion">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Conclusions</p>
+              <h2>自动生成结论</h2>
+            </div>
+          </div>
+          <div id="conclusionList" class="conclusion-board"></div>
+        </section>
+
+        <section class="panel panel-raw">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Payload</p>
+              <h2>原始回执</h2>
+            </div>
+          </div>
+          <pre id="rawPayload" class="raw-box">(waiting)</pre>
+        </section>
+      </section>
+    </main>
   </div>
-
-  <script>
-    let token = "";
-    let latestRetail = null;
-    let latestWorldBank = null;
-    let latestFred = null;
-
-    async function api(path, method = "GET", body = null, auth = true) {
-      const res = await fetch(path, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(auth && token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: body ? JSON.stringify(body) : null
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-      }
-      return res.json();
-    }
-
-    async function login() {
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
-      try {
-        const res = await api("/api/auth/login", "POST", { username, password }, false);
-        token = res.accessToken || "";
-        document.getElementById("loginStatus").textContent = token ? `已登录: ${res.user?.username}` : "登录失败";
-      } catch (e) {
-        document.getElementById("loginStatus").textContent = `登录失败: ${e.message}`;
-      }
-    }
-
-    async function importData() {
-      const out = document.getElementById("importOut");
-      out.textContent = "importing...";
-      try {
-        const res = await api("/api/real-data-analysis/import?processedDir=data/processed&truncateBeforeImport=true&batchSize=5000", "POST");
-        out.textContent = JSON.stringify(res, null, 2);
-      } catch (e) {
-        out.textContent = e.message;
-      }
-    }
-
-    async function loadRetailOverview() {
-      const out = document.getElementById("retailOut");
-      out.textContent = "loading...";
-      try {
-        latestRetail = await api("/api/real-data-analysis/retail-overview?topCountries=10", "GET");
-        out.textContent = JSON.stringify(latestRetail, null, 2);
-      } catch (e) {
-        out.textContent = e.message;
-      }
-    }
-
-    async function loadWorldBankTrend() {
-      const out = document.getElementById("worldBankOut");
-      out.textContent = "loading...";
-      const iso3 = (document.getElementById("countryIso3").value || "CHN").trim().toUpperCase();
-      try {
-        latestWorldBank = await api(`/api/real-data-analysis/world-bank-trend?countryIso3=${iso3}`, "GET");
-        out.textContent = JSON.stringify(latestWorldBank, null, 2);
-      } catch (e) {
-        out.textContent = e.message;
-      }
-    }
-
-    async function loadFredSeries() {
-      const out = document.getElementById("fredOut");
-      out.textContent = "loading...";
-      const seriesId = (document.getElementById("seriesId").value || "PCE").trim().toUpperCase();
-      try {
-        latestFred = await api(`/api/real-data-analysis/fred-series?seriesId=${seriesId}`, "GET");
-        out.textContent = JSON.stringify(latestFred, null, 2);
-      } catch (e) {
-        out.textContent = e.message;
-      }
-    }
-
-    function toNumber(v) {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function pct(v) {
-      return `${(toNumber(v) * 100).toFixed(2)}%`;
-    }
-
-    function generateConclusion() {
-      const c = document.getElementById("conclusion");
-      if (!latestRetail || !latestWorldBank) {
-        c.textContent = "请先查询 retail-overview 和 world-bank-trend 后再生成。";
-        return;
-      }
-
-      const top1 = (latestRetail.topCountries || [])[0];
-      const totalAmount = toNumber(latestRetail.totalAmount);
-      const topAmount = top1 ? toNumber(top1.totalAmount) : 0;
-      const share = totalAmount > 0 ? topAmount / totalAmount : 0;
-
-      const points = latestWorldBank.points || [];
-      const first = points[0];
-      const last = points[points.length - 1];
-      const growth = first && last && toNumber(first.value) > 0
-        ? (toNumber(last.value) / toNumber(first.value) - 1)
-        : null;
-
-      const fredCount = latestFred && latestFred.points ? latestFred.points.length : 0;
-
-      c.textContent = [
-        `国家趋势结论：${latestWorldBank.countryName || latestWorldBank.countryIso3} 在 ${first ? first.year : "-"} 到 ${last ? last.year : "-"} 期间，居民消费指标从 ${first ? first.value : "-"} 变为 ${last ? last.value : "-"}，累计变化 ${growth === null ? "-" : pct(growth)}。`,
-        `交易结构结论：${top1 ? top1.country : "-"} 交易额占比约 ${pct(share)}，显示交易结构集中。`,
-        `FRED 数据状态：当前 ${latestFred ? latestFred.seriesId : "PCE"} 点数为 ${fredCount}。${fredCount === 0 ? "可说明为网络抓取软降级。" : "可用于宏观时间序列展示。"}`
-      ].join("\n\n");
-    }
-  </script>
+  <script src="/admin-mvp.js"></script>
 </body>
 </html>
