@@ -134,6 +134,13 @@ input {
   margin-bottom: 22px;
 }
 
+.topbar-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .eyebrow,
 .panel-eyebrow {
   margin: 0 0 8px;
@@ -262,6 +269,11 @@ input {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.compact-group {
+  min-width: 150px;
+  max-width: 180px;
 }
 
 .field-group span {
@@ -401,5 +413,9 @@ input {
 
   .topbar {
     flex-direction: column;
+  }
+
+  .topbar-controls {
+    width: 100%;
   }
 }

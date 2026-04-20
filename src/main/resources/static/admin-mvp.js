@@ -1,6 +1,7 @@
 let token = "";
 let latestSummary = null;
 let latestImport = null;
+let memberships = [];
 
 function byId(id) {
   return document.getElementById(id);
@@ -106,6 +107,76 @@ function renderLatestImport(result) {
   `;
 }
 
+function getCurrentFamilyId() {
+  return Number(byId("familySelect").value || 0);
+}
+
+function getCurrentMemberId() {
+  return Number(byId("memberSelect").value || 0);
+}
+
+function renderMemberships(items) {
+  memberships = items || [];
+  const familySelect = byId("familySelect");
+
+  if (memberships.length === 0) {
+    familySelect.innerHTML = '<option value="">无家庭</option>';
+    updateMemberOptions();
+    return;
+  }
+
+  familySelect.innerHTML = memberships.map((item, index) => `
+    <option value="${item.familyId}" ${index === 0 ? "selected" : ""}>
+      ${item.familyName || `家庭${item.familyId}`}
+    </option>
+  `).join("");
+
+  updateMemberOptions();
+}
+
+function updateMemberOptions() {
+  const memberSelect = byId("memberSelect");
+  const currentFamilyId = getCurrentFamilyId();
+  const filtered = memberships.filter((item) => Number(item.familyId) === currentFamilyId);
+  if (filtered.length === 0) {
+    memberSelect.innerHTML = '<option value="">无成员</option>';
+    return;
+  }
+  memberSelect.innerHTML = filtered.map((item, index) => `
+    <option value="${item.familyMemberId}" ${index === 0 ? "selected" : ""}>
+      ${item.roleCode || "MEMBER"} / ${item.familyMemberId}
+    </option>
+  `).join("");
+}
+
+function renderRules(items) {
+  const host = byId("rulesList");
+  if (!items || items.length === 0) {
+    host.innerHTML = '<div class="summary-item">当前家庭暂无规则</div>';
+    return;
+  }
+  host.innerHTML = items.map((item) => `
+    <div class="summary-item">
+      <strong>${item.ruleName ?? "-"}</strong><br>
+      类型：${item.ruleType ?? "-"} / 启用：${item.enabled ?? "-"} / 优先级：${item.priority ?? "-"}
+    </div>
+  `).join("");
+}
+
+function renderNotifications(items) {
+  const host = byId("notificationsList");
+  if (!items || items.length === 0) {
+    host.innerHTML = '<div class="summary-item">当前家庭暂无通知</div>';
+    return;
+  }
+  host.innerHTML = items.slice(0, 8).map((item) => `
+    <div class="summary-item">
+      <strong>${item.title ?? "-"}</strong><br>
+      来源：${item.sourceType ?? "-"} / 已读：${item.readStatus ?? "-"}
+    </div>
+  `).join("");
+}
+
 function renderSummary(summary) {
   latestSummary = summary;
   renderMetric("metricTotalRecords", summary?.retailOverview?.totalRecords ?? "-");
@@ -126,6 +197,7 @@ async function login() {
     const result = await api("/api/auth/login", "POST", { username, password }, false);
     token = result.accessToken || "";
     byId("loginStatus").textContent = token ? `已登录：${result.user?.username ?? "-"}` : "登录失败";
+    renderMemberships(result.memberships || []);
   } catch (error) {
     byId("loginStatus").textContent = `登录失败：${error.message}`;
   }
@@ -178,6 +250,56 @@ async function runAcceptance() {
   }
 }
 
+async function loadRules() {
+  const familyId = getCurrentFamilyId();
+  if (!familyId) {
+    byId("rulesStatus").textContent = "请先登录并选择家庭";
+    return;
+  }
+  byId("rulesStatus").textContent = "正在加载规则...";
+  try {
+    const items = await api(`/api/rules?familyId=${familyId}`, "GET");
+    renderRules(items);
+    byId("rulesStatus").textContent = `规则加载完成，共 ${items.length} 条`;
+  } catch (error) {
+    byId("rulesStatus").textContent = `规则加载失败：${error.message}`;
+  }
+}
+
+async function loadNotifications() {
+  const familyId = getCurrentFamilyId();
+  const memberId = getCurrentMemberId();
+  if (!familyId) {
+    byId("rulesStatus").textContent = "请先登录并选择家庭";
+    return;
+  }
+  byId("rulesStatus").textContent = "正在加载通知...";
+  try {
+    const items = await api(`/api/notifications?familyId=${familyId}&targetMemberId=${memberId}`, "GET");
+    renderNotifications(items);
+    byId("rulesStatus").textContent = `通知加载完成，共 ${items.length} 条`;
+  } catch (error) {
+    byId("rulesStatus").textContent = `通知加载失败：${error.message}`;
+  }
+}
+
+async function evaluateRules() {
+  const familyId = getCurrentFamilyId();
+  if (!familyId) {
+    byId("rulesStatus").textContent = "请先登录并选择家庭";
+    return;
+  }
+  byId("rulesStatus").textContent = "正在执行规则评估...";
+  try {
+    const result = await api(`/api/rules/evaluate?familyId=${familyId}`, "POST");
+    byId("rulesStatus").textContent = `评估完成：触发规则 ${result.triggeredRuleCount ?? 0} 条，生成通知 ${result.generatedNotificationCount ?? 0} 条`;
+    renderRaw(result);
+    await loadNotifications();
+  } catch (error) {
+    byId("rulesStatus").textContent = `规则评估失败：${error.message}`;
+  }
+}
+
 function switchView(viewName) {
   const mapping = {
     analysis: { title: "真实数据分析总控台", id: "analysisView" },
@@ -203,6 +325,10 @@ document.addEventListener("DOMContentLoaded", () => {
   byId("summaryBtn").addEventListener("click", loadDefenseSummary);
   byId("acceptanceBtn").addEventListener("click", runAcceptance);
   byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
+  byId("loadRulesBtn").addEventListener("click", loadRules);
+  byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
+  byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
+  byId("familySelect").addEventListener("change", updateMemberOptions);
   document.querySelectorAll(".menu-item").forEach((node) => {
     node.addEventListener("click", () => switchView(node.dataset.view));
   });
@@ -211,5 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderWorldBank(null);
   renderFred(null);
   renderLatestImport(null);
+  renderRules([]);
+  renderNotifications([]);
   switchView("analysis");
 });

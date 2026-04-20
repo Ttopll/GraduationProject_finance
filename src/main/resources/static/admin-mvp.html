@@ -34,8 +34,18 @@
           <p class="eyebrow">数据治理与分析后台</p>
           <h1 id="pageTitle">真实数据分析总控台</h1>
         </div>
-        <div class="session-box">
-          <div id="loginStatus" class="session-status">未登录</div>
+        <div class="topbar-controls">
+          <label class="field-group compact-group">
+            <span>家庭</span>
+            <select id="familySelect" class="field-input"></select>
+          </label>
+          <label class="field-group compact-group">
+            <span>成员</span>
+            <select id="memberSelect" class="field-input"></select>
+          </label>
+          <div class="session-box">
+            <div id="loginStatus" class="session-status">未登录</div>
+          </div>
         </div>
       </header>
 
@@ -201,16 +211,41 @@
       </section>
 
       <section id="rulesView" class="workspace-grid view-section">
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Rules</p>
+              <h2>规则列表</h2>
+            </div>
+            <button id="loadRulesBtn" class="secondary-btn" type="button">加载规则</button>
+          </div>
+          <div id="rulesList" class="summary-board">
+            <div class="summary-item">暂无规则数据</div>
+          </div>
+        </section>
+
+        <section class="panel panel-half">
+          <div class="panel-head">
+            <div>
+              <p class="panel-eyebrow">Notifications</p>
+              <h2>通知列表</h2>
+            </div>
+            <button id="loadNotificationsBtn" class="secondary-btn" type="button">加载通知</button>
+          </div>
+          <div id="notificationsList" class="summary-board">
+            <div class="summary-item">暂无通知数据</div>
+          </div>
+        </section>
+
         <section class="panel panel-wide">
           <div class="panel-head">
             <div>
-              <p class="panel-eyebrow">Next Module</p>
-              <h2>规则与通知</h2>
+              <p class="panel-eyebrow">Evaluate</p>
+              <h2>规则评估</h2>
             </div>
+            <button id="evaluateRulesBtn" class="primary-btn" type="button">执行规则评估</button>
           </div>
-          <div class="summary-board">
-            <div class="summary-item">当前阶段先预留正式后台入口，下一步接规则列表、触发记录和通知处理。</div>
-          </div>
+          <div id="rulesStatus" class="inline-status">等待操作</div>
         </section>
       </section>
 
