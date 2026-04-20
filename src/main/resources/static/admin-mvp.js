@@ -20,7 +20,11 @@ async function api(path, method = "GET", body = null, auth = true) {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
-  return response.json();
+  if (response.status === 204) {
+    return null;
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function renderMetric(id, value) {
@@ -157,8 +161,16 @@ function renderRules(items) {
   }
   host.innerHTML = items.map((item) => `
     <div class="summary-item">
-      <strong>${item.ruleName ?? "-"}</strong><br>
-      类型：${item.ruleType ?? "-"} / 启用：${item.enabled ?? "-"} / 优先级：${item.priority ?? "-"}
+      <strong>${item.ruleName ?? "-"}</strong>
+      <span class="status-chip ${Number(item.enabled) === 1 ? "enabled" : "disabled"}">
+        ${Number(item.enabled) === 1 ? "启用中" : "已停用"}
+      </span><br>
+      类型：${item.ruleType ?? "-"} / 优先级：${item.priority ?? "-"}
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="toggle-rule" data-rule-id="${item.id}" data-enabled="${item.enabled}">
+          ${Number(item.enabled) === 1 ? "停用规则" : "启用规则"}
+        </button>
+      </div>
     </div>
   `).join("");
 }
@@ -171,8 +183,15 @@ function renderNotifications(items) {
   }
   host.innerHTML = items.slice(0, 8).map((item) => `
     <div class="summary-item">
-      <strong>${item.title ?? "-"}</strong><br>
-      来源：${item.sourceType ?? "-"} / 已读：${item.readStatus ?? "-"}
+      <strong>${item.title ?? "-"}</strong>
+      <span class="status-chip ${Number(item.readStatus) === 1 ? "read" : "unread"}">
+        ${Number(item.readStatus) === 1 ? "已读" : "未读"}
+      </span><br>
+      来源：${item.sourceType ?? "-"}
+      <div class="item-actions">
+        ${Number(item.readStatus) === 1 ? "" : `<button class="mini-btn" type="button" data-action="read-notification" data-notification-id="${item.id}">标记已读</button>`}
+        <button class="mini-btn danger" type="button" data-action="delete-notification" data-notification-id="${item.id}">删除</button>
+      </div>
     </div>
   `).join("");
 }
@@ -300,6 +319,71 @@ async function evaluateRules() {
   }
 }
 
+async function toggleRule(ruleId, enabled) {
+  const nextAction = Number(enabled) === 1 ? "disable" : "enable";
+  byId("rulesStatus").textContent = `正在${nextAction === "enable" ? "启用" : "停用"}规则...`;
+  try {
+    await api(`/api/rules/${ruleId}/${nextAction}`, "POST");
+    await loadRules();
+  } catch (error) {
+    byId("rulesStatus").textContent = `规则操作失败：${error.message}`;
+  }
+}
+
+async function markNotificationRead(notificationId) {
+  byId("rulesStatus").textContent = "正在标记通知已读...";
+  try {
+    await api(`/api/notifications/${notificationId}/read`, "POST");
+    await loadNotifications();
+  } catch (error) {
+    byId("rulesStatus").textContent = `通知已读失败：${error.message}`;
+  }
+}
+
+async function deleteNotification(notificationId) {
+  byId("rulesStatus").textContent = "正在删除通知...";
+  try {
+    await api(`/api/notifications/${notificationId}`, "DELETE");
+    await loadNotifications();
+  } catch (error) {
+    byId("rulesStatus").textContent = `通知删除失败：${error.message}`;
+  }
+}
+
+async function markAllNotificationsRead() {
+  const familyId = getCurrentFamilyId();
+  const memberId = getCurrentMemberId();
+  if (!familyId) {
+    byId("rulesStatus").textContent = "请先登录并选择家庭";
+    return;
+  }
+  byId("rulesStatus").textContent = "正在批量已读通知...";
+  try {
+    const result = await api(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId}`, "POST");
+    byId("rulesStatus").textContent = `批量已读完成，影响 ${result.affectedCount ?? 0} 条`;
+    await loadNotifications();
+  } catch (error) {
+    byId("rulesStatus").textContent = `批量已读失败：${error.message}`;
+  }
+}
+
+async function clearReadNotifications() {
+  const familyId = getCurrentFamilyId();
+  const memberId = getCurrentMemberId();
+  if (!familyId) {
+    byId("rulesStatus").textContent = "请先登录并选择家庭";
+    return;
+  }
+  byId("rulesStatus").textContent = "正在清理已读通知...";
+  try {
+    const result = await api(`/api/notifications/read?familyId=${familyId}&targetMemberId=${memberId}`, "DELETE");
+    byId("rulesStatus").textContent = `已读通知清理完成，影响 ${result.affectedCount ?? 0} 条`;
+    await loadNotifications();
+  } catch (error) {
+    byId("rulesStatus").textContent = `清理已读失败：${error.message}`;
+  }
+}
+
 function switchView(viewName) {
   const mapping = {
     analysis: { title: "真实数据分析总控台", id: "analysisView" },
@@ -328,7 +412,24 @@ document.addEventListener("DOMContentLoaded", () => {
   byId("loadRulesBtn").addEventListener("click", loadRules);
   byId("loadNotificationsBtn").addEventListener("click", loadNotifications);
   byId("evaluateRulesBtn").addEventListener("click", evaluateRules);
+  byId("readAllNotificationsBtn").addEventListener("click", markAllNotificationsRead);
+  byId("clearReadNotificationsBtn").addEventListener("click", clearReadNotifications);
   byId("familySelect").addEventListener("change", updateMemberOptions);
+  byId("rulesList").addEventListener("click", (event) => {
+    const action = event.target.dataset.action;
+    if (action === "toggle-rule") {
+      toggleRule(event.target.dataset.ruleId, event.target.dataset.enabled);
+    }
+  });
+  byId("notificationsList").addEventListener("click", (event) => {
+    const action = event.target.dataset.action;
+    if (action === "read-notification") {
+      markNotificationRead(event.target.dataset.notificationId);
+    }
+    if (action === "delete-notification") {
+      deleteNotification(event.target.dataset.notificationId);
+    }
+  });
   document.querySelectorAll(".menu-item").forEach((node) => {
     node.addEventListener("click", () => switchView(node.dataset.view));
   });
