@@ -9,6 +9,7 @@ export const authStore = reactive({
   expiresInSeconds: 0,
   user: null,
   memberships: [],
+  selectedFamilyId: null,
   initialized: false,
   restore() {
     if (this.initialized) {
@@ -23,6 +24,8 @@ export const authStore = reactive({
         this.expiresInSeconds = parsed.expiresInSeconds || 0;
         this.user = parsed.user || null;
         this.memberships = parsed.memberships || [];
+        this.selectedFamilyId = parsed.selectedFamilyId || null;
+        this.normalizeCurrentFamily();
       } catch (_error) {
         window.localStorage.removeItem(STORAGE_KEY);
       }
@@ -37,7 +40,8 @@ export const authStore = reactive({
         tokenType: this.tokenType,
         expiresInSeconds: this.expiresInSeconds,
         user: this.user,
-        memberships: this.memberships
+        memberships: this.memberships,
+        selectedFamilyId: this.selectedFamilyId
       })
     );
   },
@@ -47,6 +51,7 @@ export const authStore = reactive({
     this.expiresInSeconds = payload.expiresInSeconds || 0;
     this.user = payload.user || null;
     this.memberships = payload.memberships || [];
+    this.normalizeCurrentFamily();
     this.initialized = true;
     this.persist();
   },
@@ -59,8 +64,25 @@ export const authStore = reactive({
     const response = await authApi.me();
     this.user = response.user || null;
     this.memberships = response.memberships || [];
+    this.normalizeCurrentFamily();
     this.persist();
     return response;
+  },
+  setCurrentFamilyId(familyId) {
+    this.selectedFamilyId = familyId || null;
+    this.normalizeCurrentFamily();
+    this.persist();
+  },
+  normalizeCurrentFamily() {
+    const allowedIds = this.memberships.map((item) => item.familyId).filter(Boolean);
+    if (allowedIds.length === 0) {
+      this.selectedFamilyId = null;
+      return;
+    }
+    if (this.selectedFamilyId && allowedIds.includes(this.selectedFamilyId)) {
+      return;
+    }
+    this.selectedFamilyId = allowedIds[0];
   },
   logout() {
     this.token = "";
@@ -68,10 +90,11 @@ export const authStore = reactive({
     this.expiresInSeconds = 0;
     this.user = null;
     this.memberships = [];
+    this.selectedFamilyId = null;
     this.initialized = true;
     window.localStorage.removeItem(STORAGE_KEY);
   },
   get currentFamilyId() {
-    return this.memberships[0]?.familyId || null;
+    return this.selectedFamilyId || this.memberships[0]?.familyId || null;
   }
 });

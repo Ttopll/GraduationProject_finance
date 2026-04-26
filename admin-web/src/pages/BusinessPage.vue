@@ -1,5 +1,15 @@
 <template>
   <section class="page-section">
+    <article v-if="!familyId" class="panel-card">
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker">家庭上下文缺失</div>
+          <h2>请先创建或加入家庭</h2>
+        </div>
+      </div>
+      <div class="feedback-box info">当前账号还没有家庭上下文，账户、分类、预算和交易都必须归属到某个家庭下。请先进入“用户与家庭”页面创建家庭或通过邀请码加入家庭。</div>
+    </article>
+
     <div class="stats-grid">
       <StatCard label="当前家庭" :value="familyId || '-'" meta="当前页面所有业务请求均绑定 familyId" />
       <StatCard label="账户数" :value="accounts.length" meta="现金、银行卡、信用卡等资金账户" />
@@ -1035,7 +1045,7 @@ function transactionTypeLabel(value) {
 
 onMounted(async () => {
   if (!familyId.value) {
-    accountFeedback.value = "当前会话没有家庭上下文，无法加载业务数据。";
+    accountFeedback.value = "当前账号还没有家庭上下文，请先在“用户与家庭”中创建家庭或加入家庭。";
     return;
   }
   try {
