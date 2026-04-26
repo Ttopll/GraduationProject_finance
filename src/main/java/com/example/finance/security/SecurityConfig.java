@@ -40,6 +40,11 @@ public class SecurityConfig {
                                 "/index.html",
                                 "/demo",
                                 "/demo/**",
+                                "/auth.html",
+                                "/login.html",
+                                "/register.html",
+                                "/auth.css",
+                                "/auth.js",
                                 "/admin-mvp.html",
                                 "/admin-mvp.css",
                                 "/admin-mvp.js"

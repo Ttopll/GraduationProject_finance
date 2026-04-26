@@ -36,4 +36,6 @@ build/
 data/raw/*.csv
 data/raw/*.json
 data/processed/*.csv
+admin-web/node_modules/
+admin-web/dist/
 tmp_proposal_extract_*/

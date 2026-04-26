@@ -49,9 +49,973 @@ let businessFormMode = "create";
 let notificationsPageIndex = 0;
 let notificationsTotalPages = 0;
 let activeView = "analysis";
+let currentUser = null;
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function setNodeText(node, value = "") {
+  if (!node) {
+    return false;
+  }
+  node.textContent = value ?? "";
+  return true;
+}
+
+function setTextById(id, value = "") {
+  return setNodeText(byId(id), value);
+}
+
+function setTextByIds(ids, value = "") {
+  (ids || []).forEach((id) => setTextById(id, value));
+}
+
+function scrollToVisibleSection(id) {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function updateSidebarActiveState(view = activeView) {
+  document.querySelectorAll("[data-sidebar-view]").forEach((node) => {
+    node.classList.toggle("active", node.dataset.sidebarView === view);
+  });
+}
+
+function applyViewContext(view = activeView) {
+  activeView = view;
+  updateViewMeta(view);
+  renderGlobalCommandDeck();
+  updateSidebarActiveState(view);
+}
+
+function adminPageNavigate(view = "analysis", targetId = "") {
+  switchView(view);
+  if (view === "business" && token && getCurrentFamilyId() && accounts.length === 0 && categories.length === 0 && budgets.length === 0 && transactionTotalElements === 0) {
+    loadBusinessOverview();
+  }
+  if (view === "rules" && token && getCurrentFamilyId() && allRules.length === 0 && notificationsPage.length === 0) {
+    Promise.all([loadRules(), loadNotifications()]);
+  }
+  if (view === "analysis" && token && !latestSummary) {
+    loadSummary().catch(() => {});
+  }
+  if (targetId) {
+    syncScrollSectionState(targetId);
+    setTimeout(() => scrollToVisibleSection(targetId), 120);
+  }
+}
+
+function adminScrollTo(targetId = "") {
+  if (!targetId) {
+    return;
+  }
+  scrollToVisibleSection(targetId);
+}
+
+function syncScrollSectionState(activeSectionId = "") {
+  document.querySelectorAll(".scroll-section").forEach((node) => {
+    node.classList.toggle("is-current", node.id === activeSectionId);
+  });
+}
+
+function getScrollSpySection() {
+  const scroller = byId("adminMainScroller");
+  if (!scroller) {
+    return null;
+  }
+  const sections = Array.from(document.querySelectorAll(".scroll-section[data-scroll-view]"));
+  if (sections.length === 0) {
+    return null;
+  }
+  const scrollerRect = scroller.getBoundingClientRect();
+  const focusLine = scrollerRect.top + 160;
+  let bestSection = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  sections.forEach((section) => {
+    const rect = section.getBoundingClientRect();
+    const visible = rect.bottom > scrollerRect.top + 80 && rect.top < scrollerRect.bottom - 80;
+    if (!visible) {
+      return;
+    }
+    const distance = Math.abs(rect.top - focusLine);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestSection = section;
+    }
+  });
+
+  return bestSection || sections[0];
+}
+
+function handleScrollSpy() {
+  const section = getScrollSpySection();
+  if (!section) {
+    return;
+  }
+  syncScrollSectionState(section.id);
+  applyViewContext(section.dataset.scrollView || "analysis");
+}
+
+function registerScrollSpy() {
+  const scroller = byId("adminMainScroller");
+  if (!scroller || scroller.dataset.scrollSpyBound === "true") {
+    return;
+  }
+  scroller.dataset.scrollSpyBound = "true";
+  let ticking = false;
+  scroller.addEventListener("scroll", () => {
+    if (ticking) {
+      return;
+    }
+    ticking = true;
+    window.requestAnimationFrame(() => {
+      handleScrollSpy();
+      ticking = false;
+    });
+  }, { passive: true });
+  handleScrollSpy();
+}
+
+window.adminPageNavigate = adminPageNavigate;
+window.adminScrollTo = adminScrollTo;
+
+function getCurrentFamilyMemberships() {
+  const familyId = getCurrentFamilyId();
+  return (memberships || []).filter((item) => Number(item.familyId) === Number(familyId));
+}
+
+function renderHeaderControls() {
+  const unreadNotifications = (notificationsPage || []).filter((item) => Number(item.readStatus) !== 1).length;
+  const dot = byId("headerNotificationDot");
+  if (dot) {
+    dot.classList.toggle("hidden", unreadNotifications === 0);
+  }
+  const name = currentUser?.nickname || currentUser?.realName || currentUser?.username || "未登录";
+  setTextById("headerProfileName", name);
+  const avatar = byId("headerProfileAvatar");
+  if (avatar) {
+    avatar.textContent = String(name).trim().slice(0, 1) || "未";
+  }
+}
+
+function renderUserFamilyWorkspace() {
+  const host = byId("userFamilyWorkspace");
+  if (!host) {
+    return;
+  }
+  const currentMemberships = getCurrentFamilyMemberships();
+  const familyMap = new Map();
+  (memberships || []).forEach((item) => {
+    const familyId = Number(item.familyId);
+    if (!Number.isFinite(familyId) || familyId <= 0) {
+      return;
+    }
+    const current = familyMap.get(familyId) || {
+      familyId,
+      familyName: item.familyName || `家庭${familyId}`,
+      members: 0,
+      roles: new Set()
+    };
+    current.members += 1;
+    if (item.roleCode) {
+      current.roles.add(item.roleCode);
+    }
+    familyMap.set(familyId, current);
+  });
+  const familyRows = Array.from(familyMap.values()).sort((left, right) => left.familyId - right.familyId);
+  const selectedFamilyId = getCurrentFamilyId();
+  const selectedMemberId = getCurrentMemberId();
+  if (!token) {
+    host.innerHTML = `
+      <div class="workspace-stack">
+        <div class="workspace-note">尚未登录后台账号，暂时无法查看用户信息、家庭上下文和成员关系。先登录，再刷新当前页面。</div>
+        <div class="ops-grid">
+          <div class="ops-card">
+            <div class="ops-card-label">当前账号</div>
+            <div class="ops-card-value">未登录</div>
+            <div class="ops-card-meta">登录后显示用户、家庭与成员上下文。</div>
+          </div>
+          <div class="ops-card">
+            <div class="ops-card-label">可访问家庭</div>
+            <div class="ops-card-value">0</div>
+            <div class="ops-card-meta">当前无会话数据。</div>
+          </div>
+          <div class="ops-card">
+            <div class="ops-card-label">成员关系</div>
+            <div class="ops-card-value">0</div>
+            <div class="ops-card-meta">登录成功后自动拉取。</div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  host.innerHTML = `
+    <div class="workspace-stack">
+      <div class="ops-grid">
+        <div class="ops-card">
+          <div class="ops-card-label">当前账号</div>
+          <div class="ops-card-value">${escapeHtml(currentUser?.nickname || currentUser?.username || "已登录")}</div>
+          <div class="ops-card-meta">账号类型：${escapeHtml(currentUser?.userType || "-")} / 用户名：${escapeHtml(currentUser?.username || "-")}</div>
+        </div>
+        <div class="ops-card">
+          <div class="ops-card-label">可访问家庭数</div>
+          <div class="ops-card-value">${formatNumber(familyRows.length, 0)}</div>
+          <div class="ops-card-meta">${selectedFamilyId ? `当前选中家庭 ID ${escapeHtml(selectedFamilyId)}` : "尚未选择家庭"}</div>
+        </div>
+        <div class="ops-card">
+          <div class="ops-card-label">当前家庭成员关系</div>
+          <div class="ops-card-value">${formatNumber(currentMemberships.length, 0)}</div>
+          <div class="ops-card-meta">${selectedMemberId ? `当前成员：${escapeHtml(formatMemberRef(selectedMemberId))}` : "尚未选择成员"}</div>
+        </div>
+      </div>
+      <div class="workspace-note">这一块用于说明后台登录态已经拿到用户、家庭、成员三层上下文。后续小程序端和管理员端共用这套家庭维度数据时，这里就是最直接的会话证明。</div>
+      <div class="ops-table">
+        <div class="ops-table-head">
+          <div>成员关系</div>
+          <div>所属家庭</div>
+          <div>角色</div>
+          <div>成员编号</div>
+          <div>会话说明</div>
+        </div>
+        ${(currentMemberships.length > 0 ? currentMemberships : memberships).slice(0, 10).map((item) => `
+          <div class="ops-table-row">
+            <div class="ops-cell-main">
+              <span class="ops-cell-title">${escapeHtml(item.familyName || `家庭${item.familyId}`)}</span>
+              <span class="ops-cell-meta">家庭 ID ${escapeHtml(item.familyId)}</span>
+            </div>
+            <div>${escapeHtml(item.familyName || `家庭${item.familyId}`)}</div>
+            <div><span class="ops-badge ${selectedMemberId && Number(item.familyMemberId) === Number(selectedMemberId) ? "success" : ""}">${escapeHtml(item.roleCode || "MEMBER")}</span></div>
+            <div>${escapeHtml(item.familyMemberId)}</div>
+            <div class="ops-cell-meta">${selectedFamilyId && Number(item.familyId) === Number(selectedFamilyId) ? "当前选中家庭上下文" : "可切换访问的家庭成员关系"}</div>
+          </div>
+        `).join("") || `
+          <div class="ops-table-row">
+            <div class="ops-cell-main">
+              <span class="ops-cell-title">暂无成员关系</span>
+              <span class="ops-cell-meta">当前登录会话还没有返回 memberships。</span>
+            </div>
+            <div>-</div>
+            <div><span class="ops-badge warning">待加载</span></div>
+            <div>-</div>
+            <div class="ops-cell-meta">请刷新登录态或检查接口返回。</div>
+          </div>
+        `}
+      </div>
+      <div class="ops-table">
+        <div class="ops-table-head">
+          <div>家庭概览</div>
+          <div>成员数</div>
+          <div>角色覆盖</div>
+          <div>当前状态</div>
+          <div>备注</div>
+        </div>
+        ${familyRows.map((item) => `
+          <div class="ops-table-row">
+            <div class="ops-cell-main">
+              <span class="ops-cell-title">${escapeHtml(item.familyName)}</span>
+              <span class="ops-cell-meta">家庭 ID ${escapeHtml(item.familyId)}</span>
+            </div>
+            <div>${formatNumber(item.members, 0)}</div>
+            <div>${escapeHtml(Array.from(item.roles).join(" / ") || "-")}</div>
+            <div><span class="ops-badge ${selectedFamilyId && Number(item.familyId) === Number(selectedFamilyId) ? "success" : ""}">${selectedFamilyId && Number(item.familyId) === Number(selectedFamilyId) ? "当前家庭" : "可访问"}</span></div>
+            <div class="ops-cell-meta">${selectedFamilyId && Number(item.familyId) === Number(selectedFamilyId) ? "业务、规则、通知都会基于这个家庭维度查询" : "可切换到该家庭继续查看业务数据"}</div>
+          </div>
+        `).join("") || `
+          <div class="ops-table-row">
+            <div class="ops-cell-main">
+              <span class="ops-cell-title">暂无家庭记录</span>
+              <span class="ops-cell-meta">登录态已存在，但当前未返回家庭列表。</span>
+            </div>
+            <div>-</div>
+            <div>-</div>
+            <div><span class="ops-badge warning">待补全</span></div>
+            <div class="ops-cell-meta">通常是接口未返回 memberships 或当前用户未加入家庭。</div>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function renderSystemLogWorkspace() {
+  const host = byId("systemLogWorkspace");
+  if (!host) {
+    return;
+  }
+  const latestImportRecord = importHistory[0] || (latestImport ? { result: latestImport, createdAt: latestImport.importedAt } : null);
+  const latestImportStatus = latestImportRecord?.result?.importStatus || latestImport?.importStatus || "未执行";
+  const acceptanceReady = Boolean(latestImportRecord && latestSummary && (accounts.length || categories.length || budgets.length || transactionTotalElements));
+  const systemEvents = [
+    {
+      time: formatDateTime(latestImportRecord?.createdAt || latestImportRecord?.result?.importedAt),
+      title: latestImportRecord ? "真实数据导入" : "真实数据导入未执行",
+      meta: latestImportRecord
+        ? `状态：${latestImportStatus} / 批次：${latestImportRecord?.result?.importBatchId || "-"} / 目录：${latestImportRecord?.params?.processedDir || "data/processed"}`
+        : "需要先执行导入，后续分析与答辩结论才有真实数据支撑。"
+    },
+    {
+      time: formatDateTime(latestSummary?.generatedAt || latestSummary?.createdAt),
+      title: latestSummary ? "分析汇总已生成" : "分析汇总未生成",
+      meta: latestSummary
+        ? `零售记录：${formatNumber(latestSummary?.retailOverview?.totalRecords, 0)} / 国家趋势点：${formatNumber(latestSummary?.worldBankTrend?.points?.length || 0, 0)} / FRED 点数：${formatNumber(latestSummary?.fredSeries?.points?.length || 0, 0)}`
+        : "导入完成后需要刷新 defense summary，才能展示交易结构和国家趋势。"
+    },
+    {
+      time: formatDateTime(latestRuleEvaluation?.evaluatedAt || latestRuleEvaluation?.createdAt),
+      title: latestRuleEvaluation ? "规则评估已执行" : "规则评估未执行",
+      meta: latestRuleEvaluation
+        ? `触发规则：${formatNumber(latestRuleEvaluation.triggeredRuleCount, 0)} / 生成通知：${formatNumber(latestRuleEvaluation.generatedNotificationCount, 0)}`
+        : "建议至少执行一次规则评估，形成导入 -> 分析 -> 规则 -> 通知闭环。"
+    },
+    {
+      time: formatDateTime(latestBusinessAction?.occurredAt || latestBusinessAction?.createdAt || latestBusinessAction?.operationTime),
+      title: latestBusinessAction ? "最近业务操作" : "最近业务操作缺失",
+      meta: latestBusinessAction
+        ? `${latestBusinessAction?.actionType || latestBusinessAction?.operationType || "业务变更"} / ${latestBusinessAction?.targetType || latestBusinessAction?.moduleName || "业务模块"} / ${latestBusinessAction?.description || latestBusinessAction?.message || "已有最近一次业务动作回执"}`
+        : "当前还缺少最新业务动作摘要，可继续在账户、分类、预算、交易模块操作并刷新页面。"
+    },
+    {
+      time: formatDateTime(notificationsPage?.[0]?.createdAt),
+      title: notificationsPage.length > 0 ? "通知中心已有数据" : "通知中心当前为空",
+      meta: notificationsPage.length > 0
+        ? `当前页 ${formatNumber(notificationsPage.length, 0)} 条 / 未读 ${formatNumber((notificationsPage || []).filter((item) => Number(item.readStatus) !== 1).length, 0)} 条`
+        : "通知列表还没有加载出记录，可以先执行规则评估或切换家庭后刷新。"
+    }
+  ];
+  host.innerHTML = `
+    <div class="workspace-stack">
+      <div class="ops-grid">
+        <div class="ops-card">
+          <div class="ops-card-label">API 与鉴权</div>
+          <div class="ops-card-value">${token ? "已接通" : "未登录"}</div>
+          <div class="ops-card-meta">${token ? "当前可以正常访问后台接口。" : "需先登录后台账号后再调用接口。"}</div>
+        </div>
+        <div class="ops-card">
+          <div class="ops-card-label">最近导入批次</div>
+          <div class="ops-card-value">${latestImportRecord?.result?.importBatchId ? formatNumber(latestImportRecord.result.importBatchId, 0) : "-"}</div>
+          <div class="ops-card-meta">导入状态：${escapeHtml(latestImportStatus)}</div>
+        </div>
+        <div class="ops-card">
+          <div class="ops-card-label">系统闭环状态</div>
+          <div class="ops-card-value">${acceptanceReady ? "可演示" : "待补全"}</div>
+          <div class="ops-card-meta">${acceptanceReady ? "导入、分析、业务查询已经打通。" : "还需要继续补业务、规则或通知的实际回执。"}</div>
+        </div>
+      </div>
+      <div class="workspace-note">这一块不再只是“状态说明”，而是明确展示后台最近发生了什么。录屏或答辩时，可以直接从这里讲清楚导入、分析、业务、规则、通知是否形成闭环。</div>
+      <div class="ops-table">
+        <div class="ops-table-head">
+          <div>检查项</div>
+          <div>当前结果</div>
+          <div>状态</div>
+          <div>最近时间</div>
+          <div>说明</div>
+        </div>
+        <div class="ops-table-row">
+          <div class="ops-cell-main">
+            <span class="ops-cell-title">分析汇总</span>
+            <span class="ops-cell-meta">defense summary / 交易结构 / 趋势结论</span>
+          </div>
+          <div>${latestSummary ? "已加载" : "未加载"}</div>
+          <div><span class="ops-badge ${latestSummary ? "success" : "warning"}">${latestSummary ? "正常" : "待执行"}</span></div>
+          <div>${formatDateTime(latestSummary?.generatedAt || latestSummary?.createdAt)}</div>
+          <div class="ops-cell-meta">${latestSummary ? "可以继续展示国家趋势和交易结构结论。" : "需要先加载分析汇总。"} </div>
+        </div>
+        <div class="ops-table-row">
+          <div class="ops-cell-main">
+            <span class="ops-cell-title">业务数据</span>
+            <span class="ops-cell-meta">账户 / 分类 / 预算 / 交易</span>
+          </div>
+          <div>${accounts.length || categories.length || budgets.length || transactionTotalElements ? "已进入页面" : "未进入页面"}</div>
+          <div><span class="ops-badge ${accounts.length || categories.length || budgets.length || transactionTotalElements ? "success" : "warning"}">${accounts.length || categories.length || budgets.length || transactionTotalElements ? "正常" : "待刷新"}</span></div>
+          <div>${formatDateTime(latestBusinessAction?.occurredAt || latestBusinessAction?.createdAt || latestBusinessAction?.operationTime)}</div>
+          <div class="ops-cell-meta">账户 ${formatNumber(accounts.length, 0)} / 分类 ${formatNumber(categories.length, 0)} / 预算 ${formatNumber(budgets.length, 0)} / 交易 ${formatNumber(transactionTotalElements, 0)}</div>
+        </div>
+        <div class="ops-table-row">
+          <div class="ops-cell-main">
+            <span class="ops-cell-title">规则与通知</span>
+            <span class="ops-cell-meta">规则评估 / 通知生成 / 通知运营</span>
+          </div>
+          <div>${latestRuleEvaluation ? "已执行" : "未执行"}</div>
+          <div><span class="ops-badge ${latestRuleEvaluation ? "success" : "warning"}">${latestRuleEvaluation ? "正常" : "待执行"}</span></div>
+          <div>${formatDateTime(latestRuleEvaluation?.evaluatedAt || latestRuleEvaluation?.createdAt)}</div>
+          <div class="ops-cell-meta">触发 ${formatNumber(latestRuleEvaluation?.triggeredRuleCount || 0, 0)} 条 / 当前页通知 ${formatNumber(notificationsPage.length, 0)} 条</div>
+        </div>
+      </div>
+      <div class="ops-timeline">
+        ${systemEvents.map((event) => `
+          <div class="ops-timeline-item">
+            <div class="ops-timeline-time">${escapeHtml(event.time || "-")}</div>
+            <div>
+              <div class="ops-timeline-title">${escapeHtml(event.title)}</div>
+              <div class="ops-timeline-meta">${escapeHtml(event.meta)}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" type="button" data-action="dashboard-refresh-summary">刷新分析汇总</button>
+        <button class="mini-btn" type="button" data-action="dashboard-refresh-business">刷新业务数据</button>
+        <button class="mini-btn" type="button" data-action="dashboard-evaluate-rules">执行规则评估</button>
+        <button class="mini-btn" type="button" data-action="dashboard-run-acceptance">一键验收</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderHeaderAndSupportPanels() {
+  renderHeaderControls();
+  renderUserFamilyWorkspace();
+  renderSystemLogWorkspace();
+}
+
+async function refreshData() {
+  const icon = byId("refreshIcon");
+  icon?.classList.add("animate-spin");
+  try {
+    const jobs = [loadImportHistory()];
+    if (token) {
+      jobs.push(loadMe());
+      if (latestSummary) {
+        jobs.push(loadSummary().catch(() => {}));
+      }
+      if (getCurrentFamilyId()) {
+        jobs.push(loadRules().catch(() => {}), loadNotifications().catch(() => {}), loadBusinessOverview().catch(() => {}));
+      }
+    }
+    await Promise.all(jobs);
+    renderHeaderAndSupportPanels();
+  } finally {
+    setTimeout(() => icon?.classList.remove("animate-spin"), 400);
+  }
+}
+
+window.refreshData = refreshData;
+
+function renderTopStats() {
+  const familyCount = new Set((memberships || []).map((item) => Number(item.familyId)).filter((item) => Number.isFinite(item) && item > 0)).size;
+  const membershipCount = (memberships || []).length;
+  const unreadNotifications = (notificationsPage || []).filter((item) => Number(item.readStatus) !== 1).length;
+  const latestImportStatus = importHistory[0]?.result?.importStatus || latestImport?.importStatus || "未执行";
+  const enabledRules = (allRules || []).filter((item) => Number(item.enabled) === 1).length;
+
+  setTextById("dashboardStat1Value", familyCount > 0 ? formatNumber(familyCount, 0) : "-");
+  setTextById("dashboardStat1Meta", familyCount > 0 ? `当前登录态覆盖 ${formatNumber(familyCount, 0)} 个家庭` : "登录后显示家庭上下文");
+
+  setTextById("dashboardStat2Value", membershipCount > 0 ? formatNumber(membershipCount, 0) : "-");
+  setTextById("dashboardStat2Meta", membershipCount > 0 ? `当前会话包含 ${formatNumber(membershipCount, 0)} 条成员关系` : "登录后统计成员关系");
+
+  setTextById("dashboardStat3Value", accounts.length > 0 ? formatNumber(accounts.length, 0) : "-");
+  setTextById("dashboardStat3Meta", accounts.length > 0 ? `分类 ${formatNumber(categories.length, 0)} / 预算 ${formatNumber(budgets.length, 0)}` : "加载业务后统计账户数量");
+
+  setTextById("dashboardStat4Value", transactionTotalElements > 0 ? formatNumber(transactionTotalElements, 0) : "-");
+  setTextById("dashboardStat4Meta", transactionTotalElements > 0 ? `未读通知 ${formatNumber(unreadNotifications, 0)} / 启用规则 ${formatNumber(enabledRules, 0)}` : "交易列表刷新后显示总量");
+
+  setTextById("dashboardStat5Value", importHistory.length > 0 || latestImport ? formatNumber(importHistory.length || 1, 0) : "-");
+  setTextById("dashboardStat5Meta", importHistory.length > 0 || latestImport ? `最近状态：${latestImportStatus}` : "导入历史加载后更新");
+}
+
+function ensureWorkspaceSelectOptions() {
+  const optionSets = {
+    accountStatusFilter: [
+      { value: "", label: "全部状态" },
+      { value: "1", label: "仅启用" },
+      { value: "0", label: "仅停用" }
+    ],
+    accountSortFilter: [
+      { value: "name-asc", label: "名称 A-Z" },
+      { value: "balance-desc", label: "余额从高到低" },
+      { value: "balance-asc", label: "余额从低到高" }
+    ],
+    categoryEnabledFilter: [
+      { value: "", label: "全部状态" },
+      { value: "1", label: "仅启用" },
+      { value: "0", label: "仅停用" }
+    ],
+    categorySortFilter: [
+      { value: "sort-asc", label: "排序值升序" },
+      { value: "name-asc", label: "名称 A-Z" },
+      { value: "name-desc", label: "名称 Z-A" }
+    ],
+    budgetEnabledFilter: [
+      { value: "", label: "全部状态" },
+      { value: "1", label: "仅启用" },
+      { value: "0", label: "仅停用" }
+    ],
+    budgetSortFilter: [
+      { value: "amount-desc", label: "金额从高到低" },
+      { value: "amount-asc", label: "金额从低到高" },
+      { value: "name-asc", label: "名称 A-Z" }
+    ],
+    transactionTypeFilter: [
+      { value: "", label: "全部类型" },
+      { value: "INCOME", label: "收入" },
+      { value: "EXPENSE", label: "支出" },
+      { value: "TRANSFER", label: "转账" }
+    ],
+    transactionPageSize: [
+      { value: "8", label: "每页 8 条" },
+      { value: "20", label: "每页 20 条" },
+      { value: "50", label: "每页 50 条" }
+    ],
+    accountTypeFilter: [
+      { value: "", label: "全部账户类型" },
+      { value: "CASH", label: "现金" },
+      { value: "BANK", label: "银行卡" },
+      { value: "CREDIT", label: "信用账户" },
+      { value: "INVEST", label: "投资账户" }
+    ],
+    categoryTypeFilter: [
+      { value: "", label: "全部分类类型" },
+      { value: "EXPENSE", label: "支出" },
+      { value: "INCOME", label: "收入" }
+    ],
+    budgetPeriodFilter: [
+      { value: "", label: "全部周期" },
+      { value: "MONTH", label: "月度预算" },
+      { value: "WEEK", label: "周预算" },
+      { value: "YEAR", label: "年度预算" }
+    ],
+    ruleEnabledFilter: [
+      { value: "", label: "全部规则" },
+      { value: "1", label: "仅启用" },
+      { value: "0", label: "仅停用" }
+    ],
+    ruleTypeFilter: [
+      { value: "", label: "全部规则类型" },
+      { value: "THRESHOLD", label: "阈值规则" },
+      { value: "CONSECUTIVE_THRESHOLD", label: "连续阈值" },
+      { value: "TREND_ANOMALY", label: "趋势异常" }
+    ],
+    notificationReadFilter: [
+      { value: "", label: "全部通知" },
+      { value: "0", label: "仅未读" },
+      { value: "1", label: "仅已读" }
+    ],
+    notificationSourceFilter: [
+      { value: "", label: "全部来源" },
+      { value: "RULE", label: "规则触发" },
+      { value: "BUDGET", label: "预算预警" },
+      { value: "SYSTEM", label: "系统消息" }
+    ],
+    notificationPageSize: [
+      { value: "8", label: "每页 8 条" },
+      { value: "20", label: "每页 20 条" },
+      { value: "50", label: "每页 50 条" }
+    ]
+  };
+  Object.entries(optionSets).forEach(([id, items]) => {
+    const node = byId(id);
+    if (!node || node.tagName !== "SELECT" || node.options.length > 0) {
+      return;
+    }
+    node.innerHTML = items.map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`).join("");
+  });
+}
+
+function styleWorkspaceButton(id, label, tone = "default") {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.type = "button";
+  node.textContent = label;
+  node.className = tone === "primary"
+    ? "px-3 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+    : tone === "danger"
+      ? "px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
+      : "px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors";
+}
+
+function styleWorkspaceSelect(id) {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.className = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800";
+}
+
+function styleWorkspaceField(id) {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.className = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800";
+}
+
+function styleWorkspaceStatus(id) {
+  const node = byId(id);
+  if (!node) {
+    return;
+  }
+  node.classList.add("rounded-lg", "border", "border-gray-200", "bg-gray-50", "px-4", "py-3", "text-sm", "text-gray-600");
+}
+
+function mountNodeToHost(nodeId, hostId, className = "") {
+  const node = byId(nodeId);
+  const host = byId(hostId);
+  if (!node || !host) {
+    return;
+  }
+  if (className) {
+    node.className = className;
+  }
+  host.appendChild(node);
+}
+
+function appendLabeledField(hostId, label, nodeId) {
+  const host = byId(hostId);
+  const node = byId(nodeId);
+  if (!host || !node) {
+    return;
+  }
+  const wrapper = document.createElement("label");
+  wrapper.className = "block";
+  const title = document.createElement("span");
+  title.className = "block text-xs font-medium text-gray-500 mb-1";
+  title.textContent = label;
+  wrapper.appendChild(title);
+  wrapper.appendChild(node);
+  host.appendChild(wrapper);
+}
+
+function buildWorkspaceSectionChrome() {
+  const commandHost = byId("adminCommandWorkspace");
+  if (commandHost) {
+    commandHost.innerHTML = `
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">登录与上下文</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div id="adminStatusHost" class="space-y-3"></div>
+              <div>
+                <div id="adminSelectorHost" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                <div id="adminAuthActions" class="flex flex-wrap gap-2 mt-3"></div>
+              </div>
+            </div>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">加载与维护动作</div>
+            <div id="adminLoadActions" class="flex flex-wrap gap-2"></div>
+            <div id="adminCreateActions" class="flex flex-wrap gap-2 mt-3"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const accountHost = byId("accountsWorkspace");
+  if (accountHost) {
+    accountHost.innerHTML = `
+      <div class="grid grid-cols-1 xl:grid-cols-[1.3fr_0.7fr] gap-4">
+        <div class="space-y-4">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div id="accountsFilterBar" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+            <div id="accountsQuickBar" class="flex flex-wrap gap-2 mt-3"></div>
+            <div id="accountFilterSummaryVisible" class="mt-3"></div>
+          </div>
+          <div id="accountsStatsVisible"></div>
+          <div id="accountListVisible"></div>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div class="text-sm font-semibold text-gray-900 mb-3">账户详情</div>
+          <div id="accountDetailVisible"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const categoryHost = byId("categoriesWorkspace");
+  if (categoryHost) {
+    categoryHost.innerHTML = `
+      <div class="grid grid-cols-1 xl:grid-cols-[1.3fr_0.7fr] gap-4">
+        <div class="space-y-4">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div id="categoriesFilterBar" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+            <div id="categoriesQuickBar" class="flex flex-wrap gap-2 mt-3"></div>
+            <div id="categoryFilterSummaryVisible" class="mt-3"></div>
+          </div>
+          <div id="categoriesStatsVisible"></div>
+          <div id="categoryListVisible"></div>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div class="text-sm font-semibold text-gray-900 mb-3">分类详情</div>
+          <div id="categoryDetailVisible"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const budgetHost = byId("budgetsWorkspace");
+  if (budgetHost) {
+    budgetHost.innerHTML = `
+      <div class="grid grid-cols-1 xl:grid-cols-[1.3fr_0.7fr] gap-4">
+        <div class="space-y-4">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div id="budgetsFilterBar" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+            <div id="budgetsQuickBar" class="flex flex-wrap gap-2 mt-3"></div>
+            <div id="budgetFilterSummaryVisible" class="mt-3"></div>
+          </div>
+          <div id="budgetsStatsVisible"></div>
+          <div id="budgetListVisible"></div>
+        </div>
+        <div class="space-y-4">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">预算详情</div>
+            <div id="budgetDetailVisible"></div>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">预算动作</div>
+            <div id="budgetActionVisible"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const transactionHost = byId("transactionsWorkspace");
+  if (transactionHost) {
+    transactionHost.innerHTML = `
+      <div class="space-y-4">
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div id="transactionsFilterBar" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+          <div id="transactionsQuickBar" class="flex flex-wrap gap-2 mt-3"></div>
+          <div id="transactionFilterSummaryVisible" class="mt-3"></div>
+        </div>
+        <div id="transactionsStatsVisible"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+          <div class="space-y-4">
+            <div id="transactionListVisible"></div>
+            <div id="transactionsPager" class="rounded-xl border border-gray-200 bg-white p-4"></div>
+          </div>
+          <div class="space-y-4">
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div class="text-sm font-semibold text-gray-900 mb-3">交易详情</div>
+              <div id="transactionDetailVisible"></div>
+            </div>
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div class="text-sm font-semibold text-gray-900 mb-3">交易审计</div>
+              <div id="transactionAuditVisible"></div>
+            </div>
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div class="text-sm font-semibold text-gray-900 mb-3">月度收支摘要</div>
+              <div id="transactionMonthlySummaryVisible"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const rulesHost = byId("rulesWorkspace");
+  if (rulesHost) {
+    rulesHost.innerHTML = `
+      <div class="space-y-4">
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div id="rulesFilterBar" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+          <div id="rulesQuickBar" class="flex flex-wrap gap-2 mt-3"></div>
+        </div>
+        <div id="rulesStatsVisible"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-4">
+          <div id="rulesListVisible"></div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">规则详情</div>
+            <div id="ruleDetailVisible"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const notificationsHost = byId("notificationsWorkspace");
+  if (notificationsHost) {
+    notificationsHost.innerHTML = `
+      <div class="space-y-4">
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div id="notificationsFilterBar" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+          <div id="notificationsToolbar" class="flex flex-wrap gap-2 mt-3"></div>
+        </div>
+        <div id="notificationsStatsVisible"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-4">
+          <div class="space-y-4">
+            <div id="notificationsListVisible"></div>
+            <div id="notificationsPager" class="rounded-xl border border-gray-200 bg-white p-4"></div>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div class="text-sm font-semibold text-gray-900 mb-3">通知详情</div>
+            <div id="notificationDetailVisible"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function mountVisibleAdminWorkspaces() {
+  buildWorkspaceSectionChrome();
+  ensureWorkspaceSelectOptions();
+
+  styleWorkspaceStatus("loginStatus");
+  styleWorkspaceStatus("authGatewayStatus");
+  styleWorkspaceSelect("familySelect");
+  styleWorkspaceSelect("memberSelect");
+  styleWorkspaceButton("openAuthPageBtn", "去登录页", "primary");
+  styleWorkspaceButton("logoutBtn", "退出登录");
+  styleWorkspaceButton("loadBusinessBtn", "加载业务");
+  styleWorkspaceButton("loadTransactionsBtn", "加载交易");
+  styleWorkspaceButton("loadRulesBtn", "加载规则");
+  styleWorkspaceButton("loadNotificationsBtn", "加载通知");
+  styleWorkspaceButton("evaluateRulesBtn", "执行规则评估", "primary");
+  styleWorkspaceButton("createAccountBtn", "新增账户", "primary");
+  styleWorkspaceButton("createCategoryBtn", "新增分类", "primary");
+  styleWorkspaceButton("createBudgetBtn", "新增预算", "primary");
+  styleWorkspaceButton("createTransactionBtn", "新增交易", "primary");
+  styleWorkspaceButton("readAllNotificationsBtn", "全部标记已读");
+  styleWorkspaceButton("clearReadNotificationsBtn", "清理已读通知", "danger");
+  styleWorkspaceButton("exportTransactionsBtn", "导出当前交易");
+  styleWorkspaceButton("resetAccountFiltersBtn", "重置账户筛选");
+  styleWorkspaceButton("resetCategoryFiltersBtn", "重置分类筛选");
+  styleWorkspaceButton("resetBudgetFiltersBtn", "重置预算筛选");
+  styleWorkspaceButton("resetTransactionFiltersBtn", "重置交易筛选");
+
+  appendLabeledField("adminSelectorHost", "当前家庭", "familySelect");
+  appendLabeledField("adminSelectorHost", "当前成员", "memberSelect");
+  mountNodeToHost("loginStatus", "adminStatusHost");
+  mountNodeToHost("authGatewayStatus", "adminStatusHost");
+  ["openAuthPageBtn", "logoutBtn"].forEach((id) => mountNodeToHost(id, "adminAuthActions"));
+  ["loadBusinessBtn", "loadTransactionsBtn", "loadRulesBtn", "loadNotificationsBtn", "evaluateRulesBtn"].forEach((id) => mountNodeToHost(id, "adminLoadActions"));
+  ["createAccountBtn", "createCategoryBtn", "createBudgetBtn", "createTransactionBtn"].forEach((id) => mountNodeToHost(id, "adminCreateActions"));
+
+  mountNodeToHost("businessOverviewBoard", "businessOverviewVisible");
+  mountNodeToHost("businessFocusBoard", "businessFocusVisible");
+  mountNodeToHost("businessStateBoard", "businessStateVisible");
+  mountNodeToHost("businessSelectionBoard", "businessSelectionVisible");
+  mountNodeToHost("businessActionFeedbackBoard", "businessFeedbackVisible");
+  mountNodeToHost("rulesOverviewBoard", "rulesOverviewVisible");
+  mountNodeToHost("notificationsOverviewBoard", "notificationsOverviewVisible");
+  mountNodeToHost("rulesStateBoard", "rulesStateVisible");
+  mountNodeToHost("notificationsActionBoard", "notificationsActionVisible");
+
+  ["accountStatusFilter", "accountTypeFilter", "accountSortFilter"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("accountsFilterBar", "账户状态", "accountStatusFilter");
+  appendLabeledField("accountsFilterBar", "账户类型关键词", "accountTypeFilter");
+  appendLabeledField("accountsFilterBar", "排序方式", "accountSortFilter");
+  ["accountQuickAllBtn", "accountQuickSharedBtn", "accountQuickCreditBtn", "accountQuickEnabledBtn", "resetAccountFiltersBtn"].forEach((id) => mountNodeToHost(id, "accountsQuickBar"));
+  mountNodeToHost("accountFilterSummary", "accountFilterSummaryVisible");
+  mountNodeToHost("accountsStats", "accountsStatsVisible");
+  mountNodeToHost("accountList", "accountListVisible");
+  mountNodeToHost("accountDetailPanel", "accountDetailVisible");
+
+  ["categoryEnabledFilter", "categoryTypeFilter", "categorySortFilter"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("categoriesFilterBar", "分类状态", "categoryEnabledFilter");
+  appendLabeledField("categoriesFilterBar", "分类类型关键词", "categoryTypeFilter");
+  appendLabeledField("categoriesFilterBar", "排序方式", "categorySortFilter");
+  ["categoryQuickAllBtn", "categoryQuickExpenseBtn", "categoryQuickIncomeBtn", "categoryQuickEnabledBtn", "resetCategoryFiltersBtn"].forEach((id) => mountNodeToHost(id, "categoriesQuickBar"));
+  mountNodeToHost("categoryFilterSummary", "categoryFilterSummaryVisible");
+  mountNodeToHost("categoriesStats", "categoriesStatsVisible");
+  mountNodeToHost("categoryList", "categoryListVisible");
+  mountNodeToHost("categoryDetailPanel", "categoryDetailVisible");
+
+  ["budgetEnabledFilter", "budgetPeriodFilter", "budgetSortFilter"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("budgetsFilterBar", "预算状态", "budgetEnabledFilter");
+  appendLabeledField("budgetsFilterBar", "预算周期关键词", "budgetPeriodFilter");
+  appendLabeledField("budgetsFilterBar", "排序方式", "budgetSortFilter");
+  ["budgetQuickAllBtn", "budgetQuickAlertBtn", "budgetQuickExceededBtn", "budgetQuickMonthlyBtn", "resetBudgetFiltersBtn"].forEach((id) => mountNodeToHost(id, "budgetsQuickBar"));
+  mountNodeToHost("budgetFilterSummary", "budgetFilterSummaryVisible");
+  mountNodeToHost("budgetsStats", "budgetsStatsVisible");
+  mountNodeToHost("budgetList", "budgetListVisible");
+  mountNodeToHost("budgetDetailPanel", "budgetDetailVisible");
+  mountNodeToHost("budgetActionBoard", "budgetActionVisible");
+
+  ["transactionTypeFilter", "transactionPageSize"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("transactionsFilterBar", "交易类型", "transactionTypeFilter");
+  appendLabeledField("transactionsFilterBar", "分页规模", "transactionPageSize");
+  ["transactionQuickAllBtn", "transactionQuickMissingCategoryBtn", "transactionQuickMissingReferenceBtn", "transactionQuickLargeAmountBtn", "resetTransactionFiltersBtn", "exportTransactionsBtn"].forEach((id) => mountNodeToHost(id, "transactionsQuickBar"));
+  mountNodeToHost("transactionFilterSummary", "transactionFilterSummaryVisible");
+  mountNodeToHost("transactionsStats", "transactionsStatsVisible");
+  mountNodeToHost("transactionList", "transactionListVisible");
+  mountNodeToHost("transactionDetailPanel", "transactionDetailVisible");
+  mountNodeToHost("transactionAuditBoard", "transactionAuditVisible");
+  mountNodeToHost("transactionMonthlySummary", "transactionMonthlySummaryVisible");
+
+  ["ruleEnabledFilter", "ruleTypeFilter"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("rulesFilterBar", "规则状态", "ruleEnabledFilter");
+  appendLabeledField("rulesFilterBar", "规则类型关键词", "ruleTypeFilter");
+  ["ruleQuickAllBtn", "ruleQuickHighBtn"].forEach((id) => mountNodeToHost(id, "rulesQuickBar"));
+  mountNodeToHost("rulesStats", "rulesStatsVisible");
+  mountNodeToHost("rulesList", "rulesListVisible");
+  mountNodeToHost("ruleDetailPanel", "ruleDetailVisible");
+
+  ["notificationReadFilter", "notificationSourceFilter", "notificationPageSize"].forEach((id) => styleWorkspaceSelect(id));
+  appendLabeledField("notificationsFilterBar", "通知状态", "notificationReadFilter");
+  appendLabeledField("notificationsFilterBar", "来源类型", "notificationSourceFilter");
+  appendLabeledField("notificationsFilterBar", "分页规模", "notificationPageSize");
+  ["readAllNotificationsBtn", "clearReadNotificationsBtn"].forEach((id) => mountNodeToHost(id, "notificationsToolbar"));
+  mountNodeToHost("notificationsStats", "notificationsStatsVisible");
+  mountNodeToHost("notificationsList", "notificationsListVisible");
+  mountNodeToHost("notificationDetailPanel", "notificationDetailVisible");
+
+  const businessFormModal = byId("businessFormModal");
+  const businessForm = byId("businessForm");
+  const businessFormTitle = byId("businessFormTitle");
+  const businessFormSubtitle = byId("businessFormSubtitle");
+  const businessFormStatus = byId("businessFormStatus");
+  const businessFormFields = byId("businessFormFields");
+  const businessFormCloseBtn = byId("businessFormCloseBtn");
+  const businessFormCancelBtn = byId("businessFormCancelBtn");
+  const businessFormSubmitBtn = byId("businessFormSubmitBtn");
+  if (
+    businessFormModal
+    && businessForm
+    && businessFormTitle
+    && businessFormSubtitle
+    && businessFormStatus
+    && businessFormFields
+    && businessFormCloseBtn
+    && businessFormCancelBtn
+    && businessFormSubmitBtn
+    && !businessFormModal.dataset.mounted
+  ) {
+    businessFormModal.dataset.mounted = "true";
+    businessFormModal.hidden = true;
+    businessFormModal.className = "modal";
+    businessForm.className = "modal-panel business-form-panel";
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    const titleWrap = document.createElement("div");
+    businessFormTitle.className = "modal-title";
+    businessFormSubtitle.className = "modal-subtitle";
+    titleWrap.appendChild(businessFormTitle);
+    titleWrap.appendChild(businessFormSubtitle);
+    businessFormCloseBtn.className = "modal-close-btn";
+    businessFormCloseBtn.textContent = "关闭";
+    header.appendChild(titleWrap);
+    header.appendChild(businessFormCloseBtn);
+
+    businessFormStatus.className = "";
+    businessFormFields.className = "form-grid";
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    businessFormCancelBtn.className = "secondary-btn";
+    businessFormCancelBtn.textContent = "取消";
+    businessFormSubmitBtn.className = "primary-btn";
+    businessFormSubmitBtn.textContent = "提交";
+    actions.appendChild(businessFormCancelBtn);
+    actions.appendChild(businessFormSubmitBtn);
+
+    businessForm.appendChild(header);
+    businessForm.appendChild(businessFormStatus);
+    businessForm.appendChild(businessFormFields);
+    businessForm.appendChild(actions);
+    businessFormModal.appendChild(businessForm);
+    document.body.appendChild(businessFormModal);
+  }
 }
 
 function escapeHtml(value) {
@@ -222,32 +1186,87 @@ function applyImportHistoryQuickFilter(filter) {
   renderImportHistoryDetail();
 }
 
-function focusImportHistory(filter = "all") {
-  applyImportHistoryQuickFilter(filter);
-  switchView("imports");
+function scrollToPanel(id) {
+  const node = byId(id);
+  if (node) {
+    document.querySelectorAll(".is-focus-target").forEach((item) => item.classList.remove("is-focus-target"));
+    document.querySelectorAll(".is-focus-panel").forEach((item) => item.classList.remove("is-focus-panel"));
+    node.classList.add("is-focus-target");
+    const panel = node.closest(".panel");
+    if (panel) {
+      panel.classList.add("is-focus-panel");
+    }
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.clearTimeout(node._focusCleanupTimer);
+    node._focusCleanupTimer = window.setTimeout(() => {
+      node.classList.remove("is-focus-target");
+      panel?.classList.remove("is-focus-panel");
+    }, 2600);
+  }
 }
 
-function focusRulesNotifications(mode = "unread") {
+function getCurrentImportHistoryItems(filter = importHistoryQuickFilter) {
+  const previousFilter = importHistoryQuickFilter;
+  importHistoryQuickFilter = filter;
+  const items = getSortedImportHistory(getFilteredImportHistory(importHistory));
+  importHistoryQuickFilter = previousFilter;
+  return items;
+}
+
+function focusImportHistory(filter = "all") {
+  importHistoryQuickFilter = filter;
+  const items = getCurrentImportHistoryItems(filter);
+  selectedImportHistoryId = items[0]?.id ?? null;
+  applyImportHistoryQuickFilter(filter);
+  switchView("imports");
+  if (selectedImportHistoryId) {
+    renderImportHistory();
+    renderImportHistoryDetail();
+    scrollToPanel("importHistoryDetail");
+    return;
+  }
+  scrollToPanel("importHistoryList");
+}
+
+async function focusRulesNotifications(mode = "unread") {
   switchView("rules");
   notificationsPageIndex = 0;
   byId("notificationReadFilter").value = mode === "all" ? "" : "0";
   byId("notificationSourceFilter").value = mode === "rule" ? "RULE" : "";
   if (mode === "high-priority-rules") {
+    if (allRules.length === 0 && token && getCurrentFamilyId()) {
+      await loadRules();
+    }
     byId("ruleEnabledFilter").value = "1";
     byId("ruleTypeFilter").value = "";
     applyRuleQuickFilter("high");
+    selectedRuleId = filteredRules[0]?.id ?? null;
+    renderRules(filteredRules);
+    scrollToPanel(selectedRuleId ? "ruleDetailPanel" : "rulesList");
     return;
   }
-  loadNotifications(0);
+  if (notificationsPage.length === 0 && token && getCurrentFamilyId()) {
+    await loadNotifications(0);
+  } else {
+    await loadNotifications(0);
+  }
+  selectedNotificationId = notificationsPage[0]?.id ?? null;
+  renderNotifications(notificationsPage);
+  scrollToPanel(selectedNotificationId ? "notificationDetailPanel" : "notificationsList");
 }
 
-function focusBusinessArea(mode = "overview") {
+async function focusBusinessArea(mode = "overview") {
   switchView("business");
+  if (mode === "overview") {
+    scrollToPanel("businessOverviewBoard");
+    return;
+  }
   if (mode === "shared-accounts") {
     byId("accountStatusFilter").value = "";
     byId("accountTypeFilter").value = "";
     byId("accountSortFilter").value = "name-asc";
     applyAccountQuickFilter("shared");
+    scrollToPanel(selectedAccountId ? "accountDetailPanel" : "accountList");
     return;
   }
   if (mode === "enabled-budgets") {
@@ -255,6 +1274,7 @@ function focusBusinessArea(mode = "overview") {
     byId("budgetPeriodFilter").value = "";
     byId("budgetSortFilter").value = "amount-desc";
     applyBudgetQuickFilter("all");
+    scrollToPanel(selectedBudgetId ? "budgetDetailPanel" : "budgetList");
     return;
   }
   if (mode === "alert-budgets") {
@@ -262,6 +1282,15 @@ function focusBusinessArea(mode = "overview") {
     byId("budgetPeriodFilter").value = "";
     byId("budgetSortFilter").value = "amount-desc";
     applyBudgetQuickFilter("alert");
+    scrollToPanel(selectedBudgetId ? "budgetActionBoard" : "budgetList");
+    return;
+  }
+  if (mode === "exceeded-budgets") {
+    byId("budgetEnabledFilter").value = "";
+    byId("budgetPeriodFilter").value = "";
+    byId("budgetSortFilter").value = "amount-desc";
+    applyBudgetQuickFilter("exceeded");
+    scrollToPanel(selectedBudgetId ? "budgetActionBoard" : "budgetList");
     return;
   }
   if (mode === "recent-transactions") {
@@ -274,7 +1303,26 @@ function focusBusinessArea(mode = "overview") {
       "missing-reference": "transactionQuickMissingReferenceBtn",
       "large-amount": "transactionQuickLargeAmountBtn"
     }, transactionQuickFilter);
-    loadTransactions(0);
+    await loadTransactions(0);
+    scrollToPanel(selectedTransactionId ? "transactionDetailPanel" : "transactionList");
+    return;
+  }
+  if (mode === "transactions-missing-category") {
+    byId("transactionTypeFilter").value = "";
+    applyTransactionQuickFilter("missing-category");
+    scrollToPanel(selectedTransactionId ? "transactionAuditBoard" : "transactionList");
+    return;
+  }
+  if (mode === "transactions-missing-reference") {
+    byId("transactionTypeFilter").value = "";
+    applyTransactionQuickFilter("missing-reference");
+    scrollToPanel(selectedTransactionId ? "transactionAuditBoard" : "transactionList");
+    return;
+  }
+  if (mode === "transactions-large-amount") {
+    byId("transactionTypeFilter").value = "";
+    applyTransactionQuickFilter("large-amount");
+    scrollToPanel(selectedTransactionId ? "transactionAuditBoard" : "transactionList");
   }
 }
 
@@ -291,8 +1339,10 @@ const GLOBAL_COMMANDS = [
 const VIEW_COMMAND_PRESETS = {
   analysis: ["analysis-summary", "imports-issues", "imports-degraded", "acceptance-run"],
   imports: ["imports-issues", "imports-degraded", "analysis-summary", "acceptance-run"],
+  family: ["analysis-summary", "business-shared", "rules-unread", "acceptance-run"],
   business: ["business-alert-budgets", "business-shared", "rules-unread", "acceptance-run"],
   rules: ["rules-unread", "rules-high-priority", "business-alert-budgets", "acceptance-run"],
+  system: ["acceptance-run", "imports-issues", "analysis-summary", "rules-unread"],
   acceptance: ["acceptance-run", "imports-issues", "analysis-summary", "rules-unread"]
 };
 let filteredGlobalCommands = [...GLOBAL_COMMANDS];
@@ -615,12 +1665,11 @@ function focusAnalysisArea(target = "dashboard") {
     dashboard: "analysisDashboardPanel",
     countries: "analysisCountryPanel",
     worldBank: "analysisWorldBankPanel",
-    fred: "analysisFredPanel"
+    fred: "analysisFredPanel",
+    conclusions: "analysisConclusionPanel",
+    raw: "analysisRawPanel"
   };
-  const node = byId(mapping[target] || mapping.dashboard);
-  if (node) {
-    node.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  scrollToPanel(mapping[target] || mapping.dashboard);
 }
 
 function compareText(a, b) {
@@ -1235,6 +2284,7 @@ function clearSession() {
   renderBusinessActionFeedback();
   renderSidebarStatusPanel();
   renderAcceptanceWorkspace();
+  renderTopStats();
   setRulesStatus("请先登录后再加载规则与通知。", true);
   setBusinessStatus("请先登录后再加载业务模块。", true);
 }
@@ -1259,13 +2309,23 @@ function restoreSession() {
 }
 
 function renderSession(user) {
+  currentUser = user || null;
   const status = byId("loginStatus");
+  const gatewayStatus = byId("authGatewayStatus");
   if (!user) {
-    status.textContent = "未登录";
+    setNodeText(status, "未登录");
+    if (gatewayStatus) {
+      setNodeText(gatewayStatus, "当前未登录，请先进入独立登录/注册页完成认证。");
+    }
+    renderHeaderAndSupportPanels();
     return;
   }
   const label = [user.nickname || user.realName || user.username, user.userType].filter(Boolean).join(" / ");
-  status.textContent = label || "已登录";
+  setNodeText(status, label || "已登录");
+  if (gatewayStatus) {
+    setNodeText(gatewayStatus, `${label || "已登录"}，当前可直接执行导入、分析和后台管理操作。`);
+  }
+  renderHeaderAndSupportPanels();
 }
 
 function renderSidebarStatusPanel() {
@@ -1438,6 +2498,7 @@ function showLatestBusinessActionResultsOnly() {
       selectedTransactionId = ids[0];
     }
     renderTransactions(transactionItems);
+    scrollToPanel("transactionList");
   }
 }
 
@@ -1450,18 +2511,21 @@ function focusLatestBusinessActionTarget() {
     selectedAccountId = Number(latestBusinessAction.entityId);
     renderAccounts(getFilteredAccounts(accounts));
     renderAccountDetail(accounts.find((item) => Number(item.id) === selectedAccountId) || null);
+    scrollToPanel("accountDetailPanel");
     return;
   }
   if (latestBusinessAction.scope === "分类" && latestBusinessAction.entityId) {
     selectedCategoryId = Number(latestBusinessAction.entityId);
     renderCategories(getFilteredCategories(categories));
     renderCategoryDetail(categories.find((item) => Number(item.id) === selectedCategoryId) || null);
+    scrollToPanel("categoryDetailPanel");
     return;
   }
   if (latestBusinessAction.scope === "预算" && latestBusinessAction.entityId) {
     selectedBudgetId = Number(latestBusinessAction.entityId);
     renderBudgets(getFilteredBudgets(budgets));
     renderBudgetDetail(budgets.find((item) => Number(item.id) === selectedBudgetId) || null);
+    scrollToPanel("budgetDetailPanel");
     return;
   }
   if (latestBusinessAction.scope === "交易") {
@@ -1470,6 +2534,7 @@ function focusLatestBusinessActionTarget() {
     }
     renderTransactions(transactionItems);
     renderTransactionDetail(transactionItems.find((item) => Number(item.id) === Number(latestBusinessAction.entityId || selectedTransactionId)) || null);
+    scrollToPanel("transactionDetailPanel");
   }
 }
 
@@ -1552,7 +2617,7 @@ function renderBusinessActionFeedback() {
 }
 
 function renderMetric(id, value) {
-  byId(id).textContent = value ?? "-";
+  setTextById(id, value ?? "-");
 }
 
 function getImportParams() {
@@ -1614,6 +2679,9 @@ function renderPager(containerId, pageIndex, totalPages, totalElements, pageSize
 
 function renderCountryList(items) {
   const host = byId("countryList");
+  if (!host) {
+    return;
+  }
   if (!items || items.length === 0) {
     host.innerHTML = '<div class="summary-item">暂无国家交易分布数据</div>';
     return;
@@ -1634,6 +2702,9 @@ function renderCountryList(items) {
 
 function renderWorldBank(worldBankTrend) {
   const host = byId("worldBankSummary");
+  if (!host) {
+    return;
+  }
   const points = worldBankTrend?.points || [];
   if (points.length === 0) {
     host.innerHTML = '<div class="summary-item">暂无国家趋势数据</div>';
@@ -1641,12 +2712,15 @@ function renderWorldBank(worldBankTrend) {
   }
   const first = points[0];
   const last = points[points.length - 1];
+  const yoyText = last.yearOnYearGrowthRatio === null || last.yearOnYearGrowthRatio === undefined
+    ? "暂无同比"
+    : `${formatNumber(Number(last.yearOnYearGrowthRatio) * 100)}%`;
   host.innerHTML = `
     <div class="summary-item"><strong>${escapeHtml(worldBankTrend.countryName || "未知国家")}</strong> (${escapeHtml(worldBankTrend.countryIso3 || "-")})</div>
     <div class="detail-grid">
       <div class="detail-item"><strong>起始年份</strong><div>${escapeHtml(first.year)}</div><div>数值 ${formatNumber(first.value)}</div></div>
       <div class="detail-item"><strong>最新年份</strong><div>${escapeHtml(last.year)}</div><div>数值 ${formatNumber(last.value)}</div></div>
-      <div class="detail-item"><strong>最新同比</strong><div>${formatNumber(last.yearOnYearGrowthRatio)}</div></div>
+      <div class="detail-item"><strong>最新同比</strong><div>${yoyText}</div></div>
       <div class="detail-item"><strong>趋势点数</strong><div>${formatNumber(points.length, 0)}</div></div>
     </div>
   `;
@@ -1654,6 +2728,9 @@ function renderWorldBank(worldBankTrend) {
 
 function renderFred(fredSeries) {
   const host = byId("fredSummary");
+  if (!host) {
+    return;
+  }
   const points = fredSeries?.points || [];
   if (points.length === 0) {
     host.innerHTML = `<div class="summary-item">序列 ${escapeHtml(fredSeries?.seriesId || "PCE")} 当前无数据点，属于已处理的软降级状态。</div>`;
@@ -1673,6 +2750,9 @@ function renderFred(fredSeries) {
 
 function renderConclusions(conclusions) {
   const host = byId("conclusionList");
+  if (!host) {
+    return;
+  }
   if (!conclusions || conclusions.length === 0) {
     host.innerHTML = '<div class="conclusion-item">暂无自动结论</div>';
     return;
@@ -1682,8 +2762,156 @@ function renderConclusions(conclusions) {
   `).join("");
 }
 
+function resolveGrowthDirection(ratio) {
+  const numeric = Number(ratio);
+  if (!Number.isFinite(numeric)) {
+    return "波动情况暂不明确";
+  }
+  if (numeric > 0.05) {
+    return "保持明显上升";
+  }
+  if (numeric > 0) {
+    return "小幅上升";
+  }
+  if (numeric < -0.05) {
+    return "出现明显回落";
+  }
+  if (numeric < 0) {
+    return "略有回落";
+  }
+  return "整体基本持平";
+}
+
+function buildRetailInsights(retailOverview) {
+  const topCountries = retailOverview?.topCountries || [];
+  if (!retailOverview || !topCountries.length) {
+    return [];
+  }
+  const totalRecords = Number(retailOverview.totalRecords || 0);
+  const totalAmount = Number(retailOverview.totalAmount || 0);
+  const avgAmount = Number(retailOverview.averageAmount || 0);
+  const topCountry = topCountries[0] || null;
+  const secondCountry = topCountries[1] || null;
+  const topCountryShare = totalAmount > 0 && topCountry ? (Number(topCountry.totalAmount || 0) / totalAmount) : 0;
+  const concentrationText = topCountryShare >= 0.35
+    ? "头部国家集中度较高，交易分布不均衡。"
+    : "头部国家占比适中，交易分布相对分散。";
+  return [
+    {
+      title: "结构判断",
+      tone: topCountryShare >= 0.35 ? "warning" : "success",
+      text: `零售数据共 ${formatNumber(totalRecords, 0)} 条，平均单笔金额 ${formatNumber(avgAmount)}。${concentrationText}`
+    },
+    {
+      title: "头部国家",
+      tone: "info",
+      text: topCountry
+        ? `${topCountry.country || "未知国家"} 当前排名第一，交易额 ${formatNumber(topCountry.totalAmount)}，记录数 ${formatNumber(topCountry.recordCount, 0)}。${secondCountry ? `第二名为 ${secondCountry.country || "未知国家"}。` : ""}`
+        : "暂无头部国家数据。"
+    },
+    {
+      title: "答辩可讲",
+      tone: "success",
+      text: topCountry
+        ? `可以直接说明：当前零售交易呈现“${topCountry.country || "头部国家"}领先、其余国家分散”的结构特征。`
+        : "暂无可用于答辩的交易结构结论。"
+    }
+  ];
+}
+
+function buildTrendInsights(worldBankTrend, fredSeries) {
+  const insights = [];
+  const worldPoints = worldBankTrend?.points || [];
+  if (worldPoints.length > 1) {
+    const first = worldPoints[0];
+    const last = worldPoints[worldPoints.length - 1];
+    const delta = Number(last.value || 0) - Number(first.value || 0);
+    insights.push({
+      title: "国家趋势",
+      tone: delta >= 0 ? "success" : "warning",
+      text: `${worldBankTrend.countryName || worldBankTrend.countryIso3 || "目标国家"}从 ${escapeHtml(first.year)} 到 ${escapeHtml(last.year)} 的居民消费指标总体${delta >= 0 ? "上行" : "回落"}，最新一年${resolveGrowthDirection(last.yearOnYearGrowthRatio)}。`
+    });
+    insights.push({
+      title: "答辩可讲",
+      tone: "info",
+      text: `可以直接说明：${worldBankTrend.countryName || worldBankTrend.countryIso3 || "该国"}居民消费长期趋势${delta >= 0 ? "总体增长" : "存在阶段性回落"}，说明该接口已经具备趋势分析输出能力。`
+    });
+  }
+  const fredPoints = fredSeries?.points || [];
+  if (fredPoints.length > 1) {
+    const firstFred = fredPoints[0];
+    const lastFred = fredPoints[fredPoints.length - 1];
+    insights.push({
+      title: "宏观序列",
+      tone: "info",
+      text: `${fredSeries.seriesId || "FRED"} 序列已返回 ${formatNumber(fredPoints.length, 0)} 个点，时间范围从 ${escapeHtml(firstFred.date)} 到 ${escapeHtml(lastFred.date)}，可作为宏观背景数据进行补充说明。`
+    });
+  } else if (fredSeries?.seriesId) {
+    insights.push({
+      title: "宏观序列",
+      tone: "warning",
+      text: `${fredSeries.seriesId} 当前为空或软降级，不影响零售与国家趋势分析，但答辩时应说明宏观数据源存在容错处理。`
+    });
+  }
+  return insights;
+}
+
+function renderInsightBoard(id, items, emptyMessage) {
+  const host = byId(id);
+  if (!host) {
+    return;
+  }
+  if (!items || items.length === 0) {
+    host.innerHTML = `<div class="summary-item">${escapeHtml(emptyMessage)}</div>`;
+    return;
+  }
+  host.innerHTML = items.map((item) => `
+    <div class="summary-item">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <strong>${escapeHtml(item.title || "分析结果")}</strong>
+        <span class="status-chip ${escapeHtml(item.tone || "info")}">${escapeHtml(
+          item.tone === "success" ? "可展示" : item.tone === "warning" ? "关注" : "说明"
+        )}</span>
+      </div>
+      <div style="margin-top:8px;">${escapeHtml(item.text || "")}</div>
+    </div>
+  `).join("");
+}
+
+function syncAnalysisParamMirrors() {
+  const mapping = [
+    ["countryIso3Mirror", "countryIso3"],
+    ["seriesIdMirror", "seriesId"],
+    ["topCountriesMirror", "topCountries"]
+  ];
+  mapping.forEach(([mirrorId, sourceId]) => {
+    const mirror = byId(mirrorId);
+    const source = byId(sourceId);
+    if (!mirror || !source) {
+      return;
+    }
+    mirror.value = source.value || mirror.value || "";
+  });
+}
+
+function applyAnalysisParamMirrors() {
+  const mapping = [
+    ["countryIso3Mirror", "countryIso3"],
+    ["seriesIdMirror", "seriesId"],
+    ["topCountriesMirror", "topCountries"]
+  ];
+  mapping.forEach(([mirrorId, sourceId]) => {
+    const mirror = byId(mirrorId);
+    const source = byId(sourceId);
+    if (!mirror || !source) {
+      return;
+    }
+    source.value = mirror.value || source.value || "";
+  });
+}
+
 function renderRaw(payload) {
-  byId("rawPayload").textContent = JSON.stringify(payload, null, 2);
+  setTextById("rawPayload", JSON.stringify(payload, null, 2));
 }
 
 function renderImportStateBoard(result = latestImport) {
@@ -1840,6 +3068,7 @@ function renderLatestImport(result) {
   if (!result) {
     host.innerHTML = '<div class="summary-item">暂无导入结果</div>';
     renderImportStateBoard(null);
+    renderTopStats();
     return;
   }
   const importTone = getImportHistoryTone({ result });
@@ -1873,6 +3102,7 @@ function renderLatestImport(result) {
     </div>
   `;
   renderImportStateBoard(result);
+  renderTopStats();
 }
 
 function normalizeImportHistory(items) {
@@ -1901,6 +3131,7 @@ function normalizeImportHistory(items) {
 function renderImportHistory() {
   const host = byId("importHistoryList");
   updateImportHistoryStats(importHistory);
+  renderTopStats();
   const items = getSortedImportHistory(getFilteredImportHistory(importHistory));
   if (items.length === 0) {
     renderEmptyBoard("importHistoryList", importHistory.length > 0 ? "当前筛选条件下暂无导入记录" : "暂无导入历史");
@@ -1982,6 +3213,7 @@ function renderMemberships(items) {
   if (memberships.length === 0) {
     familySelect.innerHTML = '<option value="">未选择家庭</option>';
     updateMemberOptions();
+    renderTopStats();
     return;
   }
 
@@ -1991,6 +3223,7 @@ function renderMemberships(items) {
     </option>
   `).join("");
   updateMemberOptions();
+  renderTopStats();
 }
 
 function updateMemberOptions() {
@@ -2297,11 +3530,15 @@ function renderBusinessForm(type) {
   if (!config) {
     return;
   }
-  byId("businessFormTitle").textContent = config.title;
-  byId("businessFormSubtitle").textContent = config.subtitle;
-  byId("businessFormSubmitBtn").textContent = config.submitText;
-  byId("businessFormSubmitBtn").dataset.idleText = config.submitText;
-  byId("businessFormFields").innerHTML = config.fields.map(renderBusinessFormField).join("");
+  setTextById("businessFormTitle", config.title);
+  setTextById("businessFormSubtitle", config.subtitle);
+  setTextById("businessFormSubmitBtn", config.submitText);
+  if (byId("businessFormSubmitBtn")) {
+    byId("businessFormSubmitBtn").dataset.idleText = config.submitText;
+  }
+  if (byId("businessFormFields")) {
+    byId("businessFormFields").innerHTML = config.fields.map(renderBusinessFormField).join("");
+  }
   syncTransactionFormBehavior();
   applyBusinessFormPrerequisiteMessage();
 }
@@ -2328,13 +3565,16 @@ function getBusinessFormPrerequisiteMessage(type) {
 
 function setBusinessFormStatus(message = "", isError = true) {
   const node = byId("businessFormStatus");
+  if (!node) {
+    return;
+  }
   if (!message) {
     node.hidden = true;
-    node.textContent = "";
+    setNodeText(node, "");
     return;
   }
   node.hidden = false;
-  node.textContent = message;
+  setNodeText(node, message);
   node.style.borderColor = isError ? "#fecaca" : "#bbf7d0";
   node.style.background = isError ? "#fff1f2" : "#f0fdf4";
   node.style.color = isError ? "#b91c1c" : "#166534";
@@ -2637,6 +3877,7 @@ function getFilteredRules(items) {
 function renderRules(items) {
   const host = byId("rulesList");
   selectedRuleIds = syncSelectionToVisible(selectedRuleIds, items);
+  renderHeaderAndSupportPanels();
   if (!items || items.length === 0) {
     updateRulesStats([]);
     renderEmptyBoard("rulesList", token ? "当前筛选条件下暂无规则" : "请先登录并选择家庭");
@@ -2704,6 +3945,7 @@ function renderRules(items) {
   selectedRuleId = selected?.id ?? null;
   renderRuleDetail(selected || null);
   renderRulesOverviewPanel();
+  renderTopStats();
 }
 
 function renderNotificationDetail(item) {
@@ -3661,6 +4903,8 @@ function renderAccounts(items) {
   const host = byId("accountList");
   selectedAccountIds = syncSelectionToVisible(selectedAccountIds, items);
   renderAccountFilterSummary(items?.length || 0, accounts.length);
+  renderTopStats();
+  renderHeaderAndSupportPanels();
   if (!items || items.length === 0) {
     updateAccountsStats([]);
     renderEmptyBoard("accountList", token ? (hasActiveAccountFilters() ? "当前筛选条件下未找到账户，请调整条件或重置筛选" : "当前家庭暂无账户数据") : "请先登录并选择家庭");
@@ -3813,6 +5057,8 @@ function renderCategories(items) {
   const host = byId("categoryList");
   selectedCategoryIds = syncSelectionToVisible(selectedCategoryIds, items);
   renderCategoryFilterSummary(items?.length || 0, categories.length);
+  renderTopStats();
+  renderHeaderAndSupportPanels();
   if (!items || items.length === 0) {
     updateCategoriesStats([]);
     renderEmptyBoard("categoryList", token ? (hasActiveCategoryFilters() ? "当前筛选条件下未找到分类，请调整条件或重置筛选" : "当前家庭暂无分类数据") : "请先登录并选择家庭");
@@ -4035,6 +5281,8 @@ function renderBudgets(items) {
   const host = byId("budgetList");
   selectedBudgetIds = syncSelectionToVisible(selectedBudgetIds, items);
   renderBudgetFilterSummary(items?.length || 0, budgets.length);
+  renderTopStats();
+  renderHeaderAndSupportPanels();
   if (!items || items.length === 0) {
     updateBudgetsStats([]);
     renderEmptyBoard("budgetList", token ? (hasActiveBudgetFilters() ? "当前筛选条件下未找到预算，请调整条件或重置筛选" : "当前家庭暂无预算数据") : "请先登录并选择家庭");
@@ -4281,6 +5529,8 @@ function renderTransactions(items) {
   const pageSize = Number(byId("transactionPageSize")?.value || 8);
   const filteredItems = getFilteredTransactions(items || []);
   renderTransactionFilterSummary(filteredItems.length, (items || []).length);
+  renderTopStats();
+  renderHeaderAndSupportPanels();
   if (!filteredItems || filteredItems.length === 0) {
     updateTransactionsStats([]);
     renderEmptyBoard("transactionList", token ? "当前筛选条件下暂无交易数据" : "请先登录并选择家庭");
@@ -4903,6 +6153,7 @@ function renderNotifications(items) {
   const host = byId("notificationsList");
   selectedNotificationIds = syncSelectionToVisible(selectedNotificationIds, items);
   const pageSize = Number(byId("notificationPageSize")?.value || 8);
+  renderHeaderAndSupportPanels();
   if (!items || items.length === 0) {
     updateNotificationsStats([]);
     renderEmptyBoard("notificationsList", token ? "当前筛选条件下暂无通知" : "请先登录并选择家庭");
@@ -4968,6 +6219,7 @@ function renderNotifications(items) {
   renderNotificationDetail(selected || null);
   renderPager("notificationsPager", notificationsPageIndex, notificationsTotalPages, notificationsTotalElements, pageSize, "notifications");
   renderRulesOverviewPanel();
+  renderTopStats();
 }
 
 function renderSummary(summary) {
@@ -4984,9 +6236,13 @@ function renderSummary(summary) {
   renderWorldBank(worldBankTrend);
   renderFred(fredSeries);
   renderConclusions(summary?.conclusions || []);
+  renderInsightBoard("retailInsightBoard", buildRetailInsights(retailOverview), "暂无交易结构分析");
+  renderInsightBoard("trendInsightBoard", buildTrendInsights(worldBankTrend, fredSeries), "暂无趋势解释");
   renderRaw(summary);
   renderAnalysisStateBoard("ready", summary);
   renderExecutiveDashboard();
+  renderTopStats();
+  renderHeaderAndSupportPanels();
 }
 
 function resetSummary() {
@@ -4999,9 +6255,13 @@ function resetSummary() {
   renderWorldBank(null);
   renderFred(null);
   renderConclusions([]);
+  renderInsightBoard("retailInsightBoard", [], "暂无交易结构分析");
+  renderInsightBoard("trendInsightBoard", [], "暂无趋势解释");
   renderRaw({ message: "waiting" });
   renderAnalysisStateBoard("idle", null);
   renderExecutiveDashboard();
+  renderTopStats();
+  renderHeaderAndSupportPanels();
 }
 
 function applyImportPreset(batchSize, truncate) {
@@ -5043,6 +6303,14 @@ function updateViewMeta(view) {
       focus: "导入批次、数据质量、异常定位与回执复核",
       hint: "优先查看最近批次质量结论，再决定是否重导"
     },
+    family: {
+      eyebrow: "Identity And Family Context",
+      title: "用户与家庭上下文",
+      breadcrumb: "后台首页 / 用户与家庭",
+      workspaceTag: "用户工作区",
+      focus: "登录用户、家庭维度、成员关系与会话上下文",
+      hint: "优先确认当前登录用户、选中家庭和成员关系是否正确"
+    },
     business: {
       eyebrow: "Business Modules",
       title: "业务管理工作台",
@@ -5059,6 +6327,14 @@ function updateViewMeta(view) {
       focus: "规则启停、优先级复核、通知运营与来源追踪",
       hint: "优先查看未读通知与高优先级规则"
     },
+    system: {
+      eyebrow: "System And Operation Log",
+      title: "系统与日志中心",
+      breadcrumb: "后台首页 / 系统与日志",
+      workspaceTag: "系统工作区",
+      focus: "导入回执、分析生成、业务动作、规则触发与通知状态",
+      hint: "重点核对最近事件时间线和系统闭环状态"
+    },
     acceptance: {
       eyebrow: "Acceptance",
       title: "系统联通验收",
@@ -5069,12 +6345,15 @@ function updateViewMeta(view) {
     }
   };
   const meta = metas[view] || metas.analysis;
-  byId("pageEyebrow").textContent = meta.eyebrow;
-  byId("pageTitle").textContent = meta.title;
-  byId("pageBreadcrumb").textContent = meta.breadcrumb;
-  byId("pageWorkspaceTag").textContent = meta.workspaceTag;
-  byId("pageFocus").textContent = meta.focus;
-  byId("pageHint").textContent = meta.hint;
+  setTextById("pageEyebrow", meta.eyebrow);
+  setTextById("pageTitle", meta.title);
+  setTextById("pageBreadcrumb", meta.breadcrumb);
+  setTextById("pageWorkspaceTag", meta.workspaceTag);
+  setTextById("pageFocus", meta.focus);
+  setTextById("pageHint", meta.hint);
+  setTextByIds(["pageTitleVisible"], meta.title);
+  setTextByIds(["pageHintVisible"], meta.hint);
+  setTextByIds(["pageBreadcrumbVisible"], meta.breadcrumb);
 }
 
 function switchView(view) {
@@ -5088,8 +6367,7 @@ function switchView(view) {
   document.querySelectorAll(".view-section").forEach((node) => {
     node.classList.toggle("is-active", node.id === `${view}View`);
   });
-  updateViewMeta(view);
-  renderGlobalCommandDeck();
+  applyViewContext(view);
 }
 
 async function loadMe() {
@@ -5141,11 +6419,14 @@ async function handleLogin() {
 
 async function performImport() {
   const params = getImportParams();
+  if (!token) {
+    setImportStatuses("请先在左上角登录后台账号，再执行真实数据导入。", true);
+    throw new Error("未登录，无法执行导入");
+  }
   try {
     setImportStatuses("正在导入真实数据...");
     const response = await api(`/api/real-data-analysis/import${buildQuery(params)}`, {
-      method: "POST",
-      auth: false
+      method: "POST"
     });
     latestImport = response;
     renderLatestImport(response);
@@ -5159,8 +6440,15 @@ async function performImport() {
 }
 
 async function loadImportHistory() {
+  if (!token) {
+    importHistory = [];
+    renderImportHistory();
+    renderImportHistoryDetail();
+    setImportStatuses("请先登录后台账号，再查看导入历史。", true);
+    return;
+  }
   try {
-    const items = await api("/api/real-data-analysis/imports", { auth: false });
+    const items = await api("/api/real-data-analysis/imports");
     importHistory = normalizeImportHistory(items);
     if (!selectedImportHistoryId && importHistory.length > 0) {
       selectedImportHistoryId = importHistory[0].id;
@@ -5176,11 +6464,17 @@ async function loadImportHistory() {
 }
 
 async function loadSummary() {
+  applyAnalysisParamMirrors();
   const params = getAnalysisParams();
+  if (!token) {
+    setImportStatuses("请先在左上角登录后台账号，再加载分析汇总。", true);
+    renderAnalysisStateBoard("error", null, "当前未登录，无法读取分析汇总。");
+    throw new Error("未登录，无法加载分析汇总");
+  }
   try {
     setImportStatuses("正在加载分析汇总...");
     renderAnalysisStateBoard("loading", null);
-    const response = await api(`/api/real-data-analysis/defense-summary${buildQuery(params)}`, { auth: false });
+    const response = await api(`/api/real-data-analysis/defense-summary${buildQuery(params)}`);
     renderSummary(response);
     setImportStatuses("分析汇总已刷新。");
     return response;
@@ -5189,6 +6483,16 @@ async function loadSummary() {
     renderAnalysisStateBoard("error", null, error.message);
     throw error;
   }
+}
+
+function openAuthPage() {
+  window.location.href = "/login.html";
+}
+
+function handleLogout() {
+  clearSession();
+  setImportStatuses("已退出当前登录，请重新进入登录/注册页认证。");
+  switchView("analysis");
 }
 
 async function runAcceptance() {
@@ -5501,35 +6805,39 @@ function handleDocumentClick(event) {
       executeGlobalCommand(actionNode.dataset.command || "");
       break;
     case "dashboard-open-exceeded-budgets":
-      switchView("business");
-      byId("budgetEnabledFilter").value = "";
-      byId("budgetPeriodFilter").value = "";
-      byId("budgetSortFilter").value = "amount-desc";
-      applyBudgetQuickFilter("exceeded");
+      focusBusinessArea("exceeded-budgets");
       break;
     case "dashboard-open-import-issues":
       {
-        const importRecord = importHistory[0] || (latestImport ? { id: latestImport.importBatchId, result: latestImport, createdAt: latestImport.importedAt } : null);
         let targetFilter = "all";
-        if (importRecord) {
-          if (isImportFailed(importRecord.result?.importStatus)) {
+        if (importHistory.some((item) => isImportFailed(item.result?.importStatus))) {
+          targetFilter = "abnormal";
+        } else if (importHistory.some((item) => Number(item.result?.fredImported || 0) === 0)) {
+          targetFilter = "degraded";
+        } else if (latestImport) {
+          if (isImportFailed(latestImport.importStatus)) {
             targetFilter = "abnormal";
-          } else if (Number(importRecord.result?.fredImported || 0) === 0) {
+          } else if (Number(latestImport.fredImported || 0) === 0) {
             targetFilter = "degraded";
           }
         }
         focusImportHistory(targetFilter);
-        if (importRecord?.id) {
-          selectedImportHistoryId = importRecord.id;
-        }
-        renderImportHistory();
-        renderImportHistoryDetail();
       }
       break;
     case "dashboard-open-analysis-anomalies":
-      switchView("analysis");
       if (latestSummary) {
         renderRaw(latestSummary);
+      }
+      if (!latestSummary) {
+        focusAnalysisArea("dashboard");
+      } else if ((latestSummary.worldBankTrend?.points?.length || 0) === 0) {
+        focusAnalysisArea("worldBank");
+      } else if ((latestSummary.fredSeries?.points?.length || 0) === 0) {
+        focusAnalysisArea("fred");
+      } else if ((latestSummary.conclusions || []).length === 0) {
+        focusAnalysisArea("conclusions");
+      } else {
+        focusAnalysisArea("raw");
       }
       break;
     case "dashboard-open-unread-notifications":
@@ -5579,15 +6887,36 @@ function handleDocumentClick(event) {
       focusBusinessArea("recent-transactions");
       break;
     case "business-feedback-open-scope":
-      switchView("business");
       if (latestBusinessAction?.scope === "交易") {
-        renderTransactions(transactionItems);
+        if (latestBusinessAction.entityIds?.length > 1) {
+          showLatestBusinessActionResultsOnly();
+          scrollToPanel("transactionList");
+        } else {
+          focusLatestBusinessActionTarget();
+        }
       } else if (latestBusinessAction?.scope === "账户") {
-        renderAccounts(getFilteredAccounts(accounts));
+        if (latestBusinessAction.entityIds?.length > 1) {
+          showLatestBusinessActionResultsOnly();
+          scrollToPanel("accountList");
+        } else {
+          focusLatestBusinessActionTarget();
+        }
       } else if (latestBusinessAction?.scope === "分类") {
-        renderCategories(getFilteredCategories(categories));
+        if (latestBusinessAction.entityIds?.length > 1) {
+          showLatestBusinessActionResultsOnly();
+          scrollToPanel("categoryList");
+        } else {
+          focusLatestBusinessActionTarget();
+        }
       } else if (latestBusinessAction?.scope === "预算") {
-        renderBudgets(getFilteredBudgets(budgets));
+        if (latestBusinessAction.entityIds?.length > 1) {
+          showLatestBusinessActionResultsOnly();
+          scrollToPanel("budgetList");
+        } else {
+          focusLatestBusinessActionTarget();
+        }
+      } else {
+        focusBusinessArea("overview");
       }
       break;
     case "business-feedback-open-target":
@@ -5852,6 +7181,10 @@ function handleDocumentClick(event) {
       event.stopPropagation();
       deleteTransaction(Number(actionNode.dataset.transactionId));
       break;
+    case "transactions-export-current":
+      event.stopPropagation();
+      exportCurrentTransactions();
+      break;
     case "transactions-prev-page":
       if (transactionPageIndex > 0) {
         loadTransactions(transactionPageIndex - 1);
@@ -5931,7 +7264,20 @@ function handleDocumentClick(event) {
 }
 
 function bindEvents() {
-  byId("loginBtn").addEventListener("click", handleLogin);
+  byId("headerQuickSearch")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const value = byId("headerQuickSearch").value || "";
+      if (byId("globalCommandInput")) {
+        byId("globalCommandInput").value = value;
+      }
+      executeGlobalCommand(value || "analysis-summary");
+    }
+  });
+  byId("headerNotificationBtn")?.addEventListener("click", () => adminPageNavigate("rules", "notificationsWorkspace"));
+  byId("headerProfileBtn")?.addEventListener("click", () => adminScrollTo("userFamilyWorkspace"));
+  byId("openAuthPageBtn").addEventListener("click", openAuthPage);
+  byId("logoutBtn").addEventListener("click", handleLogout);
   byId("runGlobalCommandBtn").addEventListener("click", () => {
     executeGlobalCommand(byId("globalCommandInput").value || "analysis-summary");
   });
@@ -5956,6 +7302,10 @@ function bindEvents() {
   byId("importBtn").addEventListener("click", performImport);
   byId("importBtnMirror").addEventListener("click", performImport);
   byId("summaryBtn").addEventListener("click", loadSummary);
+  ["countryIso3Mirror", "seriesIdMirror", "topCountriesMirror"].forEach((id) => {
+    byId(id)?.addEventListener("input", applyAnalysisParamMirrors);
+    byId(id)?.addEventListener("change", applyAnalysisParamMirrors);
+  });
   byId("acceptanceBtn").addEventListener("click", runAcceptance);
   byId("acceptanceBtnMirror").addEventListener("click", runAcceptance);
   byId("syncAnalysisParamsBtn").addEventListener("click", syncImportParamsToAnalysis);
@@ -6133,30 +7483,40 @@ function bindEvents() {
 }
 
 async function init() {
-  restoreSession();
-  renderGlobalCommandOptions("");
-  renderGlobalCommandDeck();
-  resetSummary();
-  renderLatestImport(null);
-  renderImportHistory();
-  renderImportHistoryDetail();
-  renderAccounts([]);
-  renderCategories([]);
-  renderBudgets([]);
-  renderTransactions([]);
-  renderTransactionMonthlySummary([]);
-  renderBusinessOverviewPanel();
-  renderRules([]);
-  renderNotifications([]);
-  renderSidebarStatusPanel();
-  switchView(activeView);
-  bindEvents();
-  await loadImportHistory();
-  if (token) {
-    await loadMe();
-    if (getCurrentFamilyId()) {
-      await Promise.all([loadRules(), loadNotifications()]);
+  try {
+    mountVisibleAdminWorkspaces();
+    restoreSession();
+    syncAnalysisParamMirrors();
+    renderTopStats();
+    renderHeaderAndSupportPanels();
+    renderGlobalCommandOptions("");
+    renderGlobalCommandDeck();
+    resetSummary();
+    renderLatestImport(null);
+    renderImportHistory();
+    renderImportHistoryDetail();
+    renderAccounts([]);
+    renderCategories([]);
+    renderBudgets([]);
+    renderTransactions([]);
+    renderTransactionMonthlySummary([]);
+    renderBusinessOverviewPanel();
+    renderRules([]);
+    renderNotifications([]);
+    renderSidebarStatusPanel();
+    switchView(activeView);
+    bindEvents();
+    registerScrollSpy();
+    await loadImportHistory();
+    if (token) {
+      await loadMe();
+      if (getCurrentFamilyId()) {
+        await Promise.all([loadRules(), loadNotifications()]);
+      }
     }
+  } catch (error) {
+    console.error("admin-mvp init failed", error);
+    setImportStatuses(`页面初始化失败：${error.message}`, true);
   }
 }
 

@@ -257,6 +257,11 @@ code {
   align-items: flex-start;
   gap: 18px;
   margin-bottom: 16px;
+  padding: 22px 24px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(246, 250, 255, 0.96) 100%);
+  box-shadow: var(--shadow-main);
 }
 
 .topbar-main {
@@ -296,6 +301,16 @@ code {
   border: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.topbar-meta-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #2563eb 0%, #14b8a6 100%);
 }
 
 .topbar-meta-label {
@@ -520,6 +535,7 @@ span.tag-btn.command-muted {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-soft);
+  font-weight: 700;
 }
 
 .topbar h1,
@@ -597,6 +613,13 @@ span.tag-btn.command-muted {
   padding: 20px;
   min-width: 0;
   backdrop-filter: blur(12px);
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
+}
+
+.panel.is-focus-panel {
+  border-color: rgba(37, 99, 235, 0.36);
+  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.62), 0 22px 42px rgba(37, 99, 235, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 250, 255, 0.98) 100%);
 }
 
 .panel-head {
@@ -605,6 +628,20 @@ span.tag-btn.command-muted {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(215, 225, 236, 0.72);
+  position: relative;
+}
+
+.panel-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 54px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb 0%, #14b8a6 100%);
 }
 
 .panel-auth,
@@ -1005,6 +1042,7 @@ span.tag-btn.command-muted {
   border-radius: 16px;
   background: var(--bg-soft);
   border: 1px solid var(--border-soft);
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
 }
 
 .toolbar-title,
@@ -1159,6 +1197,7 @@ span.tag-btn.command-muted {
   background: var(--bg-soft);
   border: 1px solid var(--border-soft);
   text-align: left;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
 }
 
 .highlight-item {
@@ -1322,6 +1361,7 @@ span.tag-btn.command-muted {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
 }
 
 .detail-panel.rule-detail-panel {
@@ -1399,6 +1439,7 @@ span.tag-btn.command-muted {
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
 }
 
 .detail-section::before {
@@ -1486,6 +1527,10 @@ span.tag-btn.command-muted {
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+  border: 1px solid rgba(215, 225, 236, 0.72);
 }
 
 .stats-pill {
@@ -1505,6 +1550,8 @@ span.tag-btn.command-muted {
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease, transform 0.24s ease;
+  box-shadow: var(--shadow-soft);
 }
 
 .table-section-meta {
@@ -1558,6 +1605,7 @@ span.tag-btn.command-muted {
   box-shadow: var(--shadow-soft);
   text-align: left;
   font: inherit;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease;
 }
 
 .dashboard-card-action,
@@ -1668,7 +1716,7 @@ span.tag-btn.command-muted {
 }
 
 .data-table-header {
-  background: #eef4fb;
+  background: linear-gradient(180deg, #f2f7fd 0%, #e9f1fb 100%);
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -1704,6 +1752,62 @@ span.tag-btn.command-muted {
 .data-table-row.is-active {
   background: #f3f9ff;
   box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.is-focus-target {
+  position: relative;
+  border-color: rgba(37, 99, 235, 0.38) !important;
+  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.82), 0 18px 36px rgba(37, 99, 235, 0.12) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%) !important;
+  transform: translateY(-1px);
+  animation: focusPulse 1.35s ease;
+}
+
+.is-focus-target::after {
+  content: "当前落点";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.summary-board.is-focus-target,
+.table-board.is-focus-target,
+.conclusion-board.is-focus-target,
+.detail-panel.is-focus-target,
+.detail-section.is-focus-target,
+.data-table.is-focus-target,
+.toolbar-card.is-focus-target {
+  overflow: visible;
+}
+
+.summary-board.is-focus-target::after,
+.table-board.is-focus-target::after,
+.conclusion-board.is-focus-target::after {
+  top: -10px;
+}
+
+@keyframes focusPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(191, 219, 254, 0.88);
+  }
+
+  60% {
+    box-shadow: 0 0 0 8px rgba(191, 219, 254, 0.22), 0 18px 36px rgba(37, 99, 235, 0.12);
+  }
+
+  100% {
+    box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.82), 0 18px 36px rgba(37, 99, 235, 0.12);
+  }
 }
 
 .data-cell {
@@ -1776,7 +1880,8 @@ span.tag-btn.command-muted {
   padding: 12px 14px;
   border: 1px solid var(--border-soft);
   border-radius: 14px;
-  background: #f8fbff;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+  box-shadow: var(--shadow-soft);
 }
 
 .pager-info {
@@ -1833,6 +1938,12 @@ span.tag-btn.command-muted {
   background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
   text-align: left;
   font: inherit;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease;
+}
+
+.business-summary-item:hover {
+  border-color: rgba(37, 99, 235, 0.24);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
 }
 
 .business-summary-item strong {
@@ -1851,6 +1962,80 @@ span.tag-btn.command-muted {
 
 .focus-line:last-child {
   border-bottom: 0;
+}
+
+.table-board,
+.summary-board {
+  position: relative;
+}
+
+#importHistoryList,
+#rulesList,
+#notificationsList,
+#accountList,
+#categoryList,
+#budgetList,
+#transactionList {
+  padding: 10px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+  border: 1px solid rgba(215, 225, 236, 0.72);
+}
+
+#importHistoryDetail,
+#ruleDetailPanel,
+#notificationDetailPanel,
+#accountDetailPanel,
+#categoryDetailPanel,
+#budgetDetailPanel,
+#transactionDetailPanel {
+  padding: 10px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(215, 225, 236, 0.78);
+  box-shadow: var(--shadow-soft);
+}
+
+#importHistoryDetail::before,
+#ruleDetailPanel::before,
+#notificationDetailPanel::before,
+#accountDetailPanel::before,
+#categoryDetailPanel::before,
+#budgetDetailPanel::before,
+#transactionDetailPanel::before {
+  content: "详情面板";
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e8f1fb;
+  color: #0f4c81;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#importHistoryList::before,
+#rulesList::before,
+#notificationsList::before,
+#accountList::before,
+#categoryList::before,
+#budgetList::before,
+#transactionList::before {
+  content: "结果列表";
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef4fb;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .modal-shell[hidden] {
@@ -2175,3 +2360,753 @@ span.tag-btn.command-muted {
   }
 }
 
+
+/* ===== RuoYi-style Admin Refresh ===== */
+body.ruoyi-admin {
+  font-family: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  background: #f4f5f7;
+  color: #1f2937;
+}
+
+body.ruoyi-admin * {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+body.ruoyi-admin ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body.ruoyi-admin ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+body.ruoyi-admin .admin-layout {
+  min-height: 100vh;
+  grid-template-columns: 256px minmax(0, 1fr);
+  background: #f4f5f7;
+}
+
+body.ruoyi-admin .sidebar {
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  padding: 0;
+  gap: 0;
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 55%, #1d4ed8 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+body.ruoyi-admin .brand-block {
+  margin: 0 20px;
+  padding: 22px 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.ruoyi-admin .brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
+body.ruoyi-admin .brand-title {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+body.ruoyi-admin .brand-subtitle {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+body.ruoyi-admin .sidebar-group,
+body.ruoyi-admin .sidebar-panel {
+  margin: 20px 12px 0;
+}
+
+body.ruoyi-admin .sidebar-group-title,
+body.ruoyi-admin .panel-label {
+  padding: 0 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.56);
+  letter-spacing: 0.08em;
+}
+
+body.ruoyi-admin .menu {
+  gap: 4px;
+  margin-top: 8px;
+}
+
+body.ruoyi-admin .menu-item {
+  position: relative;
+  border-radius: 10px;
+  padding: 12px 14px 12px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+body.ruoyi-admin .menu-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: #fff;
+  transform: scaleY(0);
+  transition: transform 0.2s ease;
+}
+
+body.ruoyi-admin .menu-item small {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+body.ruoyi-admin .menu-item:hover,
+body.ruoyi-admin .menu-item.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: none;
+}
+
+body.ruoyi-admin .menu-item.is-active::before {
+  transform: scaleY(1);
+}
+
+body.ruoyi-admin .sidebar-panel {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+body.ruoyi-admin .shortcut-item {
+  text-align: left;
+  border-radius: 8px;
+}
+
+body.ruoyi-admin .sidebar-status-item {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.ruoyi-admin .main-area {
+  padding: 20px 20px 28px;
+}
+
+body.ruoyi-admin .topbar {
+  align-items: stretch;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+body.ruoyi-admin .eyebrow,
+body.ruoyi-admin .panel-eyebrow {
+  color: #2563eb;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+body.ruoyi-admin .topbar-title-row {
+  align-items: center;
+}
+
+body.ruoyi-admin .topbar-title-row h1,
+body.ruoyi-admin .card-head h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+body.ruoyi-admin .workspace-tag {
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+body.ruoyi-admin .breadcrumb {
+  color: #6b7280;
+}
+
+body.ruoyi-admin .topbar-meta-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+body.ruoyi-admin .topbar-meta-card,
+body.ruoyi-admin .session-box {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+body.ruoyi-admin .topbar-controls {
+  width: min(560px, 100%);
+  gap: 12px;
+}
+
+body.ruoyi-admin .field-group > span,
+body.ruoyi-admin .session-label,
+body.ruoyi-admin .command-tag-label,
+body.ruoyi-admin .topbar-meta-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+}
+
+body.ruoyi-admin .field-input,
+body.ruoyi-admin select.field-input,
+body.ruoyi-admin input.field-input {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  box-shadow: none;
+}
+
+body.ruoyi-admin .field-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+body.ruoyi-admin .primary-btn,
+body.ruoyi-admin .secondary-btn,
+body.ruoyi-admin .ghost-btn,
+body.ruoyi-admin .mini-btn,
+body.ruoyi-admin .tag-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+body.ruoyi-admin .primary-btn {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  color: #fff;
+}
+
+body.ruoyi-admin .primary-btn:hover {
+  background: #1d4ed8;
+}
+
+body.ruoyi-admin .secondary-btn {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+body.ruoyi-admin .ghost-btn,
+body.ruoyi-admin .mini-btn,
+body.ruoyi-admin .tag-btn {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+body.ruoyi-admin .mini-btn.danger,
+body.ruoyi-admin .ghost-btn.danger,
+body.ruoyi-admin .tag-btn.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff5f5;
+}
+
+body.ruoyi-admin .tag-btn.is-active,
+body.ruoyi-admin .view-tab.is-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+body.ruoyi-admin .view-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+body.ruoyi-admin .view-tab {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+body.ruoyi-admin .workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+body.ruoyi-admin .panel {
+  grid-column: span 12;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+body.ruoyi-admin .panel-half {
+  grid-column: span 6;
+}
+
+body.ruoyi-admin .panel-wide,
+body.ruoyi-admin .panel-auth,
+body.ruoyi-admin .panel-actions,
+body.ruoyi-admin .panel-filter {
+  grid-column: span 12;
+}
+
+body.ruoyi-admin .panel-chart {
+  grid-column: span 5;
+}
+
+body.ruoyi-admin .panel-trend,
+body.ruoyi-admin .panel-fred,
+body.ruoyi-admin .panel-conclusion {
+  grid-column: span 7;
+}
+
+body.ruoyi-admin .panel-raw {
+  grid-column: span 12;
+}
+
+body.ruoyi-admin .panel-head,
+body.ruoyi-admin .modal-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #f0f2f5;
+  align-items: center;
+}
+
+body.ruoyi-admin .panel-head h2,
+body.ruoyi-admin .modal-head h2,
+body.ruoyi-admin .panel-head h3 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+body.ruoyi-admin .summary-board,
+body.ruoyi-admin .list-board,
+body.ruoyi-admin .table-board,
+body.ruoyi-admin .conclusion-board,
+body.ruoyi-admin .stats-strip,
+body.ruoyi-admin .metrics-row,
+body.ruoyi-admin .form-row,
+body.ruoyi-admin .toolbar-grid,
+body.ruoyi-admin .stack-form,
+body.ruoyi-admin .description-pairs,
+body.ruoyi-admin .command-deck,
+body.ruoyi-admin .import-overview-grid,
+body.ruoyi-admin .action-row,
+body.ruoyi-admin .quick-tags,
+body.ruoyi-admin .filter-summary,
+body.ruoyi-admin .inline-status,
+body.ruoyi-admin .raw-box {
+  margin: 0 20px 20px;
+}
+
+body.ruoyi-admin .summary-board,
+body.ruoyi-admin .list-board,
+body.ruoyi-admin .table-board,
+body.ruoyi-admin .conclusion-board {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+body.ruoyi-admin .summary-item,
+body.ruoyi-admin .result-card,
+body.ruoyi-admin .toolbar-card,
+body.ruoyi-admin .description-item,
+body.ruoyi-admin .metric-card,
+body.ruoyi-admin .stats-pill,
+body.ruoyi-admin .acceptance-check-item,
+body.ruoyi-admin .todo-item,
+body.ruoyi-admin .command-tag-block {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: none;
+}
+
+body.ruoyi-admin .summary-item,
+body.ruoyi-admin .toolbar-card,
+body.ruoyi-admin .description-item {
+  padding: 14px 16px;
+}
+
+body.ruoyi-admin .highlight-item {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+body.ruoyi-admin .metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+body.ruoyi-admin .metric-card {
+  position: relative;
+  padding: 18px 18px 16px;
+  text-align: left;
+  overflow: hidden;
+}
+
+body.ruoyi-admin .metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
+}
+
+body.ruoyi-admin .metric-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+body.ruoyi-admin .metric-value {
+  margin-top: 10px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+body.ruoyi-admin .table-board {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+body.ruoyi-admin .data-table-row,
+body.ruoyi-admin .table-row,
+body.ruoyi-admin .import-history-row {
+  border-bottom: 1px solid #eef2f7;
+  background: #fff;
+  transition: background 0.2s ease;
+}
+
+body.ruoyi-admin .data-table-row:hover,
+body.ruoyi-admin .table-row:hover,
+body.ruoyi-admin .import-history-row:hover,
+body.ruoyi-admin .data-table-row.is-active,
+body.ruoyi-admin .table-row.is-active,
+body.ruoyi-admin .import-history-row.is-active {
+  background: #f8fbff;
+}
+
+body.ruoyi-admin .data-table-head,
+body.ruoyi-admin .table-head {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.ruoyi-admin .stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.ruoyi-admin .stats-pill {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #4b5563;
+  background: #f9fafb;
+}
+
+body.ruoyi-admin .filter-summary,
+body.ruoyi-admin .inline-status,
+body.ruoyi-admin .command-hint {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+body.ruoyi-admin .raw-box {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+body.ruoyi-admin .empty-state {
+  padding: 28px 18px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+body.ruoyi-admin .modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+body.ruoyi-admin .modal-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+body.ruoyi-admin .modal-panel {
+  position: relative;
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  margin: 24px auto;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
+}
+
+body.ruoyi-admin .business-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+body.ruoyi-admin .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+
+@media (max-width: 1280px) {
+  body.ruoyi-admin .topbar {
+    flex-direction: column;
+  }
+
+  body.ruoyi-admin .topbar-controls {
+    width: 100%;
+  }
+
+  body.ruoyi-admin .panel-half,
+  body.ruoyi-admin .panel-chart,
+  body.ruoyi-admin .panel-trend,
+  body.ruoyi-admin .panel-fred,
+  body.ruoyi-admin .panel-conclusion {
+    grid-column: span 12;
+  }
+}
+
+@media (max-width: 1024px) {
+  body.ruoyi-admin .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body.ruoyi-admin .sidebar {
+    position: relative;
+    min-height: auto;
+  }
+
+  body.ruoyi-admin .metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  body.ruoyi-admin .main-area {
+    padding: 16px;
+  }
+
+  body.ruoyi-admin .topbar,
+  body.ruoyi-admin .view-tabs {
+    padding: 14px;
+  }
+
+  body.ruoyi-admin .workspace-grid,
+  body.ruoyi-admin .metrics-row,
+  body.ruoyi-admin .business-form-grid,
+  body.ruoyi-admin .topbar-meta-strip {
+    grid-template-columns: 1fr;
+  }
+
+  body.ruoyi-admin .summary-board,
+  body.ruoyi-admin .list-board,
+  body.ruoyi-admin .table-board,
+  body.ruoyi-admin .conclusion-board,
+  body.ruoyi-admin .stats-strip,
+  body.ruoyi-admin .metrics-row,
+  body.ruoyi-admin .form-row,
+  body.ruoyi-admin .toolbar-grid,
+  body.ruoyi-admin .stack-form,
+  body.ruoyi-admin .description-pairs,
+  body.ruoyi-admin .command-deck,
+  body.ruoyi-admin .import-overview-grid,
+  body.ruoyi-admin .action-row,
+  body.ruoyi-admin .quick-tags,
+  body.ruoyi-admin .filter-summary,
+  body.ruoyi-admin .inline-status,
+  body.ruoyi-admin .raw-box {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}
+
+/* ===== Strict Reference Alignment v2 ===== */
+body.ruoyi-admin .sidebar {
+  background: linear-gradient(180deg, #315d8f 0%, #3b6fa7 52%, #4e86be 100%);
+}
+
+body.ruoyi-admin .brand-block {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+body.ruoyi-admin .brand-logo {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+body.ruoyi-admin .sidebar-group-title,
+body.ruoyi-admin .panel-label,
+body.ruoyi-admin .brand-subtitle,
+body.ruoyi-admin .menu-item small {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+body.ruoyi-admin .menu-item {
+  border-radius: 8px;
+}
+
+body.ruoyi-admin .menu-item:hover,
+body.ruoyi-admin .menu-item.is-active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+body.ruoyi-admin .sidebar-panel {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.ruoyi-admin .sidebar-status-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.ruoyi-admin .main-area {
+  padding: 16px 18px 24px;
+}
+
+body.ruoyi-admin .topbar,
+body.ruoyi-admin .view-tabs,
+body.ruoyi-admin .panel,
+body.ruoyi-admin .modal-panel {
+  border-radius: 10px;
+}
+
+body.ruoyi-admin .topbar,
+body.ruoyi-admin .view-tabs,
+body.ruoyi-admin .panel {
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+body.ruoyi-admin .topbar {
+  padding: 18px 20px;
+}
+
+body.ruoyi-admin .topbar-title-row h1,
+body.ruoyi-admin .card-head h2 {
+  font-size: 24px;
+}
+
+body.ruoyi-admin .workspace-tag,
+body.ruoyi-admin .stats-pill,
+body.ruoyi-admin .filter-summary,
+body.ruoyi-admin .inline-status,
+body.ruoyi-admin .command-hint {
+  border-radius: 8px;
+}
+
+body.ruoyi-admin .panel-head,
+body.ruoyi-admin .modal-head {
+  padding: 16px 18px 12px;
+}
+
+body.ruoyi-admin .panel-head h2,
+body.ruoyi-admin .modal-head h2,
+body.ruoyi-admin .panel-head h3 {
+  font-size: 17px;
+}
+
+body.ruoyi-admin .summary-board,
+body.ruoyi-admin .list-board,
+body.ruoyi-admin .table-board,
+body.ruoyi-admin .conclusion-board,
+body.ruoyi-admin .stats-strip,
+body.ruoyi-admin .metrics-row,
+body.ruoyi-admin .form-row,
+body.ruoyi-admin .toolbar-grid,
+body.ruoyi-admin .stack-form,
+body.ruoyi-admin .description-pairs,
+body.ruoyi-admin .command-deck,
+body.ruoyi-admin .import-overview-grid,
+body.ruoyi-admin .action-row,
+body.ruoyi-admin .quick-tags,
+body.ruoyi-admin .filter-summary,
+body.ruoyi-admin .inline-status,
+body.ruoyi-admin .raw-box {
+  margin-left: 18px;
+  margin-right: 18px;
+  margin-bottom: 18px;
+}
+
+body.ruoyi-admin .summary-item,
+body.ruoyi-admin .toolbar-card,
+body.ruoyi-admin .description-item,
+body.ruoyi-admin .metric-card,
+body.ruoyi-admin .stats-pill,
+body.ruoyi-admin .command-tag-block {
+  border-radius: 8px;
+}
+
+body.ruoyi-admin .metric-card {
+  padding: 16px;
+}
+
+body.ruoyi-admin .metric-value {
+  font-size: 26px;
+}
+
+body.ruoyi-admin .field-input,
+body.ruoyi-admin select.field-input,
+body.ruoyi-admin input.field-input,
+body.ruoyi-admin .primary-btn,
+body.ruoyi-admin .secondary-btn,
+body.ruoyi-admin .ghost-btn,
+body.ruoyi-admin .mini-btn,
+body.ruoyi-admin .tag-btn {
+  border-radius: 6px;
+}

@@ -1,1062 +1,1515 @@
-﻿<!doctype html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>家庭财务管理系统后台</title>
-  <link rel="stylesheet" href="/admin-mvp.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>瀹跺涵璐㈠姟绠＄悊绯荤粺 - 绠＄悊鍛樺悗鍙?/title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin-mvp.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        surface: {
+                            50: '#fafafa',
+                            100: '#f4f5f7',
+                            200: '#eef1f5',
+                            300: '#e2e6ec',
+                            400: '#c9cdd4',
+                            500: '#9ca3af',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-main: #f4f5f7;
+            --bg-card: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border-color: #e5e7eb;
+            --accent: #2563eb;
+            --accent-light: #dbeafe;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * {
+            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        /* 婊氬姩鏉℃牱寮?*/
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-400);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--surface-500);
+        }
+        /* 渚ц竟鏍忔牱寮?*/
+        .sidebar {
+            background: linear-gradient(180deg, #537aa6 0%, #638cb6 52%, #78a1ca 100%);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar-item {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .sidebar-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: white;
+            transform: scaleY(0);
+            transition: transform 0.2s ease;
+        }
+        .sidebar-item:hover,
+        .sidebar-item.active {
+            background: rgba(255,255,255,0.12);
+        }
+        .sidebar-item.active::before {
+            transform: scaleY(1);
+        }
+        /* 缁熻鍗＄墖 */
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #60a5fa);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -8px rgba(37, 99, 235, 0.15);
+        }
+        .stat-card:hover::after {
+            opacity: 1;
+        }
+        /* 鏁版嵁闈㈡澘 */
+        .data-panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        /* 鍒楄〃椤瑰姩鐢?*/
+        .list-item {
+            transition: all 0.2s ease;
+        }
+        .list-item:hover {
+            background: var(--surface-100);
+        }
+        /* 蹇嵎鎸夐挳 */
+        .quick-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+        .quick-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+            transform: translateY(-2px);
+        }
+        .quick-btn:active {
+            transform: translateY(0);
+        }
+        /* 鍏ュ満鍔ㄧ敾 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .animate-in {
+            animation: fadeInUp 0.5s ease forwards;
+            opacity: 0;
+        }
+        .stagger-1 { animation-delay: 0.05s; }
+        .stagger-2 { animation-delay: 0.1s; }
+        .stagger-3 { animation-delay: 0.15s; }
+        .stagger-4 { animation-delay: 0.2s; }
+        .stagger-5 { animation-delay: 0.25s; }
+        .stagger-6 { animation-delay: 0.3s; }
+        /* 鏁板瓧璁℃暟鍔ㄧ敾 */
+        @keyframes countPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        .count-animate {
+            animation: countPulse 0.3s ease;
+        }
+        /* 鐘舵€佹寚绀虹伅 */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        /* 鍑忓皯鍔ㄧ敾鍋忓ソ */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        /* 鍥炬爣瀹瑰櫒 */
+        .icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        /* 鏍囩鏍峰紡 */
+        .tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .workspace-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .workspace-note {
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.65;
+        }
+        .ops-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .ops-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+            padding: 16px;
+        }
+        .ops-card-label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .ops-card-value {
+            margin-top: 8px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .ops-card-meta {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .ops-table {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .ops-table-head,
+        .ops-table-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr 1.1fr 1.4fr;
+            gap: 12px;
+            padding: 12px 16px;
+            align-items: center;
+        }
+        .ops-table-head {
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .ops-table-row {
+            border-bottom: 1px solid #eef2f7;
+            font-size: 13px;
+            color: #0f172a;
+        }
+        .ops-table-row:last-child {
+            border-bottom: none;
+        }
+        .ops-cell-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .ops-cell-title {
+            font-weight: 600;
+            color: #111827;
+        }
+        .ops-cell-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .ops-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 26px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .ops-badge.success {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+            color: #15803d;
+        }
+        .ops-badge.warning {
+            border-color: #fde68a;
+            background: #fffbeb;
+            color: #b45309;
+        }
+        .ops-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .ops-timeline-item {
+            display: grid;
+            grid-template-columns: 90px 1fr;
+            gap: 14px;
+            padding: 14px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .ops-timeline-time {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563eb;
+        }
+        .ops-timeline-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+        }
+        .ops-timeline-meta {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .module-divider {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 30px 0 16px;
+            padding: 18px 20px;
+            border: 1px solid #dbeafe;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+        .module-divider-copy {
+            min-width: 0;
+        }
+        .module-divider-kicker {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #2563eb;
+        }
+        .module-divider-title {
+            margin-top: 6px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .module-divider-desc {
+            margin-top: 6px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #64748b;
+        }
+        .module-divider-pill {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            min-height: 32px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .scroll-section {
+            position: relative;
+            scroll-margin-top: 88px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .scroll-section.is-current {
+            transform: translateY(-2px);
+        }
+        .scroll-section.is-current .data-panel {
+            box-shadow: 0 14px 34px -24px rgba(37, 99, 235, 0.45);
+            border-color: #bfdbfe;
+        }
+        @media (max-width: 1200px) {
+            .ops-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 900px) {
+            .ops-table-head,
+            .ops-table-row {
+                grid-template-columns: 1fr;
+            }
+            .ops-timeline-item {
+                grid-template-columns: 1fr;
+            }
+            .module-divider {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
-<body>
-  <div class="admin-layout">
-    <aside class="sidebar">
-      <div class="brand-block">
-        <div class="brand-logo">FM</div>
-        <div>
-          <div class="brand-title">家庭财务管理系统</div>
-          <div class="brand-subtitle">Admin Console</div>
+<body class="ruoyi-admin bg-surface-100 min-h-screen">
+<div class="flex h-screen overflow-hidden">
+    <!-- 宸︿晶杈规爮 -->
+    <aside id="sidebar" class="sidebar w-64 flex-shrink-0 flex flex-col text-white">
+        <!-- Logo鍖哄煙 -->
+        <div class="h-16 flex items-center px-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-semibold text-base leading-tight">瀹跺涵璐㈠姟</h1>
+                    <p class="text-xs text-white/60">绠＄悊绯荤粺 v2.0</p>
+                </div>
+            </div>
         </div>
-      </div>
-
-      <div class="sidebar-group">
-        <div class="sidebar-group-title">工作导航</div>
-        <nav class="menu">
-          <button class="menu-item is-active" type="button" data-view="analysis">
-            <span>真实数据分析</span>
-            <small>总控台与分析结论</small>
-          </button>
-          <button class="menu-item" type="button" data-view="imports">
-            <span>导入管理</span>
-            <small>批次、质量与异常定位</small>
-          </button>
-          <button class="menu-item" type="button" data-view="business">
-            <span>业务管理</span>
-            <small>账户、分类、预算、交易</small>
-          </button>
-          <button class="menu-item" type="button" data-view="rules">
-            <span>规则与通知</span>
-            <small>规则运营与通知联动</small>
-          </button>
-          <button class="menu-item" type="button" data-view="acceptance">
-            <span>系统验收</span>
-            <small>联通检查与结果确认</small>
-          </button>
+        <!-- 瀵艰埅鑿滃崟 -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3">
+            <ul class="space-y-1">
+                <!-- 宸ヤ綔鍙?- 褰撳墠婵€娲?-->
+                <li>
+                    <a href="#" class="sidebar-item active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium" data-sidebar-view="analysis" onclick="adminPageNavigate('analysis'); return false;">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                        <span>宸ヤ綔鍙?/span>
+                    </a>
+                </li>
+                <!-- 鐢ㄦ埛涓庡搴鐞?-->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('family', 'sectionFamily');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="family">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <span>鐢ㄦ埛涓庡搴?/span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionFamily'); return false;">鐢ㄦ埛鍒楄〃</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionFamily'); return false;">瀹跺涵鍒楄〃</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionFamily'); return false;">鎴愬憳鍏崇郴</a></li>
+                    </ul>
+                </li>
+                <!-- 璐︽湰鍩虹绠＄悊 -->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('business');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="business">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                            </svg>
+                            <span>璐︽湰鍩虹</span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'accountsWorkspace'); return false;">璐︽埛绠＄悊</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'categoriesWorkspace'); return false;">鍒嗙被绠＄悊</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'budgetsWorkspace'); return false;">棰勭畻绠＄悊</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'businessOverviewVisible'); return false;">鍥哄畾璧勪骇</a></li>
+                    </ul>
+                </li>
+                <!-- 浜ゆ槗涓庤处鍗?-->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('business', 'transactionsWorkspace');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="business">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <span>浜ゆ槗涓庤处鍗?/span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'transactionsWorkspace'); return false;">浜ゆ槗娴佹按</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('imports'); return false;">璐﹀崟瀵煎叆</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('business', 'transactionsWorkspace'); return false;">寰呭綊绫昏褰?/a></li>
+                    </ul>
+                </li>
+                <!-- 瑙勫垯涓庨€氱煡 -->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('rules');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="rules">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                            <span>瑙勫垯涓庨€氱煡</span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('rules', 'rulesWorkspace'); return false;">瑙勫垯瀹氫箟</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('rules', 'rulesOverviewVisible'); return false;">鎵ц璁板綍</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('rules', 'notificationsWorkspace'); return false;">閫氱煡涓績</a></li>
+                    </ul>
+                </li>
+                <!-- 鏁版嵁鍒嗘瀽涓績 -->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('analysis');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="analysis">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            <span>鏁版嵁鍒嗘瀽</span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('analysis'); return false;">璐㈠姟姒傝</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('analysis', 'trendInsightBoard'); return false;">瓒嬪娍鍒嗘瀽</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('analysis', 'retailInsightBoard'); return false;">娑堣垂缁撴瀯</a></li>
+                    </ul>
+                </li>
+                <!-- 鐪熷疄鏁版嵁瀵煎叆 -->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('imports');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="imports">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                            </svg>
+                            <span>鏁版嵁瀵煎叆</span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('imports'); return false;">瀵煎叆绠＄悊</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminPageNavigate('analysis'); return false;">鍒嗘瀽缁撴灉</a></li>
+                    </ul>
+                </li>
+                <!-- 绯荤粺涓庢棩蹇?-->
+                <li>
+                    <button onclick="toggleSubmenu(this); adminPageNavigate('system', 'sectionSystem');" class="sidebar-item w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:text-white" data-sidebar-view="system">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span>绯荤粺涓庢棩蹇?/span>
+                        </div>
+                        <svg class="w-4 h-4 transition-transform submenu-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <ul class="submenu hidden ml-9 mt-1 space-y-1">
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionSystem'); return false;">瀵煎嚭璁板綍</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionSystem'); return false;">鎿嶄綔鏃ュ織</a></li>
+                        <li><a href="#" class="block px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10" onclick="adminScrollTo('sectionSystem'); return false;">绯荤粺璇存槑</a></li>
+                    </ul>
+                </li>
+            </ul>
         </nav>
-      </div>
-
-      <section class="sidebar-panel sidebar-shortcuts">
-        <p class="panel-label">常用入口</p>
-        <div class="sidebar-shortcut-list">
-          <button class="menu-item shortcut-item" type="button" data-action="dashboard-refresh-summary">刷新分析汇总</button>
-          <button class="menu-item shortcut-item" type="button" data-action="dashboard-refresh-business">刷新业务数据</button>
-          <button class="menu-item shortcut-item" type="button" data-action="dashboard-evaluate-rules">执行规则评估</button>
+        <!-- 搴曢儴鐢ㄦ埛淇℃伅 -->
+        <div class="p-4 border-t border-white/10">
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-white/5">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-sm font-semibold text-white">
+                    绠?
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate">绯荤粺绠＄悊鍛?/p>
+                    <p class="text-xs text-white/50 truncate">admin@family.finance</p>
+                </div>
+            </div>
         </div>
-      </section>
-
-      <section class="sidebar-panel sidebar-status-panel">
-        <p class="panel-label">当前数据状态</p>
-        <div id="sidebarStatusBoard" class="sidebar-status-list">
-          <div class="sidebar-status-item">
-            <span>导入质量</span>
-            <strong>待确认</strong>
-          </div>
-          <div class="sidebar-status-item">
-            <span>预算异常</span>
-            <strong>0</strong>
-          </div>
-          <div class="sidebar-status-item">
-            <span>未读通知</span>
-            <strong>0</strong>
-          </div>
-          <div class="sidebar-status-item">
-            <span>高优先级规则</span>
-            <strong>0</strong>
-          </div>
-        </div>
-      </section>
-
-      <section class="sidebar-panel">
-        <p class="panel-label">当前目标</p>
-        <p class="panel-text">把管理员端推进成可持续扩展的后台工作台，而不是一次性演示页。当前优先完成真实数据导入、分析联动、规则通知运营视图。</p>
-      </section>
     </aside>
+    <!-- 鍙充晶涓诲唴瀹瑰尯 -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 椤堕儴瀵艰埅鏍?-->
+        <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
+            <div class="flex items-center gap-4">
+                <!-- 鎶樺彔鎸夐挳 -->
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-label="鍒囨崲渚ц竟鏍?>
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <!-- 闈㈠寘灞?-->
+                <nav class="flex items-center text-sm text-gray-500">
+                    <span class="hover:text-primary-600 cursor-pointer">棣栭〉</span>
+                    <svg class="w-4 h-4 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span id="pageBreadcrumbVisible" class="text-gray-900 font-medium">鍚庡彴棣栭〉 / 鐪熷疄鏁版嵁鍒嗘瀽</span>
+                </nav>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- 鎼滅储妗?-->
+                <div class="relative hidden md:block">
+                    <input id="headerQuickSearch" type="text" placeholder="鎼滅储鍔熻兘鎴栬緭鍏ュ懡浠?.." class="w-56 pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <!-- 鍒锋柊鎸夐挳 -->
+                <button onclick="refreshData()" class="p-2 rounded-lg hover:bg-gray-100 transition-colors relative group" aria-label="鍒锋柊鏁版嵁">
+                    <svg id="refreshIcon" class="w-5 h-5 text-gray-600 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+                <!-- 閫氱煡閾冮摏 -->
+                <button id="headerNotificationBtn" class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-label="閫氱煡">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <span id="headerNotificationDot" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full hidden"></span>
+                </button>
+                <!-- 鐢ㄦ埛涓嬫媺 -->
+                <div id="headerProfileBtn" class="flex items-center gap-2 pl-3 border-l border-gray-200 cursor-pointer">
+                    <div id="headerProfileAvatar" class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-primary-400 flex items-center justify-center text-xs font-semibold text-white">
+                        鏈?                    </div>
+                    <span id="headerProfileName" class="text-sm font-medium text-gray-700 hidden sm:block">鏈櫥褰?/span>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </div>
+        </header>
+        <!-- 涓诲唴瀹瑰尯鍩?-->
+        <main id="adminMainScroller" class="flex-1 overflow-y-auto p-6">
+            <!-- 椤甸潰鏍囬 -->
+            <div class="mb-6 animate-in stagger-1">
+                <h2 id="pageTitleVisible" class="text-2xl font-bold text-gray-900">鐪熷疄鏁版嵁鍒嗘瀽鎬绘帶鍙?/h2>
+                <p id="pageHintVisible" class="mt-1 text-sm text-gray-500">鍏堟墽琛屽鍏ワ紝鍐嶅埛鏂板垎鏋愭眹鎬讳笌棣栭〉鎬绘帶鍙?/p>
+            </div>
+            <!-- 缁熻鍗＄墖琛?-->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                <!-- 鐢ㄦ埛鏁?-->
+                <div class="stat-card p-5 animate-in stagger-1">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p id="dashboardStat1Label" class="text-sm text-gray-500 mb-1">鍙闂搴?/p>
+                            <p id="dashboardStat1Value" class="text-2xl font-bold text-gray-900">-</p>
+                            <p id="dashboardStat1Meta" class="text-xs text-gray-500 mt-2 flex items-center gap-1">鐧诲綍鍚庢樉绀哄搴笂涓嬫枃</p>
+                        </div>
+                        <div class="icon-box bg-blue-50">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- 瀹跺涵鏁?-->
+                <div class="stat-card p-5 animate-in stagger-2">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p id="dashboardStat2Label" class="text-sm text-gray-500 mb-1">瀹跺涵鎴愬憳鍏崇郴</p>
+                            <p id="dashboardStat2Value" class="text-2xl font-bold text-gray-900">-</p>
+                            <p id="dashboardStat2Meta" class="text-xs text-gray-500 mt-2 flex items-center gap-1">鐧诲綍鍚庣粺璁℃垚鍛樺叧绯?/p>
+                        </div>
+                        <div class="icon-box bg-violet-50">
+                            <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- 璐︽埛鏁?-->
+                <div class="stat-card p-5 animate-in stagger-3">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p id="dashboardStat3Label" class="text-sm text-gray-500 mb-1">宸插姞杞借处鎴?/p>
+                            <p id="dashboardStat3Value" class="text-2xl font-bold text-gray-900">-</p>
+                            <p id="dashboardStat3Meta" class="text-xs text-gray-500 mt-2 flex items-center gap-1">鍔犺浇涓氬姟鍚庣粺璁¤处鎴锋暟閲?/p>
+                        </div>
+                        <div class="icon-box bg-emerald-50">
+                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- 浜ゆ槗鏁?-->
+                <div class="stat-card p-5 animate-in stagger-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p id="dashboardStat4Label" class="text-sm text-gray-500 mb-1">浜ゆ槗鎬婚噺</p>
+                            <p id="dashboardStat4Value" class="text-2xl font-bold text-gray-900">-</p>
+                            <p id="dashboardStat4Meta" class="text-xs text-gray-500 mt-2 flex items-center gap-1">浜ゆ槗鍒楄〃鍒锋柊鍚庢樉绀烘€婚噺</p>
+                        </div>
+                        <div class="icon-box bg-orange-50">
+                            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <!-- 瀵煎叆鎵规 -->
+                <div class="stat-card p-5 animate-in stagger-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p id="dashboardStat5Label" class="text-sm text-gray-500 mb-1">瀵煎叆鎵规</p>
+                            <p id="dashboardStat5Value" class="text-2xl font-bold text-gray-900">-</p>
+                            <p id="dashboardStat5Meta" class="text-xs text-gray-500 mt-2 flex items-center gap-1">瀵煎叆鍘嗗彶鍔犺浇鍚庢洿鏂?/p>
+                        </div>
+                        <div class="icon-box bg-cyan-50">
+                            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 鍙屽垪甯冨眬 -->
+            <div class="module-divider">
+                <div class="module-divider-copy">
+                    <div class="module-divider-kicker">Import Center</div>
+                    <div class="module-divider-title">鐪熷疄鏁版嵁瀵煎叆涓庡垎鏋?/div>
+                    <div class="module-divider-desc">杩欎竴娈甸泦涓睍绀虹湡瀹炴暟鎹叆搴撱€佸垎鏋愬弬鏁般€佽秼鍔跨粨璁哄拰鍘熷鍥炴墽銆傚線涓嬫粴鏃讹紝宸︿晶瀵艰埅浼氳嚜鍔ㄥ垏鎹㈠埌瀵煎叆鎴栧垎鏋愭ā鍧椼€?/div>
+                </div>
+                <div class="module-divider-pill">瀵煎叆 + 鍒嗘瀽</div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 宸︿晶锛氭渶杩戜笟鍔″姩鎬?(鍗?鍒? -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- 鏈€杩戝鍏ヨ褰?-->
+                    <section id="sectionImports" class="scroll-section" data-scroll-view="imports">
+                    <div class="data-panel animate-in stagger-4">
+                        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                                </svg>
+                                <h3 class="font-semibold text-gray-900">鐪熷疄鏁版嵁瀵煎叆绠＄悊</h3>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="importBtnMirror" class="px-3 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors" type="button">鎵ц瀵煎叆</button>
+                                <button id="acceptanceBtnMirror" class="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors" type="button">涓€閿獙鏀?/button>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <label class="block">
+                                    <span class="text-xs font-medium text-gray-500">processedDir</span>
+                                    <input id="processedDirInput" class="mt-2 w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" value="data/processed">
+                                </label>
+                                <label class="block">
+                                    <span class="text-xs font-medium text-gray-500">batchSize</span>
+                                    <input id="batchSizeInput" type="number" min="1" class="mt-2 w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" value="5000">
+                                </label>
+                                <label class="block">
+                                    <span class="text-xs font-medium text-gray-500">瀵煎叆鍓嶆竻绌?/span>
+                                    <div class="mt-2 h-[42px] px-3 flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                                        <input id="truncateBeforeImportInput" type="checkbox" checked>
+                                        <span>娓呯┖涓夊紶鐪熷疄鏁版嵁琛?/span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button class="px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium" type="button" data-action="apply-import-preset" data-batch-size="1000" data-truncate="true">瀹夊叏鎵规</button>
+                                <button class="px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium" type="button" data-action="apply-import-preset" data-batch-size="5000" data-truncate="true">榛樿鎵规</button>
+                                <button class="px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium" type="button" data-action="apply-import-preset" data-batch-size="10000" data-truncate="false">澧為噺鎵规</button>
+                                <button id="syncAnalysisParamsBtn" class="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 text-xs font-medium" type="button">鍚屾鍒板垎鏋愰潰鏉?/button>
+                                <button id="clearImportHistoryBtn" class="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 text-xs font-medium" type="button">鍒锋柊瀵煎叆鍘嗗彶</button>
+                            </div>
+                            <div id="importStatusMirror" class="px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600">绛夊緟鎿嶄綔</div>
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">鏈€杩戜竴娆″鍏ョ粨鏋?/div>
+                                    <div id="latestImportResult" class="space-y-3">
+                                        <div class="text-sm text-gray-500">鏆傛棤瀵煎叆缁撴灉</div>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">瀵煎叆鐘舵€佸垽鏂?/div>
+                                    <div id="importStateBoard" class="space-y-3">
+                                        <div class="text-sm text-gray-500">灏氭湭鎵ц瀵煎叆锛屽綋鍓嶆棤娉曞垽鏂湡瀹炴暟鎹叆搴撹川閲忋€?/div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900">瀵煎叆鍘嗗彶</div>
+                                            <div class="text-xs text-gray-500 mt-1">鏀寔鏌ョ湅鏈€杩戞壒娆°€佸紓甯哥姸鎬佸拰鍙傛暟鍥炲～</div>
+                                        </div>
+                                        <select id="importHistorySort" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">
+                                            <option value="created-desc">鏈€鏂颁紭鍏?/option>
+                                            <option value="issue-first">寮傚父浼樺厛</option>
+                                            <option value="batch-desc">鎵规鍙峰€掑簭</option>
+                                        </select>
+                                    </div>
+                                    <div id="importHistoryStats" class="px-4 py-3 flex flex-wrap gap-2 border-b border-gray-100 text-xs text-gray-600">
+                                        <span class="px-2 py-1 rounded-md bg-gray-100">鎬绘壒娆★細0</span>
+                                        <span class="px-2 py-1 rounded-md bg-gray-100">鎴愬姛锛?</span>
+                                        <span class="px-2 py-1 rounded-md bg-gray-100">寮傚父锛?</span>
+                                        <span class="px-2 py-1 rounded-md bg-gray-100">FRED 闄嶇骇锛?</span>
+                                    </div>
+                                    <div class="px-4 py-3 flex flex-wrap gap-2 border-b border-gray-100">
+                                        <button id="importHistoryQuickAllBtn" class="px-3 py-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium" type="button">鍏ㄩ儴</button>
+                                        <button id="importHistoryQuickAbnormalBtn" class="px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 text-xs font-medium" type="button">寮傚父</button>
+                                        <button id="importHistoryQuickDegradedBtn" class="px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 text-xs font-medium" type="button">FRED 闄嶇骇</button>
+                                        <button id="importHistoryQuickSuccessBtn" class="px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 text-xs font-medium" type="button">鎴愬姛</button>
+                                    </div>
+                                    <div id="importHistoryList" class="min-h-[220px]"><div class="px-4 py-8 text-sm text-gray-500 text-center">鏆傛棤瀵煎叆鍘嗗彶</div></div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">閫変腑璁板綍璇︽儏</div>
+                                    <div id="importHistoryDetail" class="space-y-3">
+                                        <div class="text-sm text-gray-500">璇烽€夋嫨宸︿晶鏌愭瀵煎叆璁板綍</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </section>
+                    <section id="sectionAnalysis" class="scroll-section" data-scroll-view="analysis">
+                    <div class="data-panel animate-in stagger-5">
+                        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                <h3 class="font-semibold text-gray-900">鐪熷疄鏁版嵁鍒嗘瀽缁撴灉</h3>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="summaryBtn" class="px-3 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors" type="button">鍔犺浇姹囨€?/button>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-5">
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+                                    <div>
+                                        <div class="text-sm font-semibold text-gray-900">鍒嗘瀽鍙傛暟</div>
+                                        <div class="text-xs text-gray-500 mt-1">瀵煎叆瀹屾垚鍚庯紝鐩存帴鎸夊浗瀹躲€佸畯瑙傚簭鍒楀拰鍥藉姒滃崟瑙勬ā鍒锋柊鍒嗘瀽缁撴灉銆?/div>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:w-[640px]">
+                                        <label class="block">
+                                            <span class="block text-xs font-medium text-gray-600 mb-1">鍥藉 ISO3</span>
+                                            <input id="countryIso3Mirror" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800" type="text" value="CHN" placeholder="濡?CHN">
+                                        </label>
+                                        <label class="block">
+                                            <span class="block text-xs font-medium text-gray-600 mb-1">FRED 搴忓垪</span>
+                                            <input id="seriesIdMirror" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800" type="text" value="PCE" placeholder="濡?PCE">
+                                        </label>
+                                        <label class="block">
+                                            <span class="block text-xs font-medium text-gray-600 mb-1">Top 鍥藉鏁?/span>
+                                            <input id="topCountriesMirror" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800" type="number" value="10" min="1" max="50">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-xs font-medium text-gray-500">闆跺敭璁板綍鏁?/div>
+                                    <div id="metricTotalRecords" class="mt-3 text-2xl font-bold text-gray-900">-</div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-xs font-medium text-gray-500">闆跺敭鎬婚噾棰?/div>
+                                    <div id="metricTotalAmount" class="mt-3 text-2xl font-bold text-gray-900">-</div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-xs font-medium text-gray-500">鍥藉瓒嬪娍鐐规暟</div>
+                                    <div id="metricWorldBankPoints" class="mt-3 text-2xl font-bold text-gray-900">-</div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-xs font-medium text-gray-500">FRED 鐐规暟</div>
+                                    <div id="metricFredPoints" class="mt-3 text-2xl font-bold text-gray-900">-</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">鍒嗘瀽鎬绘帶鍙?/div>
+                                    <div id="executiveDashboard" class="space-y-3">
+                                        <div class="text-sm text-gray-500">鐧诲綍骞跺姞杞芥暟鎹悗锛岃繖閲屼細姹囨€诲鍏ャ€佸垎鏋愩€佷笟鍔″拰瑙勫垯閫氱煡鐘舵€併€?/div>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">鍒嗘瀽鐘舵€佹€昏</div>
+                                    <div id="analysisStateBoard" class="space-y-3">
+                                        <div class="text-sm text-gray-500">灏氭湭鎵ц鍒嗘瀽姹囨€伙紝褰撳墠鏃犳硶鍒ゆ柇鍥藉瓒嬪娍銆佸畯瑙傚簭鍒楀拰鑷姩缁撹璐ㄩ噺銆?/div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">浜ゆ槗缁撴瀯缁撹</div>
+                                    <div id="retailInsightBoard" class="space-y-3">
+                                        <div class="text-sm text-gray-500">鏆傛棤浜ゆ槗缁撴瀯鍒嗘瀽</div>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">瓒嬪娍瑙ｉ噴</div>
+                                    <div id="trendInsightBoard" class="space-y-3">
+                                        <div class="text-sm text-gray-500">鏆傛棤瓒嬪娍瑙ｉ噴</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="data-panel animate-in stagger-5">
+                        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 13v-1m4 1v-3m4 3V8m-9 8h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                <h3 class="font-semibold text-gray-900">瓒嬪娍銆佺粨璁轰笌鍘熷鍥炴墽</h3>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                                <div class="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-gray-900">鍥藉浜ゆ槗棰?Top 鍒楄〃</div>
+                                <div id="countryList" class="min-h-[140px]"><div class="px-4 py-8 text-sm text-gray-500 text-center">鏆傛棤鍥藉浜ゆ槗棰濆垪琛?/div></div>
+                            </div>
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">鍥藉瓒嬪娍鎽樿</div>
+                                    <div id="worldBankSummary" class="space-y-3"><div class="text-sm text-gray-500">鏆傛棤鍥藉瓒嬪娍鎽樿</div></div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">瀹忚搴忓垪鐘舵€?/div>
+                                    <div id="fredSummary" class="space-y-3"><div class="text-sm text-gray-500">鏆傛棤 FRED 搴忓垪缁撴灉</div></div>
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 bg-white p-4">
+                                <div class="text-sm font-semibold text-gray-900 mb-3">鑷姩缁撹杈撳嚭</div>
+                                <div id="conclusionList" class="space-y-3"><div class="text-sm text-gray-500">鏆傛棤鑷姩缁撹</div></div>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 bg-slate-900 p-4 overflow-x-auto">
+                                <div class="text-sm font-semibold text-slate-100 mb-3">鍘熷鍥炴墽</div>
+                                <pre id="rawPayload" class="text-xs leading-6 text-slate-300 whitespace-pre-wrap">(waiting)</pre>
+                            </div>
+                        </div>
+                    </div>
+                    </section>
+<div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">蹇嵎鎿嶄綔</h3>
+                        </div>
+                        <div class="p-4 grid grid-cols-2 gap-3">
+                            <button class="quick-btn p-4 flex flex-col items-center gap-2 text-left" type="button" data-action="create-account">
+                                <div class="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">鏂板璐︽埛</span>
+                            </button>
+                            <button class="quick-btn p-4 flex flex-col items-center gap-2 text-left" type="button" data-action="dashboard-open-import-issues">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">瀵煎叆璐﹀崟</span>
+                            </button>
+                            <button class="quick-btn p-4 flex flex-col items-center gap-2 text-left" type="button" data-action="dashboard-open-high-priority-rules">
+                                <div class="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">鏂板缓瑙勫垯</span>
+                            </button>
+                            <button class="quick-btn p-4 flex flex-col items-center gap-2 text-left" type="button" data-action="transactions-export-current">
+                                <div class="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">瀵煎嚭鎶ヨ〃</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 绯荤粺鐘舵€?-->
+                    <div class="data-panel p-5 animate-in stagger-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">绯荤粺鐘舵€?/h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">API 鏈嶅姟</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="status-dot bg-emerald-500"></span>
+                                    <span class="text-sm text-emerald-600 font-medium">姝ｅ父</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">鏁版嵁搴撹繛鎺?/span>
+                                <div class="flex items-center gap-2">
+                                    <span class="status-dot bg-emerald-500"></span>
+                                    <span class="text-sm text-emerald-600 font-medium">姝ｅ父</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">瑙勫垯寮曟搸</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="status-dot bg-emerald-500"></span>
+                                    <span class="text-sm text-emerald-600 font-medium">杩愯涓?/span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">纾佺洏绌洪棿</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm text-gray-700 font-medium">68%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 space-y-6">
+                <div class="module-divider">
+                    <div class="module-divider-copy">
+                        <div class="module-divider-kicker">Workbench</div>
+                        <div class="module-divider-title">鍚庡彴鎬昏涓庤仈鍔ㄥ伐浣滃尯</div>
+                        <div class="module-divider-desc">杩欎竴娈佃礋璐ｉ泦涓睍绀哄父鐢ㄦ搷浣溿€佷笟鍔℃€昏鍜岃鍒欓€氱煡鎬昏锛屾柟渚夸粠鎬绘帶瑙嗚鍒囧叆鍏蜂綋妯″潡銆?/div>
+                    </div>
+                    <div class="module-divider-pill">鍚庡彴鎬昏</div>
+                </div>
+                <section id="sectionWorkbench" class="scroll-section" data-scroll-view="analysis">
+                <div class="data-panel animate-in stagger-6">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">鍚庡彴鎿嶄綔宸ヤ綔鍖?/h3>
+                            <p class="text-xs text-gray-500 mt-1">鎶婂搴€佹垚鍛樸€佷笟鍔°€佽鍒欍€侀€氱煡鍜岀櫥褰曟€侀兘闆嗕腑鍒颁竴涓彲鎿嶄綔鍏ュ彛銆?/p>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div id="adminCommandWorkspace"></div>
+                    </div>
+                </div>
+                </section>
 
-    <main class="main-area">
-      <header class="topbar">
-        <div class="topbar-main">
-          <p id="pageEyebrow" class="eyebrow">数据治理与分析后台</p>
-          <div class="topbar-title-row">
-            <h1 id="pageTitle">真实数据分析总控台</h1>
-            <span id="pageWorkspaceTag" class="workspace-tag">分析工作区</span>
-          </div>
-          <div id="pageBreadcrumb" class="breadcrumb">后台首页 / 真实数据分析</div>
-          <div class="topbar-meta-strip">
-            <div class="topbar-meta-card">
-              <span class="topbar-meta-label">当前职责</span>
-              <strong id="pageFocus">真实数据汇总、趋势判断、自动结论输出</strong>
-            </div>
-            <div class="topbar-meta-card">
-              <span class="topbar-meta-label">推荐动作</span>
-              <strong id="pageHint">先执行导入，再刷新分析汇总与首页总控台</strong>
-            </div>
-          </div>
-        </div>
-        <div class="topbar-controls">
-          <label class="field-group command-group">
-            <span>快捷命令</span>
-            <div class="command-bar">
-              <div class="command-panel">
-                <input id="globalCommandInput" class="field-input" placeholder="输入命令，如 导入异常 / 未读通知 / 一键验收" autocomplete="off" aria-expanded="false" aria-controls="globalCommandMenu">
-                <div id="globalCommandMenu" class="command-menu" hidden></div>
-              </div>
-              <button id="runGlobalCommandBtn" class="primary-btn" type="button">执行</button>
-            </div>
-            <div id="globalCommandHint" class="command-hint">支持输入中文关键词、命令别名，按 Enter 执行，按 / 快速聚焦。</div>
-            <div class="command-deck">
-              <div class="command-tag-block">
-                <div class="command-tag-label">当前工作区推荐</div>
-                <div id="commandContextTags" class="quick-tags command-tags"></div>
-              </div>
-              <div class="command-tag-block">
-                <div class="command-tag-label">最近执行</div>
-                <div id="commandRecentTags" class="quick-tags command-tags"></div>
-              </div>
-            </div>
-          </label>
-          <label class="field-group compact-group">
-            <span>家庭</span>
-            <select id="familySelect" class="field-input"></select>
-          </label>
-          <label class="field-group compact-group">
-            <span>成员</span>
-            <select id="memberSelect" class="field-input"></select>
-          </label>
-          <div class="session-box">
-            <div class="session-label">登录状态</div>
-            <div id="loginStatus" class="session-status">未登录</div>
-          </div>
-        </div>
-      </header>
+                <div class="module-divider">
+                    <div class="module-divider-copy">
+                        <div class="module-divider-kicker">Identity Context</div>
+                        <div class="module-divider-title">鐢ㄦ埛銆佸搴笌绯荤粺涓婁笅鏂?/div>
+                        <div class="module-divider-desc">杩欎竴娈靛崟鐙壙杞界櫥褰曠敤鎴枫€佸搴垚鍛樺叧绯汇€佺郴缁熺姸鎬佸拰鏈€杩戜簨浠讹紝鐢ㄦ潵鍜屼笂闈㈢殑鏁版嵁鍒嗘瀽鍖烘槑鏄鹃殧寮€銆?/div>
+                    </div>
+                    <div class="module-divider-pill">鐢ㄦ埛 + 绯荤粺</div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">业务总览与待处理项</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="businessOverviewVisible"></div>
+                            <div id="businessFocusVisible"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">业务状态</div>
+                                    <div id="businessStateVisible"></div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">当前选择</div>
+                                    <div id="businessSelectionVisible"></div>
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div class="text-sm font-semibold text-gray-900 mb-3">业务动作反馈</div>
+                                <div id="businessFeedbackVisible"></div>
+                            </div>
+                        </div>
+                    </div>
 
-      <div class="view-tabs">
-        <button class="view-tab is-active" type="button" data-view="analysis">分析面板</button>
-        <button class="view-tab" type="button" data-view="imports">导入中心</button>
-        <button class="view-tab" type="button" data-view="business">业务管理</button>
-        <button class="view-tab" type="button" data-view="rules">规则通知</button>
-        <button class="view-tab" type="button" data-view="acceptance">验收联通</button>
-      </div>
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">规则与通知总览</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="rulesOverviewVisible"></div>
+                            <div id="notificationsOverviewVisible"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">规则状态</div>
+                                    <div id="rulesStateVisible"></div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div class="text-sm font-semibold text-gray-900 mb-3">通知动作</div>
+                                    <div id="notificationsActionVisible"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-      <section id="analysisView" class="workspace-grid view-section is-active">
-        <section class="panel panel-auth">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Auth</p>
-              <h2>后台登录</h2>
-            </div>
-          </div>
-          <div class="form-row">
-            <input id="username" class="field-input" placeholder="用户名">
-            <input id="password" class="field-input" type="password" placeholder="密码">
-            <button id="loginBtn" class="primary-btn" type="button">登录</button>
-          </div>
-        </section>
+                <div class="module-divider">
+                    <div class="module-divider-copy">
+                        <div class="module-divider-kicker">Identity Context</div>
+                        <div class="module-divider-title">用户、家庭与系统上下文</div>
+                        <div class="module-divider-desc">这一段单独承载登录用户、家庭成员关系、系统状态和最近事件，用来和上面的数据分析区明显隔开。</div>
+                    </div>
+                    <div class="module-divider-pill">用户 + 系统</div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <section id="sectionFamily" class="scroll-section" data-scroll-view="family">
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">用户与家庭</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="userFamilyWorkspace"></div>
+                        </div>
+                    </div>
+                    </section>
 
-        <section class="panel panel-actions">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Actions</p>
-              <h2>导入与分析</h2>
-            </div>
-          </div>
-          <div class="action-row">
-            <button id="importBtn" class="secondary-btn" type="button">执行导入</button>
-            <button id="summaryBtn" class="primary-btn" type="button">加载汇总</button>
-            <button id="acceptanceBtn" class="ghost-btn" type="button">一键验收</button>
-          </div>
-          <div id="importStatus" class="inline-status">等待操作</div>
-        </section>
+                    <section id="sectionSystem" class="scroll-section" data-scroll-view="system">
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">系统与日志</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="systemLogWorkspace"></div>
+                        </div>
+                    </div>
+                    </section>
+                </div>
 
-        <section class="panel panel-filter">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Filters</p>
-              <h2>分析参数</h2>
-            </div>
-          </div>
-          <div class="form-row">
-            <label class="field-group">
-              <span>国家 ISO3</span>
-              <input id="countryIso3" class="field-input" value="CHN">
-            </label>
-            <label class="field-group">
-              <span>FRED 序列</span>
-              <input id="seriesId" class="field-input" value="PCE">
-            </label>
-            <label class="field-group">
-              <span>Top Countries</span>
-              <input id="topCountries" class="field-input" type="number" min="1" max="20" value="10">
-            </label>
-          </div>
-        </section>
+                <div class="module-divider">
+                    <div class="module-divider-copy">
+                        <div class="module-divider-kicker">Business Modules</div>
+                        <div class="module-divider-title">账户、分类、预算与交易</div>
+                        <div class="module-divider-desc">这一段是后台标准业务 CRUD 区，账户、分类、预算、交易按连续业务模块展开。</div>
+                    </div>
+                    <div class="module-divider-pill">业务模块</div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div id="sectionBusiness" class="data-panel animate-in stagger-6 scroll-section" data-scroll-view="business">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">账户管理</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="accountsWorkspace"></div>
+                        </div>
+                    </div>
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">分类管理</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="categoriesWorkspace"></div>
+                        </div>
+                    </div>
+                </div>
 
-        <section class="metrics-row">
-          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-country-list">
-            <p class="metric-label">零售记录数</p>
-            <div id="metricTotalRecords" class="metric-value">-</div>
-          </button>
-          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-dashboard">
-            <p class="metric-label">零售总金额</p>
-            <div id="metricTotalAmount" class="metric-value">-</div>
-          </button>
-          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-world-bank">
-            <p class="metric-label">国家趋势点数</p>
-            <div id="metricWorldBankPoints" class="metric-value">-</div>
-          </button>
-          <button class="metric-card metric-action-card" type="button" data-action="analysis-open-fred">
-            <p class="metric-label">FRED 点数</p>
-            <div id="metricFredPoints" class="metric-value">-</div>
-          </button>
-        </section>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">预算管理</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="budgetsWorkspace"></div>
+                        </div>
+                    </div>
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">交易管理</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="transactionsWorkspace"></div>
+                        </div>
+                    </div>
+                </div>
 
-        <section id="analysisDashboardPanel" class="panel panel-wide">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Dashboard</p>
-              <h2>统一总控台</h2>
+                <div class="module-divider">
+                    <div class="module-divider-copy">
+                        <div class="module-divider-kicker">Rules Center</div>
+                        <div class="module-divider-title">规则运营与通知中心</div>
+                        <div class="module-divider-desc">这一段专门负责规则列表和通知中心。滚动到这里时，左侧会自动切到规则与通知。</div>
+                    </div>
+                    <div class="module-divider-pill">规则 + 通知</div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div id="sectionRules" class="data-panel animate-in stagger-6 scroll-section" data-scroll-view="rules">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">规则列表</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="rulesWorkspace"></div>
+                        </div>
+                    </div>
+                    <div class="data-panel animate-in stagger-6">
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900">通知中心</h3>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div id="notificationsWorkspace"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div id="executiveDashboard" class="summary-board">
-            <div class="summary-item">登录并加载数据后，这里会汇总导入、分析、业务和规则通知状态。</div>
-          </div>
-        </section>
+        </main>
+    </div>
+</div>
+<script>
+    // ====== 鍒濆鍖栧彉閲?======
+    let sidebarCollapsed = false;
+    // ====== DOM 鍏冪礌鑾峰彇 ======
+    const sidebar = document.getElementById('sidebar');
+    const refreshIcon = document.getElementById('refreshIcon');
+    // ====== 渚ц竟鏍忔姌鍙犲姛鑳?======
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        if (sidebarCollapsed) {
+            sidebar.style.width = '72px';
+            // 闅愯棌鏂囧瓧
+            sidebar.querySelectorAll('.sidebar-item span, .submenu').forEach(el => {
+                el.style.opacity = '0';
+                el.style.visibility = 'hidden';
+                el.style.width = '0';
+                el.style.overflow = 'hidden';
+            });
+            // 闅愯棌Logo鏂囧瓧
+            const logoText = sidebar.querySelector('h1, p');
+            if (logoText) {
+                logoText.style.display = 'none';
+            }
+        } else {
+            sidebar.style.width = '256px';
+            // 鏄剧ず鏂囧瓧
+            sidebar.querySelectorAll('.sidebar-item span, .submenu').forEach(el => {
+                el.style.opacity = '1';
+                el.style.visibility = 'visible';
+                el.style.width = 'auto';
+                el.style.overflow = 'visible';
+            });
+            // 鏄剧ずLogo鏂囧瓧
+            const logoText = sidebar.querySelector('h1, p');
+            if (logoText) {
+                logoText.style.display = 'block';
+            }
+        }
+    }
+    // ====== 瀛愯彍鍗曞睍寮€/鏀惰捣 ======
+    function toggleSubmenu(button) {
+        const submenu = button.nextElementSibling;
+        const arrow = button.querySelector('.submenu-arrow');
+        if (!submenu || !submenu.classList.contains('submenu')) return;
+        const isHidden = submenu.classList.contains('hidden');
+        // 鍏抽棴鍏朵粬鎵撳紑鐨勫瓙鑿滃崟
+        document.querySelectorAll('.submenu:not(.hidden)').forEach(menu => {
+            if (menu !== submenu) {
+                menu.classList.add('hidden');
+                const parentArrow = menu.previousElementSibling?.querySelector('.submenu-arrow');
+                if (parentArrow) {
+                    parentArrow.style.transform = 'rotate(0deg)';
+                }
+            }
+        });
+        // 鍒囨崲褰撳墠瀛愯彍鍗?
+        if (isHidden) {
+            submenu.classList.remove('hidden');
+            arrow.style.transform = 'rotate(180deg)';
+        } else {
+            submenu.classList.add('hidden');
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+    // ====== 鏁板瓧婊氬姩鍔ㄧ敾 ======
+    function animateCount(element, target, duration) {
+        if (!element) return;
+        const start = 0;
+        const startTime = performance.now();
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // 缂撳姩鍑芥暟
+            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+            const current = Math.floor(start + (target - start) * easeOutQuart);
+            element.textContent = current.toLocaleString();
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                element.textContent = target.toLocaleString();
+            }
+        }
+        requestAnimationFrame(update);
+    }
+    // ====== 鍒濆鍖栨暟瀛楀姩鐢?======
+    function initCountAnimations() {
+        const counters = document.querySelectorAll('.count-number');
+        // 浣跨敤 IntersectionObserver 鐩戝惉鍏冪礌杩涘叆瑙嗗彛
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const target = parseInt(entry.target.dataset.target, 10);
+                    animateCount(entry.target, target, 1500);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+        counters.forEach(counter => observer.observe(counter));
+    }
+    // ====== 鍒锋柊鏁版嵁鍔ㄧ敾 ======
+    function refreshData() {
+        refreshIcon.style.animation = 'spin 0.8s linear infinite';
+        // 閲嶇疆鏁板瓧骞堕噸鏂板姩鐢?
+        setTimeout(() => {
+            const counters = document.querySelectorAll('.count-number');
+            counters.forEach(counter => {
+                counter.textContent = '0';
+                const target = parseInt(counter.dataset.target, 10);
+                animateCount(counter, target, 1200);
+            });
+            setTimeout(() => {
+                refreshIcon.style.animation = '';
+            }, 800);
+        }, 300);
+    }
+    // 娣诲姞鏃嬭浆鍔ㄧ敾
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+	      @keyframes spin {
+	        from { transform: rotate(0deg); }
+	        to { transform: rotate(360deg); }
+	      }
+	    `;
+    document.head.appendChild(styleSheet);
+    // ====== 鍒濆鍖?======
+    document.addEventListener('DOMContentLoaded', () => {
+        initCountAnimations();
+        // 榛樿灞曞紑绗竴涓瓙鑿滃崟锛堟紨绀虹敤锛?
+        // 鍙互鏍规嵁闇€瑕佸彇娑堟敞閲?
+        // const firstSubmenuBtn = document.querySelector('.sidebar-item button');
+        // if (firstSubmenuBtn) toggleSubmenu(firstSubmenuBtn);
+    });
+    // ====== 閿洏鍙闂€у寮?======
+    document.addEventListener('keydown', (e) => {
+        // ESC 鍏抽棴鎵€鏈夊瓙鑿滃崟
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.submenu:not(.hidden)').forEach(menu => {
+                menu.classList.add('hidden');
+                const arrow = menu.previousElementSibling?.querySelector('.submenu-arrow');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            });
+        }
+    });
+</script>
 
-        <section class="panel panel-wide">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Analysis State</p>
-              <h2>分析状态总览</h2>
-            </div>
-          </div>
-          <div id="analysisStateBoard" class="summary-board">
-            <div class="summary-item">尚未执行分析汇总，当前无法判断国家趋势、宏观序列和自动结论质量。</div>
-          </div>
-        </section>
 
-        <section id="analysisCountryPanel" class="panel panel-chart">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Retail Mix</p>
-              <h2>国家交易额 Top 列表</h2>
-            </div>
-          </div>
-          <div id="countryList" class="list-board"></div>
-        </section>
-
-        <section id="analysisWorldBankPanel" class="panel panel-trend">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">World Bank</p>
-              <h2>国家趋势摘要</h2>
-            </div>
-          </div>
-          <div id="worldBankSummary" class="summary-board"></div>
-        </section>
-
-        <section id="analysisFredPanel" class="panel panel-fred">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">FRED</p>
-              <h2>宏观序列状态</h2>
-            </div>
-          </div>
-          <div id="fredSummary" class="summary-board"></div>
-        </section>
-
-        <section class="panel panel-conclusion">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Conclusions</p>
-              <h2>自动结论输出</h2>
-            </div>
-          </div>
-          <div id="conclusionList" class="conclusion-board"></div>
-        </section>
-
-        <section class="panel panel-raw">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Payload</p>
-              <h2>原始回执</h2>
-            </div>
-          </div>
-          <pre id="rawPayload" class="raw-box">(waiting)</pre>
-        </section>
-      </section>
-
-      <section id="importsView" class="workspace-grid view-section">
-        <section class="panel panel-wide import-overview-panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Import Center</p>
-              <h2>真实数据导入管理</h2>
-            </div>
-            <div class="action-row compact-actions">
-              <button id="importBtnMirror" class="primary-btn" type="button">执行导入</button>
-              <button id="acceptanceBtnMirror" class="secondary-btn" type="button">一键验收</button>
-            </div>
-          </div>
-          <div class="import-overview-grid">
-            <div class="summary-item highlight-item">
-              <div class="summary-kicker">默认目录</div>
-              <strong>data/processed</strong>
-              <div>对接 <code>POST /api/real-data-analysis/import</code>，支持清空后重导。</div>
-            </div>
-            <div class="summary-item highlight-item">
-              <div class="summary-kicker">目标表</div>
-              <strong>3 张真实数据表</strong>
-              <div><code>external_retail_transaction</code> / <code>external_world_bank_consumption</code> / <code>external_fred_series</code></div>
-            </div>
-            <div class="summary-item highlight-item">
-              <div class="summary-kicker">操作建议</div>
-              <strong>先导入，再刷新分析</strong>
-              <div>导入记录已持久化到数据库，可在后台持续回看参数与结果。</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Parameters</p>
-              <h2>导入参数</h2>
-            </div>
-          </div>
-          <div class="stack-form">
-            <label class="field-group">
-              <span>processedDir</span>
-              <input id="processedDirInput" class="field-input" value="data/processed">
-            </label>
-            <div class="form-row two-column-row">
-              <label class="field-group">
-                <span>batchSize</span>
-                <input id="batchSizeInput" class="field-input" type="number" min="1" value="5000">
-              </label>
-              <label class="field-group toggle-field">
-                <span>truncateBeforeImport</span>
-                <label class="switch-row">
-                  <input id="truncateBeforeImportInput" type="checkbox" checked>
-                  <span>导入前清空目标表</span>
-                </label>
-              </label>
-            </div>
-            <div class="quick-tags">
-              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="1000" data-truncate="true">安全批次</button>
-              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="5000" data-truncate="true">默认批次</button>
-              <button class="tag-btn" type="button" data-action="apply-import-preset" data-batch-size="10000" data-truncate="false">增量批次</button>
-            </div>
-            <div class="action-row">
-              <button id="syncAnalysisParamsBtn" class="ghost-btn" type="button">同步到分析面板</button>
-              <button id="clearImportHistoryBtn" class="ghost-btn" type="button">刷新导入历史</button>
-            </div>
-          </div>
-          <div id="importStatusMirror" class="inline-status">等待操作</div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Latest Result</p>
-              <h2>最近一次导入结果</h2>
-            </div>
-          </div>
-          <div id="latestImportResult" class="summary-board">
-            <div class="summary-item">暂无导入结果</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Import State</p>
-              <h2>导入状态判断</h2>
-            </div>
-          </div>
-          <div id="importStateBoard" class="summary-board">
-            <div class="summary-item">尚未执行导入，当前无法判断真实数据入库质量。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">History</p>
-              <h2>导入历史</h2>
-            </div>
-            <div class="table-hint">数据来自后端持久化导入日志，刷新页面后仍可查看。</div>
-          </div>
-          <div id="importHistoryStats" class="stats-strip">
-            <div class="stats-pill">总批次：0</div>
-            <div class="stats-pill">成功：0</div>
-            <div class="stats-pill">异常：0</div>
-            <div class="stats-pill">FRED 降级：0</div>
-          </div>
-          <div class="quick-tags">
-            <button id="importHistoryQuickAllBtn" class="tag-btn is-active" type="button">全部</button>
-            <button id="importHistoryQuickAbnormalBtn" class="tag-btn" type="button">异常</button>
-            <button id="importHistoryQuickDegradedBtn" class="tag-btn" type="button">FRED 降级</button>
-            <button id="importHistoryQuickSuccessBtn" class="tag-btn" type="button">成功</button>
-          </div>
-          <div class="form-row">
-            <label class="field-group compact-group">
-              <span>排序</span>
-              <select id="importHistorySort" class="field-input">
-                <option value="created-desc">最新优先</option>
-                <option value="issue-first">异常优先</option>
-                <option value="batch-desc">批次号倒序</option>
-              </select>
-            </label>
-          </div>
-          <div id="importHistoryList" class="table-board empty-board">
-            <div class="empty-state">暂无导入历史</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Selected Record</p>
-              <h2>选中记录详情</h2>
-            </div>
-          </div>
-          <div id="importHistoryDetail" class="summary-board">
-            <div class="summary-item">请选择左侧某次导入记录</div>
-          </div>
-        </section>
-      </section>
-
-      <section id="businessView" class="workspace-grid view-section">
-        <section class="panel panel-wide">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Business Modules</p>
-              <h2>账户 / 分类 / 预算 / 交易管理</h2>
-            </div>
-            <div class="action-row compact-actions">
-              <button id="loadBusinessBtn" class="primary-btn" type="button">刷新业务数据</button>
-              <button id="loadTransactionsBtn" class="secondary-btn" type="button">刷新交易与月报</button>
-            </div>
-          </div>
-          <div class="toolbar-grid">
-            <div class="toolbar-card">
-              <div class="toolbar-title">账户模块</div>
-              <div>对接 <code>GET /api/accounts?familyId=...</code>，用于查看家庭账户存量、余额和共享情况。</div>
-            </div>
-            <div class="toolbar-card">
-              <div class="toolbar-title">分类模块</div>
-              <div>对接 <code>GET /api/categories?familyId=...</code>，用于查看收支分类结构和启用状态。</div>
-            </div>
-            <div class="toolbar-card">
-              <div class="toolbar-title">预算与交易模块</div>
-              <div>对接 <code>/api/budgets</code>、<code>/api/budgets/usage</code>、<code>/api/transaction-records/search</code>、<code>/monthly-summary</code>。</div>
-            </div>
-          </div>
-          <div id="businessStatus" class="inline-status">等待操作</div>
-        </section>
-
-        <section class="metrics-row business-metrics-row">
-          <article class="metric-card">
-            <p class="metric-label">账户数</p>
-            <div id="metricAccountCount" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
-            <p class="metric-label">分类数</p>
-            <div id="metricCategoryCount" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
-            <p class="metric-label">预算数</p>
-            <div id="metricBudgetCount" class="metric-value">-</div>
-          </article>
-          <article class="metric-card">
-            <p class="metric-label">交易记录数</p>
-            <div id="metricTransactionCount" class="metric-value">-</div>
-          </article>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Overview</p>
-              <h2>业务总览</h2>
-            </div>
-          </div>
-          <div id="businessOverviewBoard" class="summary-board">
-            <div class="summary-item">加载业务数据后显示账户、预算和交易的整体概况</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Focus</p>
-              <h2>待处理与最近动态</h2>
-            </div>
-          </div>
-          <div id="businessFocusBoard" class="summary-board">
-            <div class="summary-item">加载业务数据后显示异常预算和最近交易</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Workspace State</p>
-              <h2>当前业务上下文</h2>
-            </div>
-          </div>
-          <div id="businessStateBoard" class="summary-board">
-            <div class="summary-item">登录并加载业务数据后显示当前工作上下文</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Selection</p>
-              <h2>选中对象与操作范围</h2>
-            </div>
-          </div>
-          <div id="businessSelectionBoard" class="summary-board">
-            <div class="summary-item">加载业务数据后显示当前选中对象、批量范围和建议动作</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Recent Action</p>
-              <h2>最近业务操作</h2>
-            </div>
-          </div>
-          <div id="businessActionFeedbackBoard" class="summary-board">
-            <div class="summary-item">执行新增、编辑、启停、删除后，这里会显示最近一次业务操作结果</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Accounts</p>
-              <h2>账户列表</h2>
-            </div>
-            <button id="createAccountBtn" class="ghost-btn" type="button">新增账户</button>
-          </div>
-          <div class="form-row">
-            <label class="field-group compact-group">
-              <span>状态</span>
-              <select id="accountStatusFilter" class="field-input">
-                <option value="">全部</option>
-                <option value="1">启用</option>
-                <option value="0">停用</option>
-              </select>
-            </label>
-            <label class="field-group compact-group">
-              <span>类型</span>
-              <input id="accountTypeFilter" class="field-input" placeholder="如 DEBIT">
-            </label>
-            <label class="field-group compact-group">
-              <span>排序</span>
-              <select id="accountSortFilter" class="field-input">
-                <option value="name-asc">名称 A-Z</option>
-                <option value="balance-desc">余额从高到低</option>
-                <option value="balance-asc">余额从低到高</option>
-              </select>
-            </label>
-            <div class="filter-action-group">
-              <button id="resetAccountFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
-            </div>
-          </div>
-          <div class="quick-tags">
-            <button id="accountQuickAllBtn" class="tag-btn is-active" type="button">全部账户</button>
-            <button id="accountQuickSharedBtn" class="tag-btn" type="button">共享账户</button>
-            <button id="accountQuickCreditBtn" class="tag-btn" type="button">信用账户</button>
-            <button id="accountQuickEnabledBtn" class="tag-btn" type="button">仅启用</button>
-          </div>
-          <div id="accountFilterSummary" class="filter-summary">当前未启用筛选</div>
-          <div id="accountsStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">启用：-</div>
-            <div class="stats-pill">共享：-</div>
-          </div>
-          <div id="accountList" class="table-board empty-board">
-            <div class="empty-state">暂无账户数据</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Account Detail</p>
-              <h2>账户详情</h2>
-            </div>
-          </div>
-          <div id="accountDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧账户查看详情</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Categories</p>
-              <h2>分类列表</h2>
-            </div>
-            <button id="createCategoryBtn" class="ghost-btn" type="button">新增分类</button>
-          </div>
-          <div class="form-row">
-            <label class="field-group compact-group">
-              <span>状态</span>
-              <select id="categoryEnabledFilter" class="field-input">
-                <option value="">全部</option>
-                <option value="1">启用</option>
-                <option value="0">停用</option>
-              </select>
-            </label>
-            <label class="field-group compact-group">
-              <span>类型</span>
-              <input id="categoryTypeFilter" class="field-input" placeholder="如 EXPENSE">
-            </label>
-            <label class="field-group compact-group">
-              <span>排序</span>
-              <select id="categorySortFilter" class="field-input">
-                <option value="sort-asc">排序值升序</option>
-                <option value="name-asc">名称 A-Z</option>
-                <option value="name-desc">名称 Z-A</option>
-              </select>
-            </label>
-            <div class="filter-action-group">
-              <button id="resetCategoryFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
-            </div>
-          </div>
-          <div class="quick-tags">
-            <button id="categoryQuickAllBtn" class="tag-btn is-active" type="button">全部分类</button>
-            <button id="categoryQuickExpenseBtn" class="tag-btn" type="button">支出分类</button>
-            <button id="categoryQuickIncomeBtn" class="tag-btn" type="button">收入分类</button>
-            <button id="categoryQuickEnabledBtn" class="tag-btn" type="button">仅启用</button>
-          </div>
-          <div id="categoryFilterSummary" class="filter-summary">当前未启用筛选</div>
-          <div id="categoriesStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">启用：-</div>
-            <div class="stats-pill">支出：-</div>
-          </div>
-          <div id="categoryList" class="table-board empty-board">
-            <div class="empty-state">暂无分类数据</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Category Detail</p>
-              <h2>分类详情</h2>
-            </div>
-          </div>
-          <div id="categoryDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧分类查看详情</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Budgets</p>
-              <h2>预算列表</h2>
-            </div>
-            <button id="createBudgetBtn" class="ghost-btn" type="button">新增预算</button>
-          </div>
-          <div class="form-row">
-            <label class="field-group compact-group">
-              <span>状态</span>
-              <select id="budgetEnabledFilter" class="field-input">
-                <option value="">全部</option>
-                <option value="1">启用</option>
-                <option value="0">停用</option>
-              </select>
-            </label>
-            <label class="field-group compact-group">
-              <span>周期</span>
-              <input id="budgetPeriodFilter" class="field-input" placeholder="如 MONTHLY">
-            </label>
-            <label class="field-group compact-group">
-              <span>排序</span>
-              <select id="budgetSortFilter" class="field-input">
-                <option value="amount-desc">金额从高到低</option>
-                <option value="amount-asc">金额从低到高</option>
-                <option value="name-asc">名称 A-Z</option>
-              </select>
-            </label>
-            <div class="filter-action-group">
-              <button id="resetBudgetFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
-            </div>
-          </div>
-          <div class="quick-tags">
-            <button id="budgetQuickAllBtn" class="tag-btn is-active" type="button">全部预算</button>
-            <button id="budgetQuickAlertBtn" class="tag-btn" type="button">预警预算</button>
-            <button id="budgetQuickExceededBtn" class="tag-btn" type="button">超支预算</button>
-            <button id="budgetQuickMonthlyBtn" class="tag-btn" type="button">月度预算</button>
-          </div>
-          <div id="budgetFilterSummary" class="filter-summary">当前未启用筛选</div>
-          <div id="budgetsStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">启用：-</div>
-            <div class="stats-pill">预警：-</div>
-          </div>
-          <div id="budgetList" class="table-board empty-board">
-            <div class="empty-state">暂无预算数据</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Budget Detail</p>
-              <h2>预算详情</h2>
-            </div>
-          </div>
-          <div id="budgetDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧预算查看详情</div>
-          </div>
-          <div id="budgetActionBoard" class="summary-board">
-            <div class="summary-item">加载预算后显示异常预算处置建议</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Transactions</p>
-              <h2>交易记录</h2>
-            </div>
-            <button id="createTransactionBtn" class="ghost-btn" type="button">新增交易</button>
-          </div>
-          <div class="form-row">
-            <label class="field-group compact-group">
-              <span>交易类型</span>
-              <select id="transactionTypeFilter" class="field-input">
-                <option value="">全部</option>
-                <option value="INCOME">收入</option>
-                <option value="EXPENSE">支出</option>
-                <option value="TRANSFER">转账</option>
-              </select>
-            </label>
-            <label class="field-group compact-group">
-              <span>每页条数</span>
-              <select id="transactionPageSize" class="field-input">
-                <option value="8">8</option>
-                <option value="12">12</option>
-                <option value="20">20</option>
-              </select>
-            </label>
-            <div class="filter-action-group">
-              <button id="resetTransactionFiltersBtn" class="ghost-btn" type="button">重置筛选</button>
-              <button id="exportTransactionsBtn" class="ghost-btn" type="button">导出当前结果</button>
-            </div>
-          </div>
-          <div class="quick-tags">
-            <button id="transactionQuickAllBtn" class="tag-btn is-active" type="button">全部交易</button>
-            <button id="transactionQuickMissingCategoryBtn" class="tag-btn" type="button">缺少分类</button>
-            <button id="transactionQuickMissingReferenceBtn" class="tag-btn" type="button">缺少说明</button>
-            <button id="transactionQuickLargeAmountBtn" class="tag-btn" type="button">大额交易</button>
-          </div>
-          <div id="transactionFilterSummary" class="filter-summary">当前未启用筛选</div>
-          <div id="transactionsStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">收入：-</div>
-            <div class="stats-pill">支出：-</div>
-          </div>
-          <div id="transactionList" class="table-board empty-board">
-            <div class="empty-state">暂无交易数据</div>
-          </div>
-          <div id="transactionsPager" class="pager-bar"></div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Transaction Detail</p>
-              <h2>交易详情与月报</h2>
-            </div>
-          </div>
-          <div id="transactionDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧交易查看详情</div>
-          </div>
-          <div id="transactionMonthlySummary" class="summary-board">
-            <div class="summary-item">月度收支摘要将在加载交易后显示</div>
-          </div>
-          <div id="transactionAuditBoard" class="summary-board">
-            <div class="summary-item">加载交易后显示交易核查结论与可疑记录摘要</div>
-          </div>
-        </section>
-      </section>
-
-      <section id="rulesView" class="workspace-grid view-section">
-        <section class="panel panel-wide rules-toolbar-panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Operations</p>
-              <h2>规则与通知操作台</h2>
-            </div>
-            <button id="evaluateRulesBtn" class="primary-btn" type="button">执行规则评估</button>
-          </div>
-          <div class="toolbar-grid">
-            <div class="toolbar-card">
-              <div class="toolbar-title">规则筛选</div>
-              <div class="form-row">
-                <label class="field-group compact-group">
-                  <span>启用状态</span>
-                  <select id="ruleEnabledFilter" class="field-input">
-                    <option value="all">全部</option>
-                    <option value="1">仅启用</option>
-                    <option value="0">仅停用</option>
-                  </select>
-                </label>
-                <label class="field-group compact-group">
-                  <span>规则类型</span>
-                  <input id="ruleTypeFilter" class="field-input" placeholder="如 BUDGET">
-                </label>
-              </div>
-              <div class="action-row">
-                <button id="loadRulesBtn" class="secondary-btn" type="button">加载规则</button>
-              </div>
-              <div class="quick-tags">
-                <button id="ruleQuickAllBtn" class="tag-btn is-active" type="button">全部规则</button>
-                <button id="ruleQuickHighBtn" class="tag-btn" type="button">高优先级</button>
-              </div>
-            </div>
-            <div class="toolbar-card">
-              <div class="toolbar-title">通知筛选</div>
-              <div class="form-row">
-                <label class="field-group compact-group">
-                  <span>已读状态</span>
-                  <select id="notificationReadFilter" class="field-input">
-                    <option value="">全部</option>
-                    <option value="0">未读</option>
-                    <option value="1">已读</option>
-                  </select>
-                </label>
-                <label class="field-group compact-group">
-                  <span>来源类型</span>
-                  <input id="notificationSourceFilter" class="field-input" placeholder="如 RULE">
-                </label>
-                <label class="field-group compact-group">
-                  <span>每页条数</span>
-                  <select id="notificationPageSize" class="field-input">
-                    <option value="8">8</option>
-                    <option value="12">12</option>
-                    <option value="20">20</option>
-                  </select>
-                </label>
-              </div>
-              <div class="action-row">
-                <button id="loadNotificationsBtn" class="secondary-btn" type="button">加载通知</button>
-                <button id="readAllNotificationsBtn" class="ghost-btn" type="button">全部已读</button>
-                <button id="clearReadNotificationsBtn" class="ghost-btn" type="button">清理已读</button>
-              </div>
-            </div>
-          </div>
-          <div id="rulesStatus" class="inline-status">等待操作</div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Rules Overview</p>
-              <h2>规则运营总览</h2>
-            </div>
-          </div>
-          <div id="rulesOverviewBoard" class="summary-board">
-            <div class="summary-item">加载规则后显示启用率、优先级和重点规则类型</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Notifications Overview</p>
-              <h2>通知运营总览</h2>
-            </div>
-          </div>
-          <div id="notificationsOverviewBoard" class="summary-board">
-            <div class="summary-item">加载通知后显示未读数量、来源分布和最近动态</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Risk State</p>
-              <h2>风控状态判断</h2>
-            </div>
-          </div>
-          <div id="rulesStateBoard" class="summary-board">
-            <div class="summary-item">加载规则与通知后，这里会判断当前风控链路是否稳定。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Actions</p>
-              <h2>通知处置建议</h2>
-            </div>
-          </div>
-          <div id="notificationsActionBoard" class="summary-board">
-            <div class="summary-item">加载通知后，这里会给出处置顺序和下一步建议。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Rules</p>
-              <h2>规则列表</h2>
-            </div>
-          </div>
-          <div id="rulesStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">启用：-</div>
-            <div class="stats-pill">停用：-</div>
-          </div>
-          <div id="rulesList" class="table-board empty-board">
-            <div class="empty-state">暂无规则数据</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Rule Detail</p>
-              <h2>规则详情</h2>
-            </div>
-          </div>
-          <div id="ruleDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧规则查看详情</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Notifications</p>
-              <h2>通知列表</h2>
-            </div>
-          </div>
-          <div id="notificationsStats" class="stats-strip">
-            <div class="stats-pill">总数：-</div>
-            <div class="stats-pill">未读：-</div>
-            <div class="stats-pill">已读：-</div>
-          </div>
-          <div id="notificationsList" class="table-board empty-board">
-            <div class="empty-state">暂无通知数据</div>
-          </div>
-          <div id="notificationsPager" class="pager-bar"></div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Notification Detail</p>
-              <h2>通知详情</h2>
-            </div>
-          </div>
-          <div id="notificationDetailPanel" class="summary-board">
-            <div class="summary-item">点击左侧通知查看详情</div>
-          </div>
-        </section>
-      </section>
-
-      <section id="acceptanceView" class="workspace-grid view-section">
-        <section class="panel panel-wide">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Acceptance</p>
-              <h2>系统验收</h2>
-            </div>
-          </div>
-          <div id="acceptanceStatus" class="inline-status">等待执行验收检查</div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Readiness</p>
-              <h2>模块联通就绪度</h2>
-            </div>
-          </div>
-          <div id="acceptanceReadinessBoard" class="summary-board">
-            <div class="summary-item">正在等待登录态、导入结果和模块数据。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Next Steps</p>
-              <h2>建议验收动作</h2>
-            </div>
-          </div>
-          <div id="acceptanceNextStepsBoard" class="summary-board">
-            <div class="summary-item">建议先登录，再执行导入、分析、业务和规则通知的串联检查。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Snapshot</p>
-              <h2>当前系统快照</h2>
-            </div>
-          </div>
-          <div id="acceptanceSnapshotBoard" class="summary-board">
-            <div class="summary-item">加载后展示导入、分析、业务、规则通知的当前状态摘要。</div>
-          </div>
-        </section>
-
-        <section class="panel panel-half">
-          <div class="panel-head">
-            <div>
-              <p class="panel-eyebrow">Scripts</p>
-              <h2>脚本与报告入口</h2>
-            </div>
-          </div>
-          <div class="summary-board">
-            <div class="summary-item">验收脚本：<code>scripts/run_three_end_mvp_acceptance.ps1</code></div>
-            <div class="summary-item">报告脚本：<code>scripts/generate_three_end_mvp_report.ps1</code></div>
-            <div class="summary-item">当前管理员端重点已经转向长期可用的后台工作台，不再只做答辩页。</div>
-          </div>
-        </section>
-      </section>
-    </main>
-  </div>
-  <div id="businessFormModal" class="modal-shell" hidden>
-    <div class="modal-mask" data-action="close-business-form"></div>
-    <section class="modal-panel">
-      <div class="modal-head">
-        <div>
-          <p id="businessFormSubtitle" class="panel-eyebrow">Business Form</p>
-          <h2 id="businessFormTitle">新增业务数据</h2>
-        </div>
-        <button id="businessFormCloseBtn" class="ghost-btn" type="button">关闭</button>
-      </div>
-      <form id="businessForm" class="stack-form">
-        <div id="businessFormStatus" class="form-status" hidden></div>
-        <div id="businessFormFields" class="business-form-grid"></div>
-        <div class="action-row">
-          <button id="businessFormCancelBtn" class="ghost-btn" type="button">取消</button>
-          <button id="businessFormSubmitBtn" class="primary-btn" type="submit">提交</button>
-        </div>
-      </form>
-    </section>
-  </div>
-  <script src="/admin-mvp.js"></script>
+<div id="adminSupportNodes" style="display:none !important">
+      <button id="acceptanceBtn" type="button"></button>
+      <div id="acceptanceNextStepsBoard"></div>
+      <div id="acceptanceReadinessBoard"></div>
+      <div id="acceptanceSnapshotBoard"></div>
+      <div id="acceptanceStatus"></div>
+      <div id="accountDetailPanel"></div>
+      <div id="accountFilterSummary"></div>
+      <div id="accountList"></div>
+      <button id="accountQuickAllBtn" type="button"></button>
+      <button id="accountQuickCreditBtn" type="button"></button>
+      <button id="accountQuickEnabledBtn" type="button"></button>
+      <button id="accountQuickSharedBtn" type="button"></button>
+      <select id="accountSortFilter"></select>
+      <select id="accountStatusFilter"></select>
+      <select id="accountTypeFilter"></select>
+      <div id="accountsStats"></div>
+      <div id="authGatewayStatus"></div>
+      <div id="budgetActionBoard"></div>
+      <div id="budgetDetailPanel"></div>
+      <select id="budgetEnabledFilter"></select>
+      <div id="budgetFilterSummary"></div>
+      <div id="budgetList"></div>
+      <select id="budgetPeriodFilter"></select>
+      <button id="budgetQuickAlertBtn" type="button"></button>
+      <button id="budgetQuickAllBtn" type="button"></button>
+      <button id="budgetQuickExceededBtn" type="button"></button>
+      <button id="budgetQuickMonthlyBtn" type="button"></button>
+      <select id="budgetSortFilter"></select>
+      <div id="budgetsStats"></div>
+      <div id="businessActionFeedbackBoard"></div>
+      <div id="businessFocusBoard"></div>
+      <form id="businessForm"></form>
+      <button id="businessFormCancelBtn" type="button"></button>
+      <button id="businessFormCloseBtn" type="button"></button>
+      <div id="businessFormFields"></div>
+      <div id="businessFormModal"></div>
+      <div id="businessFormStatus"></div>
+      <button id="businessFormSubmitBtn" type="button"></button>
+      <div id="businessFormSubtitle"></div>
+      <div id="businessFormTitle"></div>
+      <div id="businessOverviewBoard"></div>
+      <div id="businessSelectionBoard"></div>
+      <div id="businessStateBoard"></div>
+      <div id="categoriesStats"></div>
+      <div id="categoryDetailPanel"></div>
+      <select id="categoryEnabledFilter"></select>
+      <div id="categoryFilterSummary"></div>
+      <div id="categoryList"></div>
+      <button id="categoryQuickAllBtn" type="button"></button>
+      <button id="categoryQuickEnabledBtn" type="button"></button>
+      <button id="categoryQuickExpenseBtn" type="button"></button>
+      <button id="categoryQuickIncomeBtn" type="button"></button>
+      <select id="categorySortFilter"></select>
+      <select id="categoryTypeFilter"></select>
+      <button id="clearReadNotificationsBtn" type="button"></button>
+      <div id="commandContextTags"></div>
+      <div id="commandRecentTags"></div>
+      <input id="countryIso3" />
+      <button id="createAccountBtn" type="button"></button>
+      <button id="createBudgetBtn" type="button"></button>
+      <button id="createCategoryBtn" type="button"></button>
+      <button id="createTransactionBtn" type="button"></button>
+      <button id="evaluateRulesBtn" type="button"></button>
+      <button id="exportTransactionsBtn" type="button"></button>
+      <select id="familySelect"></select>
+      <div id="globalCommandHint"></div>
+      <input id="globalCommandInput" />
+      <div id="globalCommandMenu"></div>
+      <button id="importBtn" type="button"></button>
+      <button id="loadBusinessBtn" type="button"></button>
+      <button id="loadNotificationsBtn" type="button"></button>
+      <button id="loadRulesBtn" type="button"></button>
+      <button id="loadTransactionsBtn" type="button"></button>
+      <div id="loginStatus"></div>
+      <button id="logoutBtn" type="button"></button>
+      <select id="memberSelect"></select>
+      <div id="notificationDetailPanel"></div>
+      <select id="notificationPageSize"></select>
+      <select id="notificationReadFilter"></select>
+      <select id="notificationSourceFilter"></select>
+      <div id="notificationsActionBoard"></div>
+      <div id="notificationsList"></div>
+      <div id="notificationsOverviewBoard"></div>
+      <div id="notificationsStats"></div>
+      <button id="openAuthPageBtn" type="button"></button>
+      <div id="pageBreadcrumb"></div>
+      <div id="pageEyebrow"></div>
+      <div id="pageFocus"></div>
+      <div id="pageHint"></div>
+      <div id="pageTitle"></div>
+      <div id="pageWorkspaceTag"></div>
+      <input id="password" />
+      <button id="readAllNotificationsBtn" type="button"></button>
+      <button id="resetAccountFiltersBtn" type="button"></button>
+      <button id="resetBudgetFiltersBtn" type="button"></button>
+      <button id="resetCategoryFiltersBtn" type="button"></button>
+      <button id="resetTransactionFiltersBtn" type="button"></button>
+      <div id="ruleDetailPanel"></div>
+      <select id="ruleEnabledFilter"></select>
+      <button id="ruleQuickAllBtn" type="button"></button>
+      <button id="ruleQuickHighBtn" type="button"></button>
+      <select id="ruleTypeFilter"></select>
+      <div id="rulesList"></div>
+      <div id="rulesOverviewBoard"></div>
+      <div id="rulesStateBoard"></div>
+      <div id="rulesStats"></div>
+      <button id="runGlobalCommandBtn" type="button"></button>
+      <input id="seriesId" />
+      <div id="sidebarStatusBoard"></div>
+      <input id="topCountries" />
+      <div id="transactionAuditBoard"></div>
+      <div id="transactionDetailPanel"></div>
+      <div id="transactionFilterSummary"></div>
+      <div id="transactionList"></div>
+      <div id="transactionMonthlySummary"></div>
+      <select id="transactionPageSize"></select>
+      <button id="transactionQuickAllBtn" type="button"></button>
+      <button id="transactionQuickLargeAmountBtn" type="button"></button>
+      <button id="transactionQuickMissingCategoryBtn" type="button"></button>
+      <button id="transactionQuickMissingReferenceBtn" type="button"></button>
+      <select id="transactionTypeFilter"></select>
+      <div id="transactionsStats"></div>
+      <input id="username" />
+</div>
+<script src="/admin-mvp.js"></script>
 </body>
 </html>

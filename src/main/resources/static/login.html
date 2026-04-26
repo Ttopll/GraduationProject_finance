@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家庭财务管理系统 - 登录</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/auth.css">
+</head>
+<body class="ruoyi-auth">
+  <main class="auth-layout auth-layout-login" data-page="login">
+    <section class="auth-side">
+      <div class="brand-row">
+        <div class="brand-logo">FM</div>
+        <div>
+          <div class="brand-title">家庭财务管理系统</div>
+          <div class="brand-subtitle">管理员后台登录入口</div>
+        </div>
+      </div>
+
+      <div class="intro-panel">
+        <div class="section-tag">Login</div>
+        <h1>进入后台工作台</h1>
+        <p>登录后可继续查看业务数据、管理规则通知、执行真实数据导入，并联动分析接口完成项目演示。</p>
+      </div>
+
+      <div class="info-block">
+        <div class="info-title">本页说明</div>
+        <div class="info-list">
+          <div class="info-item">
+            <strong>登录入口独立</strong>
+            <span>当前页面只负责登录，不再和注册表单混在同一张卡片里。</span>
+          </div>
+          <div class="info-item">
+            <strong>演示账号可填充</strong>
+            <span>支持一键填充演示账号，便于联调和录屏展示。</span>
+          </div>
+          <div class="info-item">
+            <strong>注册页单独打开</strong>
+            <span>没有账号时跳转到独立注册页，结构更接近标准后台入口。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-main">
+      <div class="auth-card auth-card-compact">
+        <div class="card-head">
+          <div>
+            <div class="section-tag">Account Login</div>
+            <h2>账号登录</h2>
+          </div>
+          <a class="text-link" href="/admin-mvp.html">返回后台</a>
+        </div>
+
+        <div id="authStatus" class="status-box">请输入用户名和密码。</div>
+
+        <form id="loginForm" class="form-block">
+          <label class="field-block">
+            <span>用户名</span>
+            <input id="loginUsername" type="text" placeholder="请输入用户名" autocomplete="username">
+          </label>
+          <label class="field-block">
+            <span>密码</span>
+            <input id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password">
+          </label>
+          <div class="action-row">
+            <button id="loginSubmitBtn" class="primary-btn" type="submit">登录并进入后台</button>
+            <button id="fillDemoBtn" class="ghost-btn" type="button">填充演示账号</button>
+          </div>
+        </form>
+
+        <div class="switch-panel">
+          <span>还没有账号？</span>
+          <a class="switch-link" href="/register.html">前往注册</a>
+        </div>
+
+        <div class="foot-row">
+          <button id="enterAdminBtn" class="ghost-btn" type="button">直接进入后台</button>
+          <button id="logoutBtn" class="ghost-btn" type="button">清除当前登录</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/auth.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@ import com.example.finance.repository.ExternalWorldBankConsumptionRepository;
 import com.example.finance.repository.RealDataImportBatchRepository;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.CSVReaderHeaderAwareBuilder;
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,17 +43,20 @@ public class RealDataAnalysisService {
     private final ExternalWorldBankConsumptionRepository externalWorldBankConsumptionRepository;
     private final ExternalFredSeriesRepository externalFredSeriesRepository;
     private final RealDataImportBatchRepository realDataImportBatchRepository;
+    private final EntityManager entityManager;
 
     public RealDataAnalysisService(
             ExternalRetailTransactionRepository externalRetailTransactionRepository,
             ExternalWorldBankConsumptionRepository externalWorldBankConsumptionRepository,
             ExternalFredSeriesRepository externalFredSeriesRepository,
-            RealDataImportBatchRepository realDataImportBatchRepository
+            RealDataImportBatchRepository realDataImportBatchRepository,
+            EntityManager entityManager
     ) {
         this.externalRetailTransactionRepository = externalRetailTransactionRepository;
         this.externalWorldBankConsumptionRepository = externalWorldBankConsumptionRepository;
         this.externalFredSeriesRepository = externalFredSeriesRepository;
         this.realDataImportBatchRepository = realDataImportBatchRepository;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -239,14 +243,11 @@ public class RealDataAnalysisService {
                 entity.setFetchedAt(parseFetchedAt(readColumn(row, "fetched_at")));
                 buffer.add(entity);
                 if (buffer.size() >= batchSize) {
-                    externalRetailTransactionRepository.saveAll(buffer);
-                    count += buffer.size();
-                    buffer.clear();
+                    count += flushRetailBatch(buffer);
                 }
             }
             if (!buffer.isEmpty()) {
-                externalRetailTransactionRepository.saveAll(buffer);
-                count += buffer.size();
+                count += flushRetailBatch(buffer);
             }
         } catch (Exception exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failed to import online retail csv: " + exception.getMessage(), exception);
@@ -276,14 +277,11 @@ public class RealDataAnalysisService {
                 }
                 buffer.add(entity);
                 if (buffer.size() >= batchSize) {
-                    externalWorldBankConsumptionRepository.saveAll(buffer);
-                    count += buffer.size();
-                    buffer.clear();
+                    count += flushWorldBankBatch(buffer);
                 }
             }
             if (!buffer.isEmpty()) {
-                externalWorldBankConsumptionRepository.saveAll(buffer);
-                count += buffer.size();
+                count += flushWorldBankBatch(buffer);
             }
         } catch (Exception exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failed to import world bank csv: " + exception.getMessage(), exception);
@@ -312,19 +310,43 @@ public class RealDataAnalysisService {
                 }
                 buffer.add(entity);
                 if (buffer.size() >= batchSize) {
-                    externalFredSeriesRepository.saveAll(buffer);
-                    count += buffer.size();
-                    buffer.clear();
+                    count += flushFredBatch(buffer);
                 }
             }
             if (!buffer.isEmpty()) {
-                externalFredSeriesRepository.saveAll(buffer);
-                count += buffer.size();
+                count += flushFredBatch(buffer);
             }
         } catch (Exception exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failed to import fred csv: " + exception.getMessage(), exception);
         }
         return count;
+    }
+
+    private int flushRetailBatch(List<ExternalRetailTransaction> buffer) {
+        int size = buffer.size();
+        externalRetailTransactionRepository.saveAll(buffer);
+        externalRetailTransactionRepository.flush();
+        entityManager.clear();
+        buffer.clear();
+        return size;
+    }
+
+    private int flushWorldBankBatch(List<ExternalWorldBankConsumption> buffer) {
+        int size = buffer.size();
+        externalWorldBankConsumptionRepository.saveAll(buffer);
+        externalWorldBankConsumptionRepository.flush();
+        entityManager.clear();
+        buffer.clear();
+        return size;
+    }
+
+    private int flushFredBatch(List<ExternalFredSeries> buffer) {
+        int size = buffer.size();
+        externalFredSeriesRepository.saveAll(buffer);
+        externalFredSeriesRepository.flush();
+        entityManager.clear();
+        buffer.clear();
+        return size;
     }
 
     private BigDecimal toBigDecimal(Object value) {
