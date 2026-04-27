@@ -142,6 +142,7 @@ import StatCard from "@/components/StatCard.vue";
 import AdminTableCard from "@/components/AdminTableCard.vue";
 import { authStore } from "@/stores/auth";
 import { familiesApi } from "@/api/families";
+import { usePageRefresh } from "@/composables/pageRefresh";
 
 const familyMembers = ref([]);
 const pageFeedback = ref("");
@@ -254,4 +255,6 @@ watch(() => authStore.currentFamilyId, () => {
 onMounted(async () => {
   await refreshAll();
 });
+
+usePageRefresh(refreshAll);
 </script>

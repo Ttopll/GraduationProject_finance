@@ -239,6 +239,7 @@ import { authStore } from "@/stores/auth";
 import { categoriesApi } from "@/api/categories";
 import { rulesApi } from "@/api/rules";
 import { notificationsApi } from "@/api/notifications";
+import { usePageRefresh } from "@/composables/pageRefresh";
 
 const familyId = computed(() => authStore.currentFamilyId);
 const categories = ref([]);
@@ -569,15 +570,23 @@ function actionTypeLabel(value) {
   }[value] || value || "-";
 }
 
-onMounted(async () => {
+async function refreshAll() {
   if (!familyId.value) {
     ruleFeedback.value = "\u5f53\u524d\u8d26\u53f7\u8fd8\u6ca1\u6709\u5bb6\u5ead\u4e0a\u4e0b\u6587\uff0c\u8bf7\u5148\u5728\u201c\u7528\u6237\u4e0e\u5bb6\u5ead\u201d\u4e2d\u521b\u5efa\u5bb6\u5ead\u6216\u52a0\u5165\u5bb6\u5ead\u3002";
+    notifications.value = [];
+    rules.value = [];
     return;
   }
+  await Promise.all([loadCategories(), loadRules(), loadNotifications()]);
+}
+
+onMounted(async () => {
   try {
-    await Promise.all([loadCategories(), loadRules(), loadNotifications()]);
+    await refreshAll();
   } catch (error) {
     ruleFeedback.value = `\u89c4\u5219\u6a21\u5757\u521d\u59cb\u52a0\u8f7d\u5931\u8d25\uff1a${error.message}`;
   }
 });
+
+usePageRefresh(refreshAll);
 </script>

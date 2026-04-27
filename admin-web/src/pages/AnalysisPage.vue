@@ -128,6 +128,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import StatCard from "@/components/StatCard.vue";
 import { realDataApi } from "@/api/realData";
+import { usePageRefresh } from "@/composables/pageRefresh";
 
 const importing = ref(false);
 const loadingSummary = ref(false);
@@ -258,5 +259,9 @@ onMounted(async () => {
     importFeedback.type = "error";
     importFeedback.text = `\u5bfc\u5165\u5386\u53f2\u52a0\u8f7d\u5931\u8d25\uff1a${error.message}`;
   }
+});
+
+usePageRefresh(async () => {
+  await Promise.all([loadHistory(), loadSummary()]);
 });
 </script>

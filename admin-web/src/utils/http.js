@@ -12,10 +12,11 @@ function buildUrl(path, params) {
 }
 
 export async function request(path, options = {}) {
-  const { method = "GET", body, params, auth = true } = options;
+  const { method = "GET", body, params, auth = true, responseType = "json" } = options;
   const headers = {};
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
-  if (body !== undefined) {
+  if (body !== undefined && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -26,7 +27,7 @@ export async function request(path, options = {}) {
   const response = await fetch(buildUrl(path, params), {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body)
   });
 
   if (!response.ok) {
@@ -36,6 +37,14 @@ export async function request(path, options = {}) {
 
   if (response.status === 204) {
     return null;
+  }
+
+  if (responseType === "blob") {
+    return response.blob();
+  }
+
+  if (responseType === "text") {
+    return response.text();
   }
 
   return response.json();

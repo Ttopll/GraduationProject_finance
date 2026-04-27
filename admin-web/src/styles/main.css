@@ -312,6 +312,10 @@ textarea {
   border-color: var(--brand);
 }
 
+.file-input {
+  padding-top: 10px;
+}
+
 .field-toggle {
   display: flex;
   align-items: center;
@@ -355,6 +359,10 @@ textarea {
 .button-row {
   flex-wrap: wrap;
   margin-top: 14px;
+}
+
+.button-row-tight {
+  margin-top: 0;
 }
 
 .two-column {
@@ -509,6 +517,10 @@ textarea {
   padding-top: 18px;
 }
 
+.operations-grid {
+  align-items: start;
+}
+
 .table-shell {
   overflow-x: auto;
   border: 1px solid var(--line-soft);
@@ -607,6 +619,17 @@ textarea {
   background: #fff;
 }
 
+.summary-link {
+  color: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(44, 95, 147, 0.32);
+  box-shadow: 0 14px 28px -22px rgba(44, 95, 147, 0.35);
+}
+
 .summary-normal {
   color: var(--success);
 }
@@ -668,6 +691,18 @@ textarea {
 
 .empty-text {
   color: var(--text-subtle);
+}
+
+.selection-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text-subtle);
+  font-size: 13px;
 }
 
 .auth-shell {

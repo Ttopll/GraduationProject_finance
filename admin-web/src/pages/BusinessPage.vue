@@ -1,4 +1,4 @@
-cd <template>
+<template>
   <section class="page-section">
     <article v-if="!familyId" class="panel-card">
       <div class="panel-head">
@@ -340,6 +340,7 @@ import { accountsApi } from "@/api/accounts";
 import { categoriesApi } from "@/api/categories";
 import { budgetsApi } from "@/api/budgets";
 import { transactionsApi } from "@/api/transactions";
+import { usePageRefresh } from "@/composables/pageRefresh";
 
 const familyId = computed(() => authStore.currentFamilyId);
 const accounts = ref([]);
@@ -585,6 +586,14 @@ async function loadTransactions() {
 async function loadUsageAndMonthly() {
   budgetUsage.value = await budgetsApi.usage(ensureFamilyId());
   monthlySummary.value = await transactionsApi.monthlySummary(ensureFamilyId(), 6);
+}
+
+async function refreshAll() {
+  if (!familyId.value) {
+    accountFeedback.value = "\u5f53\u524d\u8d26\u53f7\u8fd8\u6ca1\u6709\u5bb6\u5ead\u4e0a\u4e0b\u6587\uff0c\u8bf7\u5148\u5728\u201c\u7528\u6237\u4e0e\u5bb6\u5ead\u201d\u4e2d\u521b\u5efa\u5bb6\u5ead\u6216\u52a0\u5165\u5bb6\u5ead\u3002";
+    return;
+  }
+  await Promise.all([loadAccounts(), loadCategories(), loadBudgets(), loadTransactions(), loadUsageAndMonthly()]);
 }
 
 async function submitAccount() {
@@ -953,14 +962,12 @@ function budgetPeriodLabel(value) {
 }
 
 onMounted(async () => {
-  if (!familyId.value) {
-    accountFeedback.value = "\u5f53\u524d\u8d26\u53f7\u8fd8\u6ca1\u6709\u5bb6\u5ead\u4e0a\u4e0b\u6587\uff0c\u8bf7\u5148\u5728\u201c\u7528\u6237\u4e0e\u5bb6\u5ead\u201d\u4e2d\u521b\u5efa\u5bb6\u5ead\u6216\u52a0\u5165\u5bb6\u5ead\u3002";
-    return;
-  }
   try {
-    await Promise.all([loadAccounts(), loadCategories(), loadBudgets(), loadTransactions(), loadUsageAndMonthly()]);
+    await refreshAll();
   } catch (error) {
     accountFeedback.value = `\u4e1a\u52a1\u6570\u636e\u521d\u59cb\u52a0\u8f7d\u5931\u8d25\uff1a${error.message}`;
   }
 });
+
+usePageRefresh(refreshAll);
 </script>
