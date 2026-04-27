@@ -1,26 +1,28 @@
-<template>
+cd <template>
   <section class="page-section">
     <article v-if="!familyId" class="panel-card">
       <div class="panel-head">
         <div>
-          <div class="panel-kicker">家庭上下文缺失</div>
-          <h2>请先创建或加入家庭</h2>
+          <div class="panel-kicker">&#23478;&#24237;&#19978;&#19979;&#25991;&#32570;&#22833;</div>
+          <h2>&#35831;&#20808;&#21019;&#24314;&#25110;&#21152;&#20837;&#23478;&#24237;</h2>
         </div>
       </div>
-      <div class="feedback-box info">当前账号还没有家庭上下文，账户、分类、预算和交易都必须归属到某个家庭下。请先进入“用户与家庭”页面创建家庭或通过邀请码加入家庭。</div>
+      <div class="feedback-box info">
+        &#36134;&#25143;&#12289;&#20998;&#31867;&#12289;&#39044;&#31639;&#21644;&#20132;&#26131;&#37117;&#24517;&#39035;&#24402;&#23646;&#21040;&#26576;&#20010;&#23478;&#24237;&#19979;&#12290;&#35831;&#20808;&#21069;&#24448;&#8220;&#29992;&#25143;&#19982;&#23478;&#24237;&#8221;&#39029;&#38754;&#21019;&#24314;&#23478;&#24237;&#25110;&#21152;&#20837;&#23478;&#24237;&#12290;
+      </div>
     </article>
 
     <div class="stats-grid">
-      <StatCard label="当前家庭" :value="familyId || '-'" meta="当前页面所有业务请求均绑定 familyId" />
-      <StatCard label="账户数" :value="accounts.length" meta="现金、银行卡、信用卡等资金账户" />
-      <StatCard label="分类数" :value="categories.length" meta="收入与支出分类维度" />
-      <StatCard label="交易数" :value="transactionTotal" :meta="transactionMeta" />
+      <StatCard label="&#24403;&#21069;&#23478;&#24237;" :value="familyId || '-'" meta="&#24403;&#21069;&#39029;&#38754;&#25152;&#26377;&#35831;&#27714;&#37117;&#32465;&#23450; familyId" />
+      <StatCard label="&#36134;&#25143;&#25968;" :value="accounts.length" meta="&#29616;&#37329;&#12289;&#38134;&#34892;&#21345;&#12289;&#20449;&#29992;&#21345;&#31561;&#36164;&#37329;&#36134;&#25143;" />
+      <StatCard label="&#20998;&#31867;&#25968;" :value="categories.length" meta="&#25910;&#20837;&#19982;&#25903;&#20986;&#20998;&#31867;&#32500;&#24230;" />
+      <StatCard label="&#20132;&#26131;&#25968;" :value="transactionTotal" :meta="transactionMeta" />
     </div>
 
-    <AdminTableCard kicker="账户" title="账户管理">
+    <AdminTableCard kicker="&#36134;&#25143;" title="&#36134;&#25143;&#31649;&#29702;">
       <template #actions>
-        <button class="primary-button" type="button" @click="openAccountCreate">新增账户</button>
-        <button class="ghost-button" type="button" @click="loadAccounts">刷新</button>
+        <button class="primary-button" type="button" @click="openAccountCreate">&#26032;&#22686;&#36134;&#25143;</button>
+        <button class="ghost-button" type="button" @click="loadAccounts">&#21047;&#26032;</button>
       </template>
       <template #feedback>
         <div v-if="accountFeedback" class="feedback-box info">{{ accountFeedback }}</div>
@@ -29,48 +31,42 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>账户信息</th>
-              <th>类型</th>
-              <th>所属成员</th>
-              <th>当前余额</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>&#36134;&#25143;&#20449;&#24687;</th>
+              <th>&#31867;&#22411;</th>
+              <th>&#25152;&#23646;&#25104;&#21592;</th>
+              <th>&#24403;&#21069;&#20313;&#39069;</th>
+              <th>&#29366;&#24577;</th>
+              <th>&#25805;&#20316;</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in accounts" :key="item.id">
               <td>
                 <div class="primary-cell">{{ item.accountName }}</div>
-                <div class="secondary-cell">{{ item.institutionName || "未填写机构" }} / {{ item.accountNoMask || "未填写尾号" }}</div>
+                <div class="secondary-cell">{{ item.institutionName || "\u672a\u586b\u5199\u673a\u6784" }} / {{ item.accountNoMask || "\u672a\u586b\u5199\u5c3e\u53f7" }}</div>
               </td>
-              <td>{{ item.accountType }}</td>
+              <td>{{ accountTypeLabel(item.accountType) }}</td>
               <td>{{ ownerName(item.ownerMemberId) }}</td>
               <td>{{ formatAmount(item.currentBalance) }}</td>
-              <td>
-                <span class="status-badge" :class="item.status === 1 ? 'is-success' : 'is-muted'">
-                  {{ item.status === 1 ? "启用" : "停用" }}
-                </span>
-              </td>
+              <td><span class="status-badge" :class="item.status === 1 ? 'is-success' : 'is-muted'">{{ item.status === 1 ? "\u542f\u7528" : "\u505c\u7528" }}</span></td>
               <td>
                 <div class="row-actions row-actions-left">
-                  <button class="ghost-button small" type="button" @click="openAccountEdit(item)">编辑</button>
-                  <button class="ghost-button small" type="button" @click="toggleAccount(item)">{{ item.status === 1 ? "停用" : "启用" }}</button>
-                  <button class="ghost-button danger small" type="button" @click="deleteAccount(item.id)">删除</button>
+                  <button class="ghost-button small" type="button" @click="openAccountEdit(item)">&#32534;&#36753;</button>
+                  <button class="ghost-button small" type="button" @click="toggleAccount(item)">{{ item.status === 1 ? "\u505c\u7528" : "\u542f\u7528" }}</button>
+                  <button class="ghost-button danger small" type="button" @click="deleteAccount(item.id)">&#21024;&#38500;</button>
                 </div>
               </td>
             </tr>
-            <tr v-if="accounts.length === 0">
-              <td colspan="6" class="table-empty">当前家庭下暂无账户数据。</td>
-            </tr>
+            <tr v-if="accounts.length === 0"><td colspan="6" class="table-empty">&#24403;&#21069;&#23478;&#24237;&#19979;&#26242;&#26080;&#36134;&#25143;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
     </AdminTableCard>
 
-    <AdminTableCard kicker="分类" title="分类管理">
+    <AdminTableCard kicker="&#20998;&#31867;" title="&#20998;&#31867;&#31649;&#29702;">
       <template #actions>
-        <button class="primary-button" type="button" @click="openCategoryCreate">新增分类</button>
-        <button class="ghost-button" type="button" @click="loadCategories">刷新</button>
+        <button class="primary-button" type="button" @click="openCategoryCreate">&#26032;&#22686;&#20998;&#31867;</button>
+        <button class="ghost-button" type="button" @click="loadCategories">&#21047;&#26032;</button>
       </template>
       <template #feedback>
         <div v-if="categoryFeedback" class="feedback-box info">{{ categoryFeedback }}</div>
@@ -79,48 +75,42 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>分类名称</th>
-              <th>类型</th>
-              <th>范围</th>
-              <th>排序</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>&#20998;&#31867;&#21517;&#31216;</th>
+              <th>&#31867;&#22411;</th>
+              <th>&#33539;&#22260;</th>
+              <th>&#25490;&#24207;</th>
+              <th>&#29366;&#24577;</th>
+              <th>&#25805;&#20316;</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in categories" :key="item.id">
               <td>
                 <div class="primary-cell">{{ item.categoryName }}</div>
-                <div class="secondary-cell">ID {{ item.id }} / 父分类 {{ item.parentId ?? "-" }}</div>
+                <div class="secondary-cell">ID {{ item.id }} / &#29238;&#20998;&#31867; {{ item.parentId ?? "-" }}</div>
               </td>
-              <td>{{ item.categoryType }}</td>
-              <td>{{ item.scopeType || "-" }}</td>
+              <td>{{ categoryTypeLabel(item.categoryType) }}</td>
+              <td>{{ scopeTypeLabel(item.scopeType) }}</td>
               <td>{{ item.sortOrder ?? "-" }}</td>
-              <td>
-                <span class="status-badge" :class="item.enabled === 1 ? 'is-success' : 'is-muted'">
-                  {{ item.enabled === 1 ? "启用" : "停用" }}
-                </span>
-              </td>
+              <td><span class="status-badge" :class="item.enabled === 1 ? 'is-success' : 'is-muted'">{{ item.enabled === 1 ? "\u542f\u7528" : "\u505c\u7528" }}</span></td>
               <td>
                 <div class="row-actions row-actions-left">
-                  <button class="ghost-button small" type="button" @click="openCategoryEdit(item)">编辑</button>
-                  <button class="ghost-button small" type="button" @click="toggleCategory(item)">{{ item.enabled === 1 ? "停用" : "启用" }}</button>
-                  <button class="ghost-button danger small" type="button" @click="deleteCategory(item.id)">删除</button>
+                  <button class="ghost-button small" type="button" @click="openCategoryEdit(item)">&#32534;&#36753;</button>
+                  <button class="ghost-button small" type="button" @click="toggleCategory(item)">{{ item.enabled === 1 ? "\u505c\u7528" : "\u542f\u7528" }}</button>
+                  <button class="ghost-button danger small" type="button" @click="deleteCategory(item.id)">&#21024;&#38500;</button>
                 </div>
               </td>
             </tr>
-            <tr v-if="categories.length === 0">
-              <td colspan="6" class="table-empty">当前家庭下暂无分类数据。</td>
-            </tr>
+            <tr v-if="categories.length === 0"><td colspan="6" class="table-empty">&#24403;&#21069;&#23478;&#24237;&#19979;&#26242;&#26080;&#20998;&#31867;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
     </AdminTableCard>
 
-    <AdminTableCard kicker="预算" title="预算管理">
+    <AdminTableCard kicker="&#39044;&#31639;" title="&#39044;&#31639;&#31649;&#29702;">
       <template #actions>
-        <button class="primary-button" type="button" @click="openBudgetCreate">新增预算</button>
-        <button class="ghost-button" type="button" @click="loadBudgets">刷新</button>
+        <button class="primary-button" type="button" @click="openBudgetCreate">&#26032;&#22686;&#39044;&#31639;</button>
+        <button class="ghost-button" type="button" @click="loadBudgets">&#21047;&#26032;</button>
       </template>
       <template #feedback>
         <div v-if="budgetFeedback" class="feedback-box info">{{ budgetFeedback }}</div>
@@ -129,72 +119,66 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>预算名称</th>
-              <th>预算分类</th>
-              <th>周期</th>
-              <th>金额</th>
-              <th>预警比例</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>&#39044;&#31639;&#21517;&#31216;</th>
+              <th>&#20851;&#32852;&#20998;&#31867;</th>
+              <th>&#21608;&#26399;</th>
+              <th>&#37329;&#39069;</th>
+              <th>&#39044;&#35686;&#27604;&#20363;</th>
+              <th>&#29366;&#24577;</th>
+              <th>&#25805;&#20316;</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in budgets" :key="item.id">
               <td>
                 <div class="primary-cell">{{ item.budgetName }}</div>
-                <div class="secondary-cell">{{ item.startDate || "-" }} 至 {{ item.endDate || "长期有效" }}</div>
+                <div class="secondary-cell">{{ item.startDate || "-" }} &#33267; {{ item.endDate || "\u957f\u671f\u6709\u6548" }}</div>
               </td>
               <td>{{ categoryName(item.categoryId) }}</td>
-              <td>{{ item.periodType }}</td>
+              <td>{{ budgetPeriodLabel(item.periodType) }}</td>
               <td>{{ formatAmount(item.amount) }}</td>
               <td>{{ item.alertRatio ?? "-" }}</td>
-              <td>
-                <span class="status-badge" :class="item.enabled === 1 ? 'is-success' : 'is-muted'">
-                  {{ item.enabled === 1 ? "启用" : "停用" }}
-                </span>
-              </td>
+              <td><span class="status-badge" :class="item.enabled === 1 ? 'is-success' : 'is-muted'">{{ item.enabled === 1 ? "\u542f\u7528" : "\u505c\u7528" }}</span></td>
               <td>
                 <div class="row-actions row-actions-left">
-                  <button class="ghost-button small" type="button" @click="openBudgetEdit(item)">编辑</button>
-                  <button class="ghost-button small" type="button" @click="toggleBudget(item)">{{ item.enabled === 1 ? "停用" : "启用" }}</button>
-                  <button class="ghost-button danger small" type="button" @click="deleteBudget(item.id)">删除</button>
+                  <button class="ghost-button small" type="button" @click="openBudgetEdit(item)">&#32534;&#36753;</button>
+                  <button class="ghost-button small" type="button" @click="toggleBudget(item)">{{ item.enabled === 1 ? "\u505c\u7528" : "\u542f\u7528" }}</button>
+                  <button class="ghost-button danger small" type="button" @click="deleteBudget(item.id)">&#21024;&#38500;</button>
                 </div>
               </td>
             </tr>
-            <tr v-if="budgets.length === 0">
-              <td colspan="7" class="table-empty">当前家庭下暂无预算数据。</td>
-            </tr>
+            <tr v-if="budgets.length === 0"><td colspan="7" class="table-empty">&#24403;&#21069;&#23478;&#24237;&#19979;&#26242;&#26080;&#39044;&#31639;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
     </AdminTableCard>
 
-    <AdminTableCard kicker="交易" title="交易管理">
+    <AdminTableCard kicker="&#20132;&#26131;" title="&#20132;&#26131;&#31649;&#29702;">
       <template #actions>
-        <button class="primary-button" type="button" @click="openTransactionCreate">新增交易</button>
-        <button class="ghost-button" type="button" @click="loadTransactions">刷新</button>
+        <button class="primary-button" type="button" @click="openTransactionCreate">&#26032;&#22686;&#20132;&#26131;</button>
+        <button class="ghost-button" type="button" @click="loadTransactions">&#21047;&#26032;</button>
       </template>
       <template #filters>
         <FilterBar>
           <label class="field-inline">
-            <span>交易类型</span>
+            <span>&#20132;&#26131;&#31867;&#22411;</span>
             <select v-model="transactionFilter.transactionType" class="field-input">
-              <option value="">全部</option>
-              <option value="EXPENSE">支出</option>
-              <option value="INCOME">收入</option>
-              <option value="TRANSFER">转账</option>
+              <option value="">&#20840;&#37096;</option>
+              <option value="EXPENSE">&#25903;&#20986;</option>
+              <option value="INCOME">&#25910;&#20837;</option>
+              <option value="TRANSFER">&#36716;&#36134;</option>
             </select>
           </label>
           <label class="field-inline">
-            <span>开始时间</span>
+            <span>&#24320;&#22987;&#26102;&#38388;</span>
             <input v-model="transactionFilter.startTime" class="field-input" type="datetime-local" />
           </label>
           <label class="field-inline">
-            <span>结束时间</span>
+            <span>&#32467;&#26463;&#26102;&#38388;</span>
             <input v-model="transactionFilter.endTime" class="field-input" type="datetime-local" />
           </label>
-          <button class="ghost-button" type="button" @click="loadTransactions">查询</button>
-          <button class="ghost-button" type="button" @click="resetTransactionFilter">重置</button>
+          <button class="ghost-button" type="button" @click="loadTransactions">&#26597;&#35810;</button>
+          <button class="ghost-button" type="button" @click="resetTransactionFilter">&#37325;&#32622;</button>
         </FilterBar>
       </template>
       <template #feedback>
@@ -204,19 +188,19 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>交易信息</th>
-              <th>账户</th>
-              <th>分类</th>
-              <th>类型</th>
-              <th>金额</th>
-              <th>时间</th>
-              <th>操作</th>
+              <th>&#20132;&#26131;&#20449;&#24687;</th>
+              <th>&#36134;&#25143;</th>
+              <th>&#20998;&#31867;</th>
+              <th>&#31867;&#22411;</th>
+              <th>&#37329;&#39069;</th>
+              <th>&#26102;&#38388;</th>
+              <th>&#25805;&#20316;</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in transactionItems" :key="item.id">
               <td>
-                <div class="primary-cell">{{ item.merchantName || item.counterpartyName || "手工记录" }}</div>
+                <div class="primary-cell">{{ item.merchantName || item.counterpartyName || "\u624b\u5de5\u8bb0\u5f55" }}</div>
                 <div class="secondary-cell">{{ item.note || item.sourcePlatform || "-" }}</div>
               </td>
               <td>{{ accountName(item.accountId) }}</td>
@@ -226,249 +210,121 @@
               <td>{{ formatDateTime(item.transactionTime) }}</td>
               <td>
                 <div class="row-actions row-actions-left">
-                  <button class="ghost-button small" type="button" @click="openTransactionEdit(item)">编辑</button>
-                  <button class="ghost-button danger small" type="button" @click="deleteTransaction(item.id)">删除</button>
+                  <button class="ghost-button small" type="button" @click="openTransactionEdit(item)">&#32534;&#36753;</button>
+                  <button class="ghost-button danger small" type="button" @click="deleteTransaction(item.id)">&#21024;&#38500;</button>
                 </div>
               </td>
             </tr>
-            <tr v-if="transactionItems.length === 0">
-              <td colspan="7" class="table-empty">当前筛选条件下暂无交易数据。</td>
-            </tr>
+            <tr v-if="transactionItems.length === 0"><td colspan="7" class="table-empty">&#24403;&#21069;&#31579;&#36873;&#26465;&#20214;&#19979;&#26242;&#26080;&#20132;&#26131;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
     </AdminTableCard>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="预算使用情况" title="预算执行概览" :compact="true">
+      <AdminTableCard kicker="&#39044;&#31639;&#20351;&#29992;&#24773;&#20917;" title="&#39044;&#31639;&#25191;&#34892;&#27010;&#35272;" :compact="true">
         <template #actions>
-          <button class="ghost-button" type="button" @click="loadUsageAndMonthly">刷新指标</button>
+          <button class="ghost-button" type="button" @click="loadUsageAndMonthly">&#21047;&#26032;&#25351;&#26631;</button>
         </template>
         <div class="summary-grid">
           <div v-for="item in budgetUsage" :key="item.budgetId" class="summary-item">
             <strong>{{ item.budgetName }}</strong>
             <span>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</span>
             <span :class="item.exceeded ? 'summary-danger' : item.alertTriggered ? 'summary-warn' : 'summary-normal'">
-              {{ item.exceeded ? "已超支" : item.alertTriggered ? "达到预警" : "正常" }}
+              {{ item.exceeded ? "\u5df2\u8d85\u652f" : item.alertTriggered ? "\u8fbe\u5230\u9884\u8b66" : "\u6b63\u5e38" }}
             </span>
           </div>
-          <div v-if="budgetUsage.length === 0" class="empty-text">暂无预算使用情况。</div>
+          <div v-if="budgetUsage.length === 0" class="empty-text">&#26242;&#26080;&#39044;&#31639;&#20351;&#29992;&#24773;&#20917;&#12290;</div>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="月度汇总" title="近月收支走势" :compact="true">
+      <AdminTableCard kicker="&#26376;&#24230;&#27719;&#24635;" title="&#36817;&#26376;&#25910;&#25903;&#36208;&#21183;" :compact="true">
         <div class="summary-grid">
           <div v-for="item in monthlySummary" :key="item.month" class="summary-item">
             <strong>{{ item.month }}</strong>
-            <span>收入 {{ formatAmount(item.income) }}</span>
-            <span>支出 {{ formatAmount(item.expense) }}</span>
+            <span>&#25910;&#20837; {{ formatAmount(item.income) }}</span>
+            <span>&#25903;&#20986; {{ formatAmount(item.expense) }}</span>
           </div>
-          <div v-if="monthlySummary.length === 0" class="empty-text">暂无月度汇总数据。</div>
+          <div v-if="monthlySummary.length === 0" class="empty-text">&#26242;&#26080;&#26376;&#24230;&#27719;&#24635;&#25968;&#25454;&#12290;</div>
         </div>
       </AdminTableCard>
     </div>
 
-    <CrudModal v-model="showAccountModal" :title="accountForm.id ? '编辑账户' : '新增账户'">
+    <CrudModal v-model="showAccountModal" :title="accountForm.id ? '\u7f16\u8f91\u8d26\u6237' : '\u65b0\u589e\u8d26\u6237'">
       <div class="form-grid">
+        <label class="field-block"><span>&#36134;&#25143;&#21517;&#31216;</span><input v-model.trim="accountForm.accountName" class="field-input" type="text" /></label>
         <label class="field-block">
-          <span>账户名称</span>
-          <input v-model.trim="accountForm.accountName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>账户类型</span>
+          <span>&#36134;&#25143;&#31867;&#22411;</span>
           <select v-model="accountForm.accountType" class="field-input">
-            <option value="CASH">CASH</option>
-            <option value="BANK">BANK</option>
-            <option value="CREDIT">CREDIT</option>
-            <option value="ALIPAY">ALIPAY</option>
-            <option value="WECHAT">WECHAT</option>
+            <option value="CASH">&#29616;&#37329;</option>
+            <option value="BANK">&#38134;&#34892;&#21345;</option>
+            <option value="CREDIT">&#20449;&#29992;&#21345;</option>
+            <option value="ALIPAY">&#25903;&#20184;&#23453;</option>
+            <option value="WECHAT">&#24494;&#20449;</option>
           </select>
         </label>
         <label class="field-block">
-          <span>所属成员</span>
+          <span>&#25152;&#23646;&#25104;&#21592;</span>
           <select v-model.number="accountForm.ownerMemberId" class="field-input">
-            <option :value="null">当前默认成员</option>
+            <option :value="null">&#24403;&#21069;&#40664;&#35748;&#25104;&#21592;</option>
             <option v-for="item in ownerOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
         </label>
-        <label class="field-block">
-          <span>机构名称</span>
-          <input v-model.trim="accountForm.institutionName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>账号尾号</span>
-          <input v-model.trim="accountForm.accountNoMask" class="field-input" type="text" />
-        </label>
-        <label v-if="!accountForm.id" class="field-block">
-          <span>当前余额</span>
-          <input v-model.number="accountForm.currentBalance" class="field-input" type="number" step="0.01" />
-        </label>
-        <label class="field-block">
-          <span>信用额度</span>
-          <input v-model.number="accountForm.creditLimit" class="field-input" type="number" step="0.01" />
-        </label>
-        <label class="field-block">
-          <span>账单日</span>
-          <input v-model.number="accountForm.billingDay" class="field-input" type="number" min="1" max="31" />
-        </label>
-        <label class="field-block">
-          <span>还款日</span>
-          <input v-model.number="accountForm.repaymentDay" class="field-input" type="number" min="1" max="31" />
-        </label>
-        <label class="field-block">
-          <span>是否共享</span>
-          <select v-model.number="accountForm.isShared" class="field-input">
-            <option :value="1">共享</option>
-            <option :value="0">不共享</option>
-          </select>
-        </label>
-        <label class="field-block field-block-full">
-          <span>备注</span>
-          <input v-model.trim="accountForm.remark" class="field-input" type="text" />
-        </label>
+        <label class="field-block"><span>&#26426;&#26500;&#21517;&#31216;</span><input v-model.trim="accountForm.institutionName" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#36134;&#21495;&#23614;&#21495;</span><input v-model.trim="accountForm.accountNoMask" class="field-input" type="text" /></label>
+        <label v-if="!accountForm.id" class="field-block"><span>&#24403;&#21069;&#20313;&#39069;</span><input v-model.number="accountForm.currentBalance" class="field-input" type="number" step="0.01" /></label>
+        <label class="field-block"><span>&#20449;&#29992;&#39069;&#24230;</span><input v-model.number="accountForm.creditLimit" class="field-input" type="number" step="0.01" /></label>
+        <label class="field-block"><span>&#36134;&#21333;&#26085;</span><input v-model.number="accountForm.billingDay" class="field-input" type="number" min="1" max="31" /></label>
+        <label class="field-block"><span>&#36824;&#27454;&#26085;</span><input v-model.number="accountForm.repaymentDay" class="field-input" type="number" min="1" max="31" /></label>
+        <label class="field-block"><span>&#26159;&#21542;&#20849;&#20139;</span><select v-model.number="accountForm.isShared" class="field-input"><option :value="1">&#20849;&#20139;</option><option :value="0">&#19981;&#20849;&#20139;</option></select></label>
+        <label class="field-block field-block-full"><span>&#22791;&#27880;</span><input v-model.trim="accountForm.remark" class="field-input" type="text" /></label>
       </div>
-      <div class="button-row">
-        <button class="primary-button" type="button" @click="submitAccount">{{ accountForm.id ? "保存账户" : "创建账户" }}</button>
-      </div>
+      <div class="feedback-box info">{{ accountFormTip }}</div>
+      <div class="button-row"><button class="primary-button" type="button" @click="submitAccount">{{ accountForm.id ? "\u4fdd\u5b58\u8d26\u6237" : "\u521b\u5efa\u8d26\u6237" }}</button></div>
     </CrudModal>
 
-    <CrudModal v-model="showCategoryModal" :title="categoryForm.id ? '编辑分类' : '新增分类'">
+    <CrudModal v-model="showCategoryModal" :title="categoryForm.id ? '\u7f16\u8f91\u5206\u7c7b' : '\u65b0\u589e\u5206\u7c7b'">
       <div class="form-grid">
-        <label class="field-block">
-          <span>分类名称</span>
-          <input v-model.trim="categoryForm.categoryName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>分类类型</span>
-          <select v-model="categoryForm.categoryType" class="field-input">
-            <option value="EXPENSE">支出</option>
-            <option value="INCOME">收入</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>适用范围</span>
-          <select v-model="categoryForm.scopeType" class="field-input">
-            <option value="FAMILY">家庭</option>
-            <option value="PERSONAL">个人</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>图标编码</span>
-          <input v-model.trim="categoryForm.iconCode" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>排序值</span>
-          <input v-model.number="categoryForm.sortOrder" class="field-input" type="number" />
-        </label>
-        <label class="field-block">
-          <span>父分类 ID</span>
-          <input v-model.number="categoryForm.parentId" class="field-input" type="number" min="1" />
-        </label>
+        <label class="field-block"><span>&#20998;&#31867;&#21517;&#31216;</span><input v-model.trim="categoryForm.categoryName" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#20998;&#31867;&#31867;&#22411;</span><select v-model="categoryForm.categoryType" class="field-input"><option value="EXPENSE">&#25903;&#20986;</option><option value="INCOME">&#25910;&#20837;</option></select></label>
+        <label class="field-block"><span>&#36866;&#29992;&#33539;&#22260;</span><select v-model="categoryForm.scopeType" class="field-input"><option value="FAMILY">&#23478;&#24237;</option><option value="PERSONAL">&#20010;&#20154;</option></select></label>
+        <label class="field-block"><span>&#22270;&#26631;&#32534;&#30721;</span><input v-model.trim="categoryForm.iconCode" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#25490;&#24207;&#20540;</span><input v-model.number="categoryForm.sortOrder" class="field-input" type="number" /></label>
+        <label class="field-block"><span>&#29238;&#20998;&#31867; ID</span><input v-model.number="categoryForm.parentId" class="field-input" type="number" min="1" /></label>
       </div>
-      <div class="button-row">
-        <button class="primary-button" type="button" @click="submitCategory">{{ categoryForm.id ? "保存分类" : "创建分类" }}</button>
-      </div>
+      <div class="feedback-box info">{{ categoryFormTip }}</div>
+      <div class="button-row"><button class="primary-button" type="button" @click="submitCategory">{{ categoryForm.id ? "\u4fdd\u5b58\u5206\u7c7b" : "\u521b\u5efa\u5206\u7c7b" }}</button></div>
     </CrudModal>
 
-    <CrudModal v-model="showBudgetModal" :title="budgetForm.id ? '编辑预算' : '新增预算'">
+    <CrudModal v-model="showBudgetModal" :title="budgetForm.id ? '\u7f16\u8f91\u9884\u7b97' : '\u65b0\u589e\u9884\u7b97'">
       <div class="form-grid">
-        <label class="field-block">
-          <span>预算名称</span>
-          <input v-model.trim="budgetForm.budgetName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>关联分类</span>
-          <select v-model.number="budgetForm.categoryId" class="field-input">
-            <option :value="null">请选择</option>
-            <option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>预算周期</span>
-          <select v-model="budgetForm.periodType" class="field-input">
-            <option value="MONTHLY">月度</option>
-            <option value="WEEKLY">周度</option>
-            <option value="YEARLY">年度</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>预算金额</span>
-          <input v-model.number="budgetForm.amount" class="field-input" type="number" min="0.01" step="0.01" />
-        </label>
-        <label class="field-block">
-          <span>预警比例</span>
-          <input v-model.number="budgetForm.alertRatio" class="field-input" type="number" min="0" max="1" step="0.01" />
-        </label>
-        <label class="field-block">
-          <span>开始日期</span>
-          <input v-model="budgetForm.startDate" class="field-input" type="date" />
-        </label>
-        <label class="field-block">
-          <span>结束日期</span>
-          <input v-model="budgetForm.endDate" class="field-input" type="date" />
-        </label>
-        <label class="field-block field-block-full">
-          <span>备注</span>
-          <input v-model.trim="budgetForm.remark" class="field-input" type="text" />
-        </label>
+        <label class="field-block"><span>&#39044;&#31639;&#21517;&#31216;</span><input v-model.trim="budgetForm.budgetName" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#20851;&#32852;&#20998;&#31867;</span><select v-model.number="budgetForm.categoryId" class="field-input"><option :value="null">&#35831;&#36873;&#25321;</option><option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option></select></label>
+        <label class="field-block"><span>&#39044;&#31639;&#21608;&#26399;</span><select v-model="budgetForm.periodType" class="field-input"><option value="MONTHLY">&#26376;&#24230;</option><option value="WEEKLY">&#21608;&#24230;</option><option value="YEARLY">&#24180;&#24230;</option></select></label>
+        <label class="field-block"><span>&#39044;&#31639;&#37329;&#39069;</span><input v-model.number="budgetForm.amount" class="field-input" type="number" min="0.01" step="0.01" /></label>
+        <label class="field-block"><span>&#39044;&#35686;&#27604;&#20363;</span><input v-model.number="budgetForm.alertRatio" class="field-input" type="number" min="0" max="1" step="0.01" /></label>
+        <label class="field-block"><span>&#24320;&#22987;&#26085;&#26399;</span><input v-model="budgetForm.startDate" class="field-input" type="date" /></label>
+        <label class="field-block"><span>&#32467;&#26463;&#26085;&#26399;</span><input v-model="budgetForm.endDate" class="field-input" type="date" /></label>
+        <label class="field-block field-block-full"><span>&#22791;&#27880;</span><input v-model.trim="budgetForm.remark" class="field-input" type="text" /></label>
       </div>
-      <div class="button-row">
-        <button class="primary-button" type="button" @click="submitBudget">{{ budgetForm.id ? "保存预算" : "创建预算" }}</button>
-      </div>
+      <div class="feedback-box info">{{ budgetFormTip }}</div>
+      <div class="button-row"><button class="primary-button" type="button" @click="submitBudget">{{ budgetForm.id ? "\u4fdd\u5b58\u9884\u7b97" : "\u521b\u5efa\u9884\u7b97" }}</button></div>
     </CrudModal>
 
-    <CrudModal v-model="showTransactionModal" :title="transactionForm.id ? '编辑交易' : '新增交易'">
+    <CrudModal v-model="showTransactionModal" :title="transactionForm.id ? '\u7f16\u8f91\u4ea4\u6613' : '\u65b0\u589e\u4ea4\u6613'">
       <div class="form-grid">
-        <label class="field-block">
-          <span>账户</span>
-          <select v-model.number="transactionForm.accountId" class="field-input">
-            <option :value="null">请选择</option>
-            <option v-for="item in accounts" :key="item.id" :value="item.id">{{ item.accountName }}</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>分类</span>
-          <select v-model.number="transactionForm.categoryId" class="field-input">
-            <option :value="null">请选择</option>
-            <option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>交易类型</span>
-          <select v-model="transactionForm.transactionType" class="field-input">
-            <option value="EXPENSE">支出</option>
-            <option value="INCOME">收入</option>
-            <option value="TRANSFER">转账</option>
-          </select>
-        </label>
-        <label class="field-block">
-          <span>金额</span>
-          <input v-model.number="transactionForm.amount" class="field-input" type="number" min="0.01" step="0.01" />
-        </label>
-        <label class="field-block">
-          <span>交易时间</span>
-          <input v-model="transactionForm.transactionTime" class="field-input" type="datetime-local" />
-        </label>
-        <label class="field-block">
-          <span>商户</span>
-          <input v-model.trim="transactionForm.merchantName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>对方户名</span>
-          <input v-model.trim="transactionForm.counterpartyName" class="field-input" type="text" />
-        </label>
-        <label class="field-block">
-          <span>来源平台</span>
-          <input v-model.trim="transactionForm.sourcePlatform" class="field-input" type="text" />
-        </label>
-        <label class="field-block field-block-full">
-          <span>备注</span>
-          <input v-model.trim="transactionForm.note" class="field-input" type="text" />
-        </label>
+        <label class="field-block"><span>&#36134;&#25143;</span><select v-model.number="transactionForm.accountId" class="field-input"><option :value="null">&#35831;&#36873;&#25321;</option><option v-for="item in accounts" :key="item.id" :value="item.id">{{ item.accountName }}</option></select></label>
+        <label class="field-block"><span>&#20998;&#31867;</span><select v-model.number="transactionForm.categoryId" class="field-input"><option :value="null">&#35831;&#36873;&#25321;</option><option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option></select></label>
+        <label class="field-block"><span>&#20132;&#26131;&#31867;&#22411;</span><select v-model="transactionForm.transactionType" class="field-input"><option value="EXPENSE">&#25903;&#20986;</option><option value="INCOME">&#25910;&#20837;</option><option value="TRANSFER">&#36716;&#36134;</option></select></label>
+        <label class="field-block"><span>&#37329;&#39069;</span><input v-model.number="transactionForm.amount" class="field-input" type="number" min="0.01" step="0.01" /></label>
+        <label class="field-block"><span>&#20132;&#26131;&#26102;&#38388;</span><input v-model="transactionForm.transactionTime" class="field-input" type="datetime-local" /></label>
+        <label class="field-block"><span>&#21830;&#25143;</span><input v-model.trim="transactionForm.merchantName" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#23545;&#26041;&#25143;&#21517;</span><input v-model.trim="transactionForm.counterpartyName" class="field-input" type="text" /></label>
+        <label class="field-block"><span>&#26469;&#28304;&#24179;&#21488;</span><input v-model.trim="transactionForm.sourcePlatform" class="field-input" type="text" /></label>
+        <label class="field-block field-block-full"><span>&#22791;&#27880;</span><input v-model.trim="transactionForm.note" class="field-input" type="text" /></label>
       </div>
-      <div class="button-row">
-        <button class="primary-button" type="button" @click="submitTransaction">{{ transactionForm.id ? "保存交易" : "创建交易" }}</button>
-      </div>
+      <div class="feedback-box info">{{ transactionFormTip }}</div>
+      <div class="button-row"><button class="primary-button" type="button" @click="submitTransaction">{{ transactionForm.id ? "\u4fdd\u5b58\u4ea4\u6613" : "\u521b\u5efa\u4ea4\u6613" }}</button></div>
     </CrudModal>
   </section>
 </template>
@@ -506,7 +362,7 @@ const ownerOptions = computed(() => authStore.memberships
   .filter((item) => item.familyId === familyId.value && item.familyMemberId)
   .map((item) => ({
     value: item.familyMemberId,
-    label: `${item.familyName || "当前家庭"} / ${item.roleCode || "MEMBER"} / ${item.familyMemberId}`
+    label: `${item.familyName || "\u5f53\u524d\u5bb6\u5ead"} / ${item.roleCode || "MEMBER"} / ${item.familyMemberId}`
   })));
 
 const accountForm = reactive({
@@ -565,11 +421,15 @@ const transactionFilter = reactive({
   endTime: ""
 });
 
-const transactionMeta = computed(() => `当前页 ${transactionItems.value.length} 条 / 总数 ${transactionTotal.value}`);
+const transactionMeta = computed(() => `\u5f53\u524d\u9875 ${transactionItems.value.length} \u6761 / \u603b\u6570 ${transactionTotal.value}`);
+const accountFormTip = computed(() => "\u5efa\u8bae\u586b\u5199\u8d26\u6237\u540d\u79f0\u3001\u8d26\u6237\u7c7b\u578b\u548c\u57fa\u672c\u4fe1\u606f\uff0c\u4fe1\u7528\u5361\u573a\u666f\u53ef\u518d\u8865\u5145\u8d26\u5355\u65e5\u4e0e\u8fd8\u6b3e\u65e5\u3002");
+const categoryFormTip = computed(() => "\u5bb6\u5ead\u7ef4\u5ea6\u7684\u6536\u652f\u5206\u7c7b\u5efa\u8bae\u8bbe\u7f6e\u4e3a FAMILY\uff0c\u65b9\u4fbf\u9884\u7b97\u4e0e\u89c4\u5219\u6a21\u5757\u76f4\u63a5\u4f7f\u7528\u3002");
+const budgetFormTip = computed(() => "\u9884\u7b97\u91d1\u989d\u5fc5\u987b\u5927\u4e8e 0\uff0c\u4e14\u9700\u8981\u7ed1\u5b9a\u5230\u4e00\u4e2a\u6709\u6548\u5206\u7c7b\u4e0a\u3002");
+const transactionFormTip = computed(() => "\u4ea4\u6613\u8bb0\u5f55\u5efa\u8bae\u586b\u5199\u8d26\u6237\u3001\u4ea4\u6613\u7c7b\u578b\u3001\u91d1\u989d\u548c\u53d1\u751f\u65f6\u95f4\uff0c\u4fbf\u4e8e\u540e\u7eed\u5206\u6790\u7edf\u8ba1\u3002");
 
 function ensureFamilyId() {
   if (!familyId.value) {
-    throw new Error("当前会话没有可用的家庭上下文。");
+    throw new Error("\u5f53\u524d\u4f1a\u8bdd\u6ca1\u6709\u53ef\u7528\u7684\u5bb6\u5ead\u4e0a\u4e0b\u6587\u3002");
   }
   return familyId.value;
 }
@@ -633,11 +493,7 @@ function resetTransactionForm() {
 }
 
 function resetTransactionFilter() {
-  Object.assign(transactionFilter, {
-    transactionType: "",
-    startTime: "",
-    endTime: ""
-  });
+  Object.assign(transactionFilter, { transactionType: "", startTime: "", endTime: "" });
   loadTransactions();
 }
 
@@ -733,18 +589,19 @@ async function loadUsageAndMonthly() {
 
 async function submitAccount() {
   try {
+    validateAccountForm();
     if (accountForm.id) {
       await accountsApi.update(accountForm.id, buildAccountUpdatePayload());
-      accountFeedback.value = "账户已更新。";
+      accountFeedback.value = "\u8d26\u6237\u5df2\u66f4\u65b0\u3002";
     } else {
       await accountsApi.create({ familyId: ensureFamilyId(), ...buildAccountCreatePayload() });
-      accountFeedback.value = "账户已创建。";
+      accountFeedback.value = "\u8d26\u6237\u5df2\u521b\u5efa\u3002";
     }
     showAccountModal.value = false;
     resetAccountForm();
     await loadAccounts();
   } catch (error) {
-    accountFeedback.value = `账户操作失败：${error.message}`;
+    accountFeedback.value = `\u8d26\u6237\u64cd\u4f5c\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -757,7 +614,7 @@ async function toggleAccount(item) {
     }
     await loadAccounts();
   } catch (error) {
-    accountFeedback.value = `账户状态切换失败：${error.message}`;
+    accountFeedback.value = `\u8d26\u6237\u72b6\u6001\u5207\u6362\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -766,24 +623,25 @@ async function deleteAccount(id) {
     await accountsApi.remove(id);
     await loadAccounts();
   } catch (error) {
-    accountFeedback.value = `账户删除失败：${error.message}`;
+    accountFeedback.value = `\u8d26\u6237\u5220\u9664\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
 async function submitCategory() {
   try {
+    validateCategoryForm();
     if (categoryForm.id) {
       await categoriesApi.update(categoryForm.id, buildCategoryPayload());
-      categoryFeedback.value = "分类已更新。";
+      categoryFeedback.value = "\u5206\u7c7b\u5df2\u66f4\u65b0\u3002";
     } else {
       await categoriesApi.create({ familyId: ensureFamilyId(), ...buildCategoryPayload() });
-      categoryFeedback.value = "分类已创建。";
+      categoryFeedback.value = "\u5206\u7c7b\u5df2\u521b\u5efa\u3002";
     }
     showCategoryModal.value = false;
     resetCategoryForm();
     await loadCategories();
   } catch (error) {
-    categoryFeedback.value = `分类操作失败：${error.message}`;
+    categoryFeedback.value = `\u5206\u7c7b\u64cd\u4f5c\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -796,7 +654,7 @@ async function toggleCategory(item) {
     }
     await loadCategories();
   } catch (error) {
-    categoryFeedback.value = `分类状态切换失败：${error.message}`;
+    categoryFeedback.value = `\u5206\u7c7b\u72b6\u6001\u5207\u6362\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -805,24 +663,25 @@ async function deleteCategory(id) {
     await categoriesApi.remove(id);
     await loadCategories();
   } catch (error) {
-    categoryFeedback.value = `分类删除失败：${error.message}`;
+    categoryFeedback.value = `\u5206\u7c7b\u5220\u9664\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
 async function submitBudget() {
   try {
+    validateBudgetForm();
     if (budgetForm.id) {
       await budgetsApi.update(budgetForm.id, buildBudgetPayload());
-      budgetFeedback.value = "预算已更新。";
+      budgetFeedback.value = "\u9884\u7b97\u5df2\u66f4\u65b0\u3002";
     } else {
       await budgetsApi.create({ familyId: ensureFamilyId(), ...buildBudgetPayload() });
-      budgetFeedback.value = "预算已创建。";
+      budgetFeedback.value = "\u9884\u7b97\u5df2\u521b\u5efa\u3002";
     }
     showBudgetModal.value = false;
     resetBudgetForm();
     await Promise.all([loadBudgets(), loadUsageAndMonthly()]);
   } catch (error) {
-    budgetFeedback.value = `预算操作失败：${error.message}`;
+    budgetFeedback.value = `\u9884\u7b97\u64cd\u4f5c\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -835,7 +694,7 @@ async function toggleBudget(item) {
     }
     await Promise.all([loadBudgets(), loadUsageAndMonthly()]);
   } catch (error) {
-    budgetFeedback.value = `预算状态切换失败：${error.message}`;
+    budgetFeedback.value = `\u9884\u7b97\u72b6\u6001\u5207\u6362\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -844,24 +703,25 @@ async function deleteBudget(id) {
     await budgetsApi.remove(id);
     await Promise.all([loadBudgets(), loadUsageAndMonthly()]);
   } catch (error) {
-    budgetFeedback.value = `预算删除失败：${error.message}`;
+    budgetFeedback.value = `\u9884\u7b97\u5220\u9664\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
 async function submitTransaction() {
   try {
+    validateTransactionForm();
     if (transactionForm.id) {
       await transactionsApi.update(transactionForm.id, buildTransactionPayload());
-      transactionFeedback.value = "交易已更新。";
+      transactionFeedback.value = "\u4ea4\u6613\u5df2\u66f4\u65b0\u3002";
     } else {
       await transactionsApi.create({ familyId: ensureFamilyId(), ...buildTransactionPayload() });
-      transactionFeedback.value = "交易已创建。";
+      transactionFeedback.value = "\u4ea4\u6613\u5df2\u521b\u5efa\u3002";
     }
     showTransactionModal.value = false;
     resetTransactionForm();
     await Promise.all([loadTransactions(), loadUsageAndMonthly()]);
   } catch (error) {
-    transactionFeedback.value = `交易操作失败：${error.message}`;
+    transactionFeedback.value = `\u4ea4\u6613\u64cd\u4f5c\u5931\u8d25\uff1a${error.message}`;
   }
 }
 
@@ -870,7 +730,49 @@ async function deleteTransaction(id) {
     await transactionsApi.remove(id);
     await Promise.all([loadTransactions(), loadUsageAndMonthly()]);
   } catch (error) {
-    transactionFeedback.value = `交易删除失败：${error.message}`;
+    transactionFeedback.value = `\u4ea4\u6613\u5220\u9664\u5931\u8d25\uff1a${error.message}`;
+  }
+}
+
+function validateAccountForm() {
+  if (!accountForm.accountName.trim()) {
+    throw new Error("\u8bf7\u586b\u5199\u8d26\u6237\u540d\u79f0\u3002");
+  }
+  if (accountForm.billingDay && (accountForm.billingDay < 1 || accountForm.billingDay > 31)) {
+    throw new Error("\u8d26\u5355\u65e5\u5fc5\u987b\u5728 1-31 \u4e4b\u95f4\u3002");
+  }
+  if (accountForm.repaymentDay && (accountForm.repaymentDay < 1 || accountForm.repaymentDay > 31)) {
+    throw new Error("\u8fd8\u6b3e\u65e5\u5fc5\u987b\u5728 1-31 \u4e4b\u95f4\u3002");
+  }
+}
+
+function validateCategoryForm() {
+  if (!categoryForm.categoryName.trim()) {
+    throw new Error("\u8bf7\u586b\u5199\u5206\u7c7b\u540d\u79f0\u3002");
+  }
+}
+
+function validateBudgetForm() {
+  if (!budgetForm.budgetName.trim()) {
+    throw new Error("\u8bf7\u586b\u5199\u9884\u7b97\u540d\u79f0\u3002");
+  }
+  if (!budgetForm.categoryId) {
+    throw new Error("\u8bf7\u9009\u62e9\u5173\u8054\u5206\u7c7b\u3002");
+  }
+  if (!budgetForm.amount || Number(budgetForm.amount) <= 0) {
+    throw new Error("\u9884\u7b97\u91d1\u989d\u5fc5\u987b\u5927\u4e8e 0\u3002");
+  }
+}
+
+function validateTransactionForm() {
+  if (!transactionForm.accountId) {
+    throw new Error("\u8bf7\u9009\u62e9\u8d26\u6237\u3002");
+  }
+  if (!transactionForm.amount || Number(transactionForm.amount) <= 0) {
+    throw new Error("\u4ea4\u6613\u91d1\u989d\u5fc5\u987b\u5927\u4e8e 0\u3002");
+  }
+  if (!transactionForm.transactionTime) {
+    throw new Error("\u8bf7\u9009\u62e9\u4ea4\u6613\u65f6\u95f4\u3002");
   }
 }
 
@@ -952,7 +854,7 @@ function currentMemberId() {
 
 function requiredNumber(value) {
   if (value === null || value === undefined || value === "") {
-    throw new Error("必填选择项不能为空。");
+    throw new Error("\u5fc5\u586b\u9009\u62e9\u9879\u4e0d\u80fd\u4e3a\u7a7a\u3002");
   }
   return Number(value);
 }
@@ -1025,33 +927,40 @@ function accountName(accountId) {
 
 function ownerName(ownerMemberId) {
   if (!ownerMemberId) {
-    return "家庭共享";
+    return "\u5bb6\u5ead\u5171\u4eab";
   }
-  return ownerOptions.value.find((item) => item.value === ownerMemberId)?.label || `成员 #${ownerMemberId}`;
+  return ownerOptions.value.find((item) => item.value === ownerMemberId)?.label || `\u6210\u5458 #${ownerMemberId}`;
 }
 
 function transactionTypeLabel(value) {
-  if (value === "EXPENSE") {
-    return "支出";
-  }
-  if (value === "INCOME") {
-    return "收入";
-  }
-  if (value === "TRANSFER") {
-    return "转账";
-  }
-  return value || "-";
+  return { EXPENSE: "\u652f\u51fa", INCOME: "\u6536\u5165", TRANSFER: "\u8f6c\u8d26" }[value] || value || "-";
+}
+
+function accountTypeLabel(value) {
+  return { CASH: "\u73b0\u91d1", BANK: "\u94f6\u884c\u5361", CREDIT: "\u4fe1\u7528\u5361", ALIPAY: "\u652f\u4ed8\u5b9d", WECHAT: "\u5fae\u4fe1" }[value] || value || "-";
+}
+
+function categoryTypeLabel(value) {
+  return { EXPENSE: "\u652f\u51fa", INCOME: "\u6536\u5165" }[value] || value || "-";
+}
+
+function scopeTypeLabel(value) {
+  return { FAMILY: "\u5bb6\u5ead", PERSONAL: "\u4e2a\u4eba" }[value] || value || "-";
+}
+
+function budgetPeriodLabel(value) {
+  return { MONTHLY: "\u6708\u5ea6", WEEKLY: "\u5468\u5ea6", YEARLY: "\u5e74\u5ea6" }[value] || value || "-";
 }
 
 onMounted(async () => {
   if (!familyId.value) {
-    accountFeedback.value = "当前账号还没有家庭上下文，请先在“用户与家庭”中创建家庭或加入家庭。";
+    accountFeedback.value = "\u5f53\u524d\u8d26\u53f7\u8fd8\u6ca1\u6709\u5bb6\u5ead\u4e0a\u4e0b\u6587\uff0c\u8bf7\u5148\u5728\u201c\u7528\u6237\u4e0e\u5bb6\u5ead\u201d\u4e2d\u521b\u5efa\u5bb6\u5ead\u6216\u52a0\u5165\u5bb6\u5ead\u3002";
     return;
   }
   try {
     await Promise.all([loadAccounts(), loadCategories(), loadBudgets(), loadTransactions(), loadUsageAndMonthly()]);
   } catch (error) {
-    accountFeedback.value = `业务数据初始加载失败：${error.message}`;
+    accountFeedback.value = `\u4e1a\u52a1\u6570\u636e\u521d\u59cb\u52a0\u8f7d\u5931\u8d25\uff1a${error.message}`;
   }
 });
 </script>
