@@ -1,52 +1,52 @@
 <template>
   <section class="page-section">
     <div class="stats-grid">
-      <StatCard label="Current User" :value="authStore.user?.nickname || authStore.user?.username || '-'" :meta="userMeta" />
-      <StatCard label="Current Family" :value="familyId || '-'" :meta="familyMeta" />
-      <StatCard label="Unread Alerts" :value="unreadCount" :meta="notificationMeta" />
-      <StatCard label="Net Assets" :value="formatAmount(overview.netAssetValue)" :meta="netAssetMeta" />
+      <StatCard label="当前用户" :value="authStore.user?.nickname || authStore.user?.username || '-'" :meta="userMeta" />
+      <StatCard label="当前家庭" :value="familyId || '-'" :meta="familyMeta" />
+      <StatCard label="未读通知" :value="unreadCount" :meta="notificationMeta" />
+      <StatCard label="净资产" :value="formatAmount(overview.netAssetValue)" :meta="netAssetMeta" />
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="Workbench" title="Admin Overview">
+      <AdminTableCard kicker="工作台" title="后台总览">
         <template #actions>
-          <button class="ghost-button" type="button" @click="refreshAll">Refresh overview</button>
+          <button class="ghost-button" type="button" @click="refreshAll">刷新总览</button>
         </template>
         <div class="summary-grid dashboard-link-grid">
           <RouterLink to="/analysis" class="summary-item summary-link">
-            <strong>Real Data Analysis</strong>
+            <strong>真实数据分析</strong>
             <span>{{ latestImportLabel }}</span>
             <span>{{ defenseSummaryLabel }}</span>
           </RouterLink>
           <RouterLink to="/operations" class="summary-item summary-link">
-            <strong>Import and Export</strong>
-            <span>{{ pendingCount }} pending items</span>
-            <span>{{ exportLogs.length }} export logs</span>
+            <strong>导入与导出</strong>
+            <span>{{ pendingCount }} 条待处理</span>
+            <span>{{ exportLogs.length }} 条导出记录</span>
           </RouterLink>
           <RouterLink to="/business" class="summary-item summary-link">
-            <strong>Business Data</strong>
-            <span>{{ accounts.length }} accounts / {{ transactionsTotal }} transactions</span>
-            <span>{{ budgets.length }} budgets under management</span>
+            <strong>业务数据管理</strong>
+            <span>{{ accounts.length }} 个账户 / {{ transactionsTotal }} 条交易</span>
+            <span>{{ budgets.length }} 条预算正在管理</span>
           </RouterLink>
           <RouterLink to="/assets" class="summary-item summary-link">
-            <strong>Assets and Debts</strong>
-            <span>Assets {{ formatAmount(overview.totalFixedAssetValue) }}</span>
-            <span>Debt {{ formatAmount(overview.totalDebtBalance) }}</span>
+            <strong>资产与负债</strong>
+            <span>资产 {{ formatAmount(overview.totalFixedAssetValue) }}</span>
+            <span>负债 {{ formatAmount(overview.totalDebtBalance) }}</span>
           </RouterLink>
           <RouterLink to="/bill-parse-rules" class="summary-item summary-link">
-            <strong>Bill Parse Rules</strong>
-            <span>{{ parseRuleCount }} active parse rules</span>
-            <span>{{ parseRuleHitCount }} total hits</span>
+            <strong>账单解析规则</strong>
+            <span>{{ parseRuleCount }} 条解析规则</span>
+            <span>累计命中 {{ parseRuleHitCount }} 次</span>
           </RouterLink>
           <RouterLink to="/rules" class="summary-item summary-link">
-            <strong>Rules and Alerts</strong>
-            <span>{{ enabledRuleCount }} enabled rules</span>
-            <span>{{ riskyBudgetCount }} risky budgets / {{ unreadCount }} unread</span>
+            <strong>规则与通知</strong>
+            <span>{{ enabledRuleCount }} 条启用规则</span>
+            <span>{{ riskyBudgetCount }} 条风险预算 / {{ unreadCount }} 条未读</span>
           </RouterLink>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="Defense" title="Real Data Conclusions" :compact="true">
+      <AdminTableCard kicker="答辩摘要" title="真实数据结论" :compact="true">
         <div class="conclusion-list">
           <li>{{ defenseCountryConclusion }}</li>
           <li>{{ defenseRetailConclusion }}</li>
@@ -55,31 +55,31 @@
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="Linkage" title="Budget -> Rule -> Notification" :compact="true">
+      <AdminTableCard kicker="联动闭环" title="预算 -> 规则 -> 通知" :compact="true">
         <div class="summary-grid dashboard-linkage-grid">
           <div class="summary-item">
-            <strong>Budget Risk</strong>
-            <span>{{ riskyBudgetCount }} budgets in warning or exceeded state</span>
+            <strong>预算风险</strong>
+            <span>{{ riskyBudgetCount }} 条预算处于预警或超支状态</span>
             <span :class="riskyBudgetCount > 0 ? 'summary-warn' : 'summary-normal'">
-              {{ riskyBudgetCount > 0 ? `Exceeded ${exceededBudgetCount} / Warning ${warningBudgetCount}` : 'No risk budget this month' }}
+              {{ riskyBudgetCount > 0 ? `超支 ${exceededBudgetCount} 条 / 预警 ${warningBudgetCount} 条` : '本月暂无风险预算' }}
             </span>
           </div>
           <div class="summary-item">
-            <strong>Rule Coverage</strong>
-            <span>{{ coveredBudgetCount }} / {{ riskyBudgetCount }} risky budgets covered</span>
+            <strong>规则覆盖</strong>
+            <span>{{ coveredBudgetCount }} / {{ riskyBudgetCount }} 条风险预算已覆盖</span>
             <span :class="uncoveredBudgetCount > 0 ? 'summary-danger' : 'summary-normal'">
-              {{ uncoveredBudgetCount > 0 ? `${uncoveredBudgetCount} risky budgets still need rule coverage` : 'All risky budgets are covered' }}
+              {{ uncoveredBudgetCount > 0 ? `${uncoveredBudgetCount} 条风险预算仍需补规则` : '风险预算均已覆盖' }}
             </span>
           </div>
           <div class="summary-item">
-            <strong>Budget Alerts</strong>
-            <span>{{ budgetNotificationCount }} notifications</span>
-            <span>{{ budgetUnreadCount }} unread</span>
+            <strong>预算通知</strong>
+            <span>{{ budgetNotificationCount }} 条通知</span>
+            <span>{{ budgetUnreadCount }} 条未读</span>
           </div>
           <div class="summary-item">
-            <strong>Rule Alerts</strong>
-            <span>{{ ruleNotificationCount }} notifications</span>
-            <span>{{ ruleUnreadCount }} unread</span>
+            <strong>规则通知</strong>
+            <span>{{ ruleNotificationCount }} 条通知</span>
+            <span>{{ ruleUnreadCount }} 条未读</span>
           </div>
         </div>
         <div class="table-list compact-table dashboard-sublist">
@@ -87,110 +87,110 @@
             <strong>{{ item.budgetName }}</strong>
             <span>{{ item.categoryName || '-' }} / {{ item.month || '-' }}</span>
             <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
-              {{ item.exceeded ? 'Exceeded' : 'Warning' }} {{ formatPercent(item.usageRatio) }}
+              {{ item.exceeded ? '已超支' : '已预警' }} {{ formatPercent(item.usageRatio) }}
             </span>
             <span>{{ item.coverageLabel }}</span>
           </div>
-          <div v-if="riskyBudgetCoverageRows.length === 0" class="empty-text">No risky budgets need linkage review.</div>
+          <div v-if="riskyBudgetCoverageRows.length === 0" class="empty-text">暂无需要联动复核的风险预算。</div>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="Alerts" title="Notification Source Summary" :compact="true">
+      <AdminTableCard kicker="通知来源" title="通知来源汇总" :compact="true">
         <div class="summary-grid">
           <div v-for="item in notificationSourceSummary" :key="item.source" class="summary-item">
             <strong>{{ sourceTypeLabel(item.source) }}</strong>
-            <span>{{ item.count }} notifications</span>
-            <span>{{ item.unread }} unread</span>
+            <span>{{ item.count }} 条通知</span>
+            <span>{{ item.unread }} 条未读</span>
           </div>
-          <div v-if="notificationSourceSummary.length === 0" class="empty-text">No notification source data.</div>
+          <div v-if="notificationSourceSummary.length === 0" class="empty-text">暂无通知来源数据。</div>
         </div>
         <div class="table-list compact-table dashboard-sublist">
           <div v-for="item in latestNotifications" :key="item.id" class="table-row-three">
-            <strong>{{ item.title || "System Alert" }}</strong>
+            <strong>{{ item.title || "系统通知" }}</strong>
             <span>{{ sourceTypeLabel(item.sourceType) }}</span>
             <span>{{ formatDateTime(item.createdAt || item.sentAt) }}</span>
           </div>
-          <div v-if="latestNotifications.length === 0" class="empty-text">No recent notifications.</div>
+          <div v-if="latestNotifications.length === 0" class="empty-text">暂无最近通知。</div>
         </div>
       </AdminTableCard>
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="Budget Risk" title="Warning and Exceeded Budgets" :compact="true">
+      <AdminTableCard kicker="预算风险" title="预警与超支预算" :compact="true">
         <div class="table-list compact-table">
           <div v-for="item in highlightedBudgets" :key="item.budgetId" class="table-row-four">
             <strong>{{ item.budgetName }}</strong>
             <span>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</span>
             <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
-              {{ item.exceeded ? "Exceeded" : "Warning" }}
+              {{ item.exceeded ? "已超支" : "已预警" }}
             </span>
             <span>{{ item.categoryName || "-" }}</span>
           </div>
-          <div v-if="highlightedBudgets.length === 0" class="empty-text">No budget warning items right now.</div>
+          <div v-if="highlightedBudgets.length === 0" class="empty-text">当前暂无预算预警项。</div>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="Trend" title="Last 6 Months Cash Flow" :compact="true">
+      <AdminTableCard kicker="趋势" title="近 6 个月收支趋势" :compact="true">
         <div class="summary-grid">
           <div class="summary-item">
-            <strong>Income</strong>
+            <strong>收入</strong>
             <span>{{ formatAmount(totalIncome) }}</span>
-            <span>{{ monthlySummary.length }} monthly points</span>
+            <span>{{ monthlySummary.length }} 个统计点</span>
           </div>
           <div class="summary-item">
-            <strong>Expense</strong>
+            <strong>支出</strong>
             <span>{{ formatAmount(totalExpense) }}</span>
-            <span>{{ highlightedBudgets.length }} risky budgets</span>
+            <span>{{ highlightedBudgets.length }} 条风险预算</span>
           </div>
         </div>
         <div class="table-list compact-table dashboard-sublist">
           <div v-for="item in monthlySummary" :key="item.month" class="table-row-three">
             <strong>{{ item.month }}</strong>
-            <span>Income {{ formatAmount(item.income) }}</span>
-            <span>Expense {{ formatAmount(item.expense) }}</span>
+            <span>收入 {{ formatAmount(item.income) }}</span>
+            <span>支出 {{ formatAmount(item.expense) }}</span>
           </div>
-          <div v-if="monthlySummary.length === 0" class="empty-text">No monthly summary data.</div>
+          <div v-if="monthlySummary.length === 0" class="empty-text">暂无月度汇总数据。</div>
         </div>
       </AdminTableCard>
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="Import" title="Recent Imports and Pending Items" :compact="true">
+      <AdminTableCard kicker="导入" title="最近导入与待处理项" :compact="true">
         <div class="table-list compact-table">
           <div v-for="item in recentImports" :key="item.id" class="table-row-four">
-            <strong>#{{ item.id }} / {{ item.originalFileName || "batch-file" }}</strong>
+            <strong>#{{ item.id }} / {{ item.originalFileName || "批次文件" }}</strong>
             <span>{{ item.sourcePlatform || "-" }}</span>
             <span>{{ item.successCount || 0 }} / {{ item.totalCount || 0 }}</span>
-            <span>{{ item.unmatchedCount || 0 }} pending classify</span>
+            <span>{{ item.unmatchedCount || 0 }} 条待归类</span>
           </div>
-          <div v-if="recentImports.length === 0" class="empty-text">No bill import batches yet.</div>
+          <div v-if="recentImports.length === 0" class="empty-text">暂无账单导入批次。</div>
         </div>
         <div class="conclusion-list dashboard-sublist">
-          <li>{{ pendingCount > 0 ? `There are still ${pendingCount} unresolved import items waiting for manual handling.` : "There are no unresolved bill import items." }}</li>
+          <li>{{ pendingCount > 0 ? `当前仍有 ${pendingCount} 条导入记录等待人工处理。` : "当前没有待处理账单导入项。" }}</li>
           <li>{{ latestImportLabel }}</li>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="Rule Engine" title="Parse and Alert Rules" :compact="true">
+      <AdminTableCard kicker="规则引擎" title="解析规则与预警规则" :compact="true">
         <div class="summary-grid">
           <div class="summary-item">
-            <strong>Parse Rules</strong>
-            <span>{{ parseRuleCount }} configured</span>
-            <span>{{ parseRuleHitCount }} accumulated hits</span>
+            <strong>解析规则</strong>
+            <span>{{ parseRuleCount }} 条已配置</span>
+            <span>累计命中 {{ parseRuleHitCount }} 次</span>
           </div>
           <div class="summary-item">
-            <strong>Alert Rules</strong>
-            <span>{{ enabledRuleCount }} enabled</span>
-            <span>{{ rules.length }} total definitions</span>
+            <strong>预警规则</strong>
+            <span>{{ enabledRuleCount }} 条启用</span>
+            <span>{{ rules.length }} 条规则定义</span>
           </div>
         </div>
         <div class="table-list compact-table dashboard-sublist">
           <div v-for="item in rules.slice(0, 4)" :key="item.id" class="table-row-three">
             <strong>{{ item.ruleName }}</strong>
             <span>{{ item.metricType || "-" }}</span>
-            <span>{{ Number(item.enabled) === 1 ? "Enabled" : "Disabled" }}</span>
+            <span>{{ Number(item.enabled) === 1 ? "启用" : "停用" }}</span>
           </div>
-          <div v-if="rules.length === 0" class="empty-text">No rule definitions found.</div>
+          <div v-if="rules.length === 0" class="empty-text">暂无规则定义。</div>
         </div>
       </AdminTableCard>
     </div>
@@ -235,33 +235,33 @@ const overview = ref({
 const transactionsTotal = ref(0);
 
 const userMeta = computed(() => authStore.user?.userType || "USER");
-const familyMeta = computed(() => `${authStore.memberships.length} family memberships`);
+const familyMeta = computed(() => `${authStore.memberships.length} 条家庭关系`);
 const unreadCount = computed(() => notifications.value.filter((item) => Number(item.readStatus) !== 1).length);
-const notificationMeta = computed(() => `${notifications.value.length} recent notifications`);
-const netAssetMeta = computed(() => `Assets ${formatAmount(overview.value.totalFixedAssetValue)} / Debt ${formatAmount(overview.value.totalDebtBalance)}`);
+const notificationMeta = computed(() => `${notifications.value.length} 条最近通知`);
+const netAssetMeta = computed(() => `资产 ${formatAmount(overview.value.totalFixedAssetValue)} / 负债 ${formatAmount(overview.value.totalDebtBalance)}`);
 const latestImportLabel = computed(() => {
   const item = importHistory.value[0];
-  return item ? `Latest import batch #${item.id}, status ${item.importStatus || "-"}` : "No real-data import batch found yet";
+  return item ? `最近导入批次 #${item.id}，状态 ${item.importStatus || "-"}` : "暂无真实数据导入批次";
 });
 const defenseSummaryLabel = computed(() => {
   const conclusions = defenseSummary.value?.conclusions || [];
-  return conclusions[0] || "Open analysis page for detailed real-data summary";
+  return conclusions[0] || "可进入真实数据分析页查看完整摘要";
 });
 const defenseCountryConclusion = computed(() => {
   const points = defenseSummary.value?.worldBankTrend?.points || [];
   if (points.length < 2) {
-    return "Country trend points are still insufficient for a stable oral-defense conclusion.";
+    return "国家趋势点位暂不足，当前不适合形成稳定答辩结论。";
   }
   const first = points[0];
   const last = points[points.length - 1];
-  return `${defenseSummary.value?.worldBankTrend?.countryName || "CHN"} keeps ${points.length} yearly points from ${first.year} to ${last.year}, which is enough for a country-level trend demonstration.`;
+  return `${defenseSummary.value?.worldBankTrend?.countryName || "CHN"} 已有 ${points.length} 个年度点位，覆盖 ${first.year} 至 ${last.year}，可用于国家趋势展示。`;
 });
 const defenseRetailConclusion = computed(() => {
   const first = defenseSummary.value?.retailOverview?.topCountries?.[0];
   if (!first) {
-    return "Retail structure data has not been loaded yet.";
+    return "零售交易结构数据暂未加载。";
   }
-  return `The highest-volume retail country is ${first.country || "Unknown"}, with ${first.recordCount || 0} records and total amount ${formatAmount(first.totalAmount)}.`;
+  return `交易量最高的国家为 ${first.country || "未知国家"}，记录数 ${first.recordCount || 0}，总金额 ${formatAmount(first.totalAmount)}。`;
 });
 const totalIncome = computed(() => monthlySummary.value.reduce((sum, item) => sum + Number(item.income || 0), 0));
 const totalExpense = computed(() => monthlySummary.value.reduce((sum, item) => sum + Number(item.expense || 0), 0));
@@ -298,15 +298,16 @@ const riskyBudgetCoverageRows = computed(() => highlightedBudgets.value.map((ite
   const coverage = matchedRules(item);
   return {
     ...item,
-    coverageLabel: coverage.length > 0 ? `${coverage.length} rules matched` : "No enabled rule matched"
+    covered: coverage.length > 0,
+    coverageLabel: coverage.length > 0 ? `匹配 ${coverage.length} 条规则` : "暂无启用规则匹配"
   };
 }));
-const coveredBudgetCount = computed(() => riskyBudgetCoverageRows.value.filter((item) => item.coverageLabel !== "No enabled rule matched").length);
+const coveredBudgetCount = computed(() => riskyBudgetCoverageRows.value.filter((item) => item.covered).length);
 const uncoveredBudgetCount = computed(() => Math.max(riskyBudgetCount.value - coveredBudgetCount.value, 0));
 
 function ensureFamilyId() {
   if (!familyId.value) {
-    throw new Error("Current session has no family context.");
+    throw new Error("当前会话没有可用的家庭上下文。");
   }
   return familyId.value;
 }
@@ -379,9 +380,9 @@ function normalizeSourceType(value) {
 
 function sourceTypeLabel(value) {
   return {
-    RULE: "Rule Trigger",
-    BUDGET: "Budget Alert",
-    OTHER: "Other"
+    RULE: "规则触发",
+    BUDGET: "预算提醒",
+    OTHER: "其他"
   }[normalizeSourceType(value)] || value || "-";
 }
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "check:vue": "node scripts/check-vue-files.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },

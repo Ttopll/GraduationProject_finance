@@ -1,20 +1,20 @@
 ﻿:root {
   color-scheme: light;
   font-family: "Inter", "Noto Sans SC", sans-serif;
-  --bg-page: #f3f6fb;
+  --bg-page: #f4f7fb;
   --bg-panel: #ffffff;
   --bg-soft: #f8fbff;
   --text-main: #1f2937;
   --text-subtle: #6b7280;
   --line: #d9e4f0;
   --line-soft: #e8eef5;
-  --brand: #2c5f93;
-  --brand-strong: #1c4f82;
-  --brand-soft: #eaf3fb;
+  --brand: #2f6f9f;
+  --brand-strong: #245d86;
+  --brand-soft: #edf6fb;
   --danger: #d64545;
   --warning: #d28a16;
   --success: #1d8f5a;
-  --shadow: 0 18px 36px -26px rgba(30, 64, 175, 0.28);
+  --shadow: 0 12px 28px -24px rgba(30, 64, 175, 0.24);
 }
 
 * {
@@ -53,7 +53,7 @@ textarea {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, #456989 0%, #5b7c99 55%, #6b8ca8 100%);
+  background: linear-gradient(180deg, #3f6f94 0%, #5f86a4 100%);
   color: #fff;
   padding: 24px 18px;
   display: flex;
@@ -71,7 +71,7 @@ textarea {
 .brand-logo {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.18);
   display: grid;
   place-items: center;
@@ -96,7 +96,7 @@ textarea {
 }
 
 .nav-item {
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 12px 14px;
   border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.06);
@@ -213,7 +213,7 @@ textarea {
 .sub-panel {
   background: var(--bg-panel);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 8px;
   box-shadow: var(--shadow);
 }
 
@@ -300,7 +300,7 @@ textarea {
 
 .field-input {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 6px;
   min-height: 44px;
   padding: 0 14px;
   background: #fff;
@@ -323,7 +323,7 @@ textarea {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--bg-soft);
 }
 
@@ -345,7 +345,7 @@ textarea {
   gap: 12px;
   padding: 14px 16px;
   border: 1px solid var(--line-soft);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--bg-soft);
   margin-bottom: 14px;
 }
@@ -376,7 +376,7 @@ textarea {
 .ghost-button {
   min-height: 42px;
   padding: 0 16px;
-  border-radius: 12px;
+  border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
 }
@@ -400,7 +400,7 @@ textarea {
 .primary-button.small {
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-size: 13px;
 }
 
@@ -410,7 +410,7 @@ textarea {
 
 .feedback-box {
   margin-top: 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px 14px;
   border: 1px solid var(--line);
   background: var(--bg-soft);
@@ -450,7 +450,7 @@ textarea {
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -504,7 +504,7 @@ textarea {
 
 .insight-card {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--bg-soft);
   padding: 16px;
 }
@@ -524,7 +524,7 @@ textarea {
 .table-shell {
   overflow-x: auto;
   border: 1px solid var(--line-soft);
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .admin-table {
@@ -615,7 +615,7 @@ textarea {
   gap: 6px;
   padding: 14px 16px;
   border: 1px solid var(--line-soft);
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -660,7 +660,7 @@ textarea {
 .risk-item,
 .mini-list-item {
   border: 1px solid var(--line-soft);
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
   padding: 14px 16px;
 }
@@ -714,7 +714,7 @@ textarea {
   width: min(860px, 100%);
   max-height: calc(100vh - 48px);
   overflow: auto;
-  border-radius: 22px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: #fff;
   box-shadow: 0 28px 60px -36px rgba(15, 23, 42, 0.45);
@@ -736,7 +736,7 @@ textarea {
 
 .raw-box {
   margin-top: 16px;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 16px;
   background: #0f172a;
   color: #dbe8f4;
@@ -757,7 +757,7 @@ textarea {
   min-height: 40px;
   padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 6px;
   background: #fff;
   color: var(--text-subtle);
   font-size: 13px;

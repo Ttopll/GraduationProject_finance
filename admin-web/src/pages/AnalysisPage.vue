@@ -1,63 +1,63 @@
 <template>
   <section class="page-section">
     <div class="stats-grid">
-      <StatCard label="Import Batch" :value="importSummary.batch" :meta="importSummary.meta" />
-      <StatCard label="Retail Records" :value="summaryStats.retailRecords" :meta="summaryStats.retailMeta" />
-      <StatCard label="World Bank Points" :value="summaryStats.worldBankPoints" :meta="summaryStats.worldBankMeta" />
-      <StatCard label="FRED Points" :value="summaryStats.fredPoints" :meta="summaryStats.fredMeta" />
+      <StatCard label="导入批次" :value="importSummary.batch" :meta="importSummary.meta" />
+      <StatCard label="零售交易数" :value="summaryStats.retailRecords" :meta="summaryStats.retailMeta" />
+      <StatCard label="世行趋势点" :value="summaryStats.worldBankPoints" :meta="summaryStats.worldBankMeta" />
+      <StatCard label="FRED 点数" :value="summaryStats.fredPoints" :meta="summaryStats.fredMeta" />
     </div>
 
     <div class="panel-grid panel-grid-wide">
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">Import</div>
-            <h2>Real Data Import</h2>
+            <div class="panel-kicker">导入</div>
+            <h2>真实数据导入</h2>
           </div>
           <button class="primary-button" type="button" :disabled="importing" @click="runImport">
-            {{ importing ? "Importing..." : "Run Import" }}
+            {{ importing ? "导入中..." : "执行导入" }}
           </button>
         </div>
         <div class="form-grid">
           <label class="field-block">
-            <span>Processed Directory</span>
+            <span>处理后数据目录</span>
             <input v-model.trim="importForm.processedDir" class="field-input" type="text" />
           </label>
           <label class="field-block">
-            <span>Batch Size</span>
+            <span>批次大小</span>
             <input v-model.number="importForm.batchSize" class="field-input" type="number" min="1" />
           </label>
           <label class="field-toggle">
             <input v-model="importForm.truncateBeforeImport" type="checkbox" />
-            <span>Truncate target tables before import</span>
+            <span>导入前清空目标表</span>
           </label>
         </div>
         <div class="button-row">
-          <button class="ghost-button" type="button" @click="applyImportPreset(1000, true)">Safe Batch</button>
-          <button class="ghost-button" type="button" @click="applyImportPreset(5000, true)">Default Batch</button>
-          <button class="ghost-button" type="button" @click="applyImportPreset(10000, false)">Incremental Batch</button>
+          <button class="ghost-button" type="button" @click="applyImportPreset(1000, true)">安全批次</button>
+          <button class="ghost-button" type="button" @click="applyImportPreset(5000, true)">默认批次</button>
+          <button class="ghost-button" type="button" @click="applyImportPreset(10000, false)">增量批次</button>
         </div>
         <div :class="['feedback-box', importFeedback.type]">{{ importFeedback.text }}</div>
         <div class="two-column">
           <div class="sub-panel">
-            <h3>Latest Import</h3>
+            <h3>最近一次导入</h3>
             <dl class="detail-list">
-              <div><dt>Batch</dt><dd>{{ latestImport?.importBatchId || '-' }}</dd></div>
-              <div><dt>Status</dt><dd>{{ latestImport?.importStatus || 'Not started' }}</dd></div>
-              <div><dt>Retail</dt><dd>{{ latestImport?.retailImported || 0 }}</dd></div>
-              <div><dt>World Bank</dt><dd>{{ latestImport?.worldBankImported || 0 }}</dd></div>
+              <div><dt>批次</dt><dd>{{ latestImport?.importBatchId || '-' }}</dd></div>
+              <div><dt>状态</dt><dd>{{ latestImport?.importStatus || '尚未开始' }}</dd></div>
+              <div><dt>零售交易</dt><dd>{{ latestImport?.retailImported || 0 }}</dd></div>
+              <div><dt>世行数据</dt><dd>{{ latestImport?.worldBankImported || 0 }}</dd></div>
               <div><dt>FRED</dt><dd>{{ latestImport?.fredImported || 0 }}</dd></div>
             </dl>
           </div>
           <div class="sub-panel">
-            <h3>Import History</h3>
+            <h3>导入历史</h3>
             <div class="history-list">
               <div v-for="item in importHistory" :key="item.id" class="history-item">
-                <strong>Batch {{ item.id }}</strong>
+                <strong>批次 {{ item.id }}</strong>
                 <span>{{ item.importStatus }}</span>
                 <small>{{ formatDateTime(item.importedAt || item.createdAt) }}</small>
               </div>
-              <div v-if="importHistory.length === 0" class="empty-text">No import history yet.</div>
+              <div v-if="importHistory.length === 0" class="empty-text">暂无导入历史。</div>
             </div>
           </div>
         </div>
@@ -66,52 +66,52 @@
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">Defense</div>
-            <h2>Defense Summary</h2>
+            <div class="panel-kicker">答辩摘要</div>
+            <h2>真实数据分析摘要</h2>
           </div>
           <button class="primary-button" type="button" :disabled="loadingSummary" @click="loadAnalysisBundle">
-            {{ loadingSummary ? "Loading..." : "Refresh Summary" }}
+            {{ loadingSummary ? "加载中..." : "刷新摘要" }}
           </button>
         </div>
         <div class="form-grid">
           <label class="field-block">
-            <span>Country ISO3</span>
+            <span>国家代码</span>
             <input v-model.trim="analysisForm.countryIso3" class="field-input" type="text" />
           </label>
           <label class="field-block">
-            <span>FRED Series</span>
+            <span>FRED 序列</span>
             <input v-model.trim="analysisForm.seriesId" class="field-input" type="text" />
           </label>
           <label class="field-block">
-            <span>Top Countries</span>
+            <span>展示国家数</span>
             <input v-model.number="analysisForm.topCountries" class="field-input" type="number" min="1" max="50" />
           </label>
         </div>
         <div :class="['feedback-box', summaryFeedback.type]">{{ summaryFeedback.text }}</div>
         <div class="insight-grid">
           <div class="insight-card">
-            <h3>Country Trend</h3>
+            <h3>国家趋势</h3>
             <p>{{ countryConclusion }}</p>
           </div>
           <div class="insight-card">
-            <h3>Retail Structure</h3>
+            <h3>交易结构</h3>
             <p>{{ retailConclusion }}</p>
           </div>
         </div>
         <div class="sub-panel">
-          <h3>Summary Conclusions</h3>
+          <h3>摘要结论</h3>
           <ul class="conclusion-list">
             <li v-for="item in conclusions" :key="item">{{ item }}</li>
-            <li v-if="conclusions.length === 0">No auto-generated conclusion yet.</li>
+            <li v-if="conclusions.length === 0">暂无自动生成结论。</li>
           </ul>
         </div>
         <div class="sub-panel">
-          <h3>Recommended Rules</h3>
+          <h3>推荐规则</h3>
           <div class="mini-list">
             <div v-for="item in recommendedRules" :key="item.key" class="mini-list-item">
               <strong>{{ item.title }}</strong>
               <span>{{ item.desc }}</span>
-              <RouterLink :to="{ name: 'rules', query: item.query }" class="quick-link">Open in Rules Page</RouterLink>
+              <RouterLink :to="{ name: 'rules', query: item.query }" class="quick-link">带入规则页</RouterLink>
             </div>
           </div>
         </div>
@@ -122,40 +122,40 @@
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">Retail</div>
-            <h2>Retail Overview</h2>
+            <div class="panel-kicker">零售数据</div>
+            <h2>零售交易概览</h2>
           </div>
-          <button class="ghost-button" type="button" @click="loadRetailOverview">Refresh Retail</button>
+          <button class="ghost-button" type="button" @click="loadRetailOverview">刷新零售概览</button>
         </div>
         <div class="summary-grid">
           <div class="summary-item">
-            <strong>Total Records</strong>
+            <strong>总记录数</strong>
             <span>{{ formatNumber(retailOverview?.totalRecords, 0) }}</span>
             <span>{{ retailRangeText }}</span>
           </div>
           <div class="summary-item">
-            <strong>Total Amount</strong>
+            <strong>总金额</strong>
             <span>{{ formatAmount(retailOverview?.totalAmount) }}</span>
-            <span>Average {{ formatAmount(retailOverview?.averageAmount) }}</span>
+            <span>平均金额 {{ formatAmount(retailOverview?.averageAmount) }}</span>
           </div>
         </div>
         <div class="table-shell" style="margin-top: 14px;">
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Country</th>
-                <th>Records</th>
-                <th>Total Amount</th>
+                <th>国家</th>
+                <th>记录数</th>
+                <th>总金额</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="item in topCountries" :key="item.country">
-                <td>{{ item.country || "Unknown" }}</td>
+                <td>{{ item.country || "未知" }}</td>
                 <td>{{ formatNumber(item.recordCount, 0) }}</td>
                 <td>{{ formatAmount(item.totalAmount) }}</td>
               </tr>
               <tr v-if="topCountries.length === 0">
-                <td colspan="3" class="table-empty">No retail country ranking data.</td>
+                <td colspan="3" class="table-empty">暂无零售国家排名数据。</td>
               </tr>
             </tbody>
           </table>
@@ -165,19 +165,19 @@
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">World Bank</div>
-            <h2>Country Trend Detail</h2>
+            <div class="panel-kicker">世界银行</div>
+            <h2>国家趋势明细</h2>
           </div>
-          <button class="ghost-button" type="button" @click="loadWorldBankTrend">Refresh Trend</button>
+          <button class="ghost-button" type="button" @click="loadWorldBankTrend">刷新趋势</button>
         </div>
         <div class="summary-grid">
           <div class="summary-item">
-            <strong>Country</strong>
+            <strong>国家</strong>
             <span>{{ worldBankTrend?.countryName || analysisForm.countryIso3 }}</span>
-            <span>{{ formatNumber(worldBankTrend?.points?.length, 0) }} yearly points</span>
+            <span>{{ formatNumber(worldBankTrend?.points?.length, 0) }} 个年度点</span>
           </div>
           <div class="summary-item">
-            <strong>Latest Point</strong>
+            <strong>最新点位</strong>
             <span>{{ worldBankLatestPoint ? `${worldBankLatestPoint.year}` : "-" }}</span>
             <span>{{ worldBankLatestPoint ? formatAmount(worldBankLatestPoint.value) : "-" }}</span>
           </div>
@@ -186,9 +186,9 @@
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Year</th>
-                <th>Value</th>
-                <th>YoY Growth</th>
+                <th>年份</th>
+                <th>数值</th>
+                <th>同比增长</th>
               </tr>
             </thead>
             <tbody>
@@ -198,7 +198,7 @@
                 <td>{{ formatPercent(item.yearOnYearGrowthRatio) }}</td>
               </tr>
               <tr v-if="worldBankPointsPreview.length === 0">
-                <td colspan="3" class="table-empty">No World Bank trend points.</td>
+                <td colspan="3" class="table-empty">暂无世行趋势点。</td>
               </tr>
             </tbody>
           </table>
@@ -211,18 +211,18 @@
         <div class="panel-head">
           <div>
             <div class="panel-kicker">FRED</div>
-            <h2>Macro Series Detail</h2>
+            <h2>宏观序列明细</h2>
           </div>
-          <button class="ghost-button" type="button" @click="loadFredSeries">Refresh FRED</button>
+          <button class="ghost-button" type="button" @click="loadFredSeries">刷新 FRED</button>
         </div>
         <div class="summary-grid">
           <div class="summary-item">
-            <strong>Series ID</strong>
+            <strong>序列 ID</strong>
             <span>{{ fredSeries?.seriesId || analysisForm.seriesId }}</span>
             <span>{{ formatNumber(fredSeries?.points?.length, 0) }} points</span>
           </div>
           <div class="summary-item">
-            <strong>Latest Point</strong>
+            <strong>最新点位</strong>
             <span>{{ fredLatestPoint?.date || "-" }}</span>
             <span>{{ fredLatestPoint ? formatAmount(fredLatestPoint.value) : "-" }}</span>
           </div>
@@ -231,8 +231,8 @@
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Value</th>
+                <th>日期</th>
+                <th>数值</th>
               </tr>
             </thead>
             <tbody>
@@ -241,7 +241,7 @@
                 <td>{{ formatAmount(item.value) }}</td>
               </tr>
               <tr v-if="fredPointsPreview.length === 0">
-                <td colspan="2" class="table-empty">No FRED points loaded.</td>
+                <td colspan="2" class="table-empty">暂无 FRED 点位。</td>
               </tr>
             </tbody>
           </table>
@@ -251,8 +251,8 @@
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">Payload</div>
-            <h2>Raw Summary JSON</h2>
+            <div class="panel-kicker">原始数据</div>
+            <h2>摘要 JSON</h2>
           </div>
         </div>
         <div class="raw-box">{{ rawPayload }}</div>
@@ -277,8 +277,8 @@ const worldBankTrend = ref(null);
 const fredSeries = ref(null);
 const summary = ref(null);
 
-const importFeedback = reactive({ type: "info", text: "Login first, then run the real-data import." });
-const summaryFeedback = reactive({ type: "info", text: "After import, refresh the summary bundle for defense-ready output." });
+const importFeedback = reactive({ type: "info", text: "请先登录，然后执行真实数据导入。" });
+const summaryFeedback = reactive({ type: "info", text: "导入完成后，刷新摘要以生成答辩展示内容。" });
 const importForm = reactive({
   processedDir: "data/processed",
   batchSize: 5000,
@@ -294,16 +294,16 @@ const importSummary = computed(() => ({
   batch: latestImport.value?.importBatchId || "-",
   meta: latestImport.value
     ? `${latestImport.value.importStatus} / ${formatDateTime(latestImport.value.importedAt)}`
-    : "Latest import result will appear here"
+    : "最新导入结果会显示在这里"
 }));
 
 const summaryStats = computed(() => ({
   retailRecords: formatNumber(retailOverview.value?.totalRecords || 0, 0),
-  retailMeta: `Total amount ${formatAmount(retailOverview.value?.totalAmount)}`,
+  retailMeta: `总金额 ${formatAmount(retailOverview.value?.totalAmount)}`,
   worldBankPoints: formatNumber(worldBankTrend.value?.points?.length || 0, 0),
-  worldBankMeta: worldBankTrend.value?.countryName || "World Bank trend not loaded",
+  worldBankMeta: worldBankTrend.value?.countryName || "世行趋势尚未加载",
   fredPoints: formatNumber(fredSeries.value?.points?.length || 0, 0),
-  fredMeta: fredSeries.value?.seriesId || "FRED series not loaded"
+  fredMeta: fredSeries.value?.seriesId || "FRED 序列尚未加载"
 }));
 
 const topCountries = computed(() => retailOverview.value?.topCountries || []);
@@ -318,7 +318,7 @@ const fredLatestPoint = computed(() => {
 });
 const retailRangeText = computed(() => {
   if (!retailOverview.value?.earliestInvoiceTime || !retailOverview.value?.latestInvoiceTime) {
-    return "Time range unavailable";
+    return "时间范围暂不可用";
   }
   return `${formatDateTime(retailOverview.value.earliestInvoiceTime)} -> ${formatDateTime(retailOverview.value.latestInvoiceTime)}`;
 });
@@ -326,19 +326,19 @@ const retailRangeText = computed(() => {
 const retailConclusion = computed(() => {
   const first = topCountries.value[0];
   if (!first) {
-    return "Retail structure data is not available yet. Import real data and refresh the analysis bundle first.";
+    return "零售交易结构数据暂不可用，请先导入真实数据并刷新摘要。";
   }
-  return `The top retail country is ${first.country || "Unknown"}, with ${formatNumber(first.recordCount, 0)} records and total amount ${formatAmount(first.totalAmount)}.`;
+  return `交易量最高的国家为 ${first.country || "未知国家"}，共有 ${formatNumber(first.recordCount, 0)} 条记录，总金额为 ${formatAmount(first.totalAmount)}。`;
 });
 
 const countryConclusion = computed(() => {
   const points = worldBankSortedPoints.value;
   if (points.length < 2) {
-    return "Current country trend points are insufficient for a stable country-level conclusion.";
+    return "当前国家趋势点位不足，暂时无法形成稳定趋势结论。";
   }
   const first = points[0];
   const last = points[points.length - 1];
-  return `${worldBankTrend.value?.countryName || analysisForm.countryIso3} has ${formatNumber(points.length, 0)} yearly points from ${first.year} to ${last.year}, which is enough for a defense trend narrative.`;
+  return `${worldBankTrend.value?.countryName || analysisForm.countryIso3} 在 ${first.year} 至 ${last.year} 间共有 ${formatNumber(points.length, 0)} 个年度点位，可支撑答辩中的国家趋势说明。`;
 });
 
 const recommendedRules = computed(() => {
@@ -348,27 +348,27 @@ const recommendedRules = computed(() => {
   return [
     {
       key: "family-threshold",
-      title: "Monthly family expense threshold",
-      desc: `Use imported retail average amount ${formatAmount(retailAverage)} as a starting threshold for monthly family expense monitoring.`,
+      title: "月度家庭支出阈值",
+      desc: `可参考导入零售数据的平均金额 ${formatAmount(retailAverage)}，设置家庭月度支出监控阈值。`,
       query: {
         autofill: "1",
-        ruleName: "Monthly Family Expense Guard",
+        ruleName: "月度家庭支出预警",
         ruleType: "THRESHOLD",
         metricType: "FAMILY_EXPENSE",
         timeScope: "MONTH",
         operatorType: "GT",
         thresholdValue: String(Math.max(1000, Math.round(retailAverage || 1000))),
         priority: "10",
-        messageTemplate: "Monthly family expense exceeded the suggested threshold from real-data benchmark."
+        messageTemplate: "家庭月度支出超过真实数据参考阈值。"
       }
     },
     {
       key: "family-trend",
-      title: "Family expense trend anomaly",
-      desc: `Use ${Math.max(2, Math.min(6, worldBankPointCount || 2))} baseline months for trend anomaly monitoring.`,
+      title: "家庭支出趋势异常",
+      desc: `可使用 ${Math.max(2, Math.min(6, worldBankPointCount || 2))} 个月作为趋势异常检测基线。`,
       query: {
         autofill: "1",
-        ruleName: "Family Expense Trend Alert",
+        ruleName: "家庭支出趋势异常提醒",
         ruleType: "TREND_ANOMALY",
         metricType: "FAMILY_EXPENSE",
         timeScope: "MONTH",
@@ -376,16 +376,16 @@ const recommendedRules = computed(() => {
         thresholdValue: "1.10",
         thresholdJson: `{"baselineMonths":${Math.max(2, Math.min(6, worldBankPointCount || 2))}}`,
         priority: "8",
-        messageTemplate: "Family expense trend exceeded the expected monthly baseline."
+        messageTemplate: "家庭支出趋势超过月度基线。"
       }
     },
     {
       key: "family-consecutive",
-      title: "Consecutive monthly overrun",
-      desc: `Use ${fredPointCount > 0 ? 3 : 2} consecutive months as a stable warning window for repeated overruns.`,
+      title: "连续月份超阈",
+      desc: `可使用连续 ${fredPointCount > 0 ? 3 : 2} 个月作为重复超阈的预警窗口。`,
       query: {
         autofill: "1",
-        ruleName: "Consecutive Overrun Alert",
+        ruleName: "连续超阈提醒",
         ruleType: "CONSECUTIVE_THRESHOLD",
         metricType: "FAMILY_EXPENSE",
         timeScope: "MONTH",
@@ -393,13 +393,13 @@ const recommendedRules = computed(() => {
         thresholdValue: "1.00",
         thresholdJson: `{"consecutiveMonths":${fredPointCount > 0 ? 3 : 2}}`,
         priority: "9",
-        messageTemplate: "Family expense exceeded threshold for consecutive months."
+        messageTemplate: "家庭支出已连续多月超过阈值。"
       }
     }
   ];
 });
 
-const rawPayload = computed(() => JSON.stringify(summary.value || { message: "waiting for load" }, null, 2));
+const rawPayload = computed(() => JSON.stringify(summary.value || { message: "等待加载" }, null, 2));
 
 function applyImportPreset(batchSize, truncateBeforeImport) {
   importForm.batchSize = batchSize;
@@ -414,15 +414,15 @@ async function loadHistory() {
 async function runImport() {
   importing.value = true;
   importFeedback.type = "info";
-  importFeedback.text = "Running real-data import...";
+  importFeedback.text = "正在执行真实数据导入...";
   try {
     latestImport.value = await realDataApi.importData(importForm);
     await loadHistory();
     importFeedback.type = "success";
-    importFeedback.text = "Import completed. You can now refresh the defense summary.";
+    importFeedback.text = "导入完成，现在可以刷新答辩摘要。";
   } catch (error) {
     importFeedback.type = "error";
-    importFeedback.text = `Import failed: ${error.message}`;
+    importFeedback.text = `导入失败：${error.message}`;
   } finally {
     importing.value = false;
   }
@@ -443,7 +443,7 @@ async function loadFredSeries() {
 async function loadAnalysisBundle() {
   loadingSummary.value = true;
   summaryFeedback.type = "info";
-  summaryFeedback.text = "Loading analysis bundle...";
+  summaryFeedback.text = "正在加载分析摘要...";
   try {
     const [summaryResult, retailResult, worldBankResult, fredResult] = await Promise.all([
       realDataApi.getDefenseSummary(analysisForm),
@@ -456,10 +456,10 @@ async function loadAnalysisBundle() {
     worldBankTrend.value = worldBankResult;
     fredSeries.value = fredResult;
     summaryFeedback.type = "success";
-    summaryFeedback.text = "Analysis bundle refreshed successfully.";
+    summaryFeedback.text = "分析摘要刷新成功。";
   } catch (error) {
     summaryFeedback.type = "error";
-    summaryFeedback.text = `Summary load failed: ${error.message}`;
+    summaryFeedback.text = `摘要加载失败：${error.message}`;
   } finally {
     loadingSummary.value = false;
   }
@@ -498,7 +498,7 @@ onMounted(async () => {
     await Promise.all([loadHistory(), loadAnalysisBundle()]);
   } catch (error) {
     importFeedback.type = "error";
-    importFeedback.text = `Initial load failed: ${error.message}`;
+    importFeedback.text = `初始化加载失败：${error.message}`;
   }
 });
 

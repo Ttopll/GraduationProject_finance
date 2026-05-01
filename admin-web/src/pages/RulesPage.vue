@@ -8,171 +8,105 @@
         </div>
       </div>
       <div class="feedback-box info">
-        规则定义、预算联动和通知查询都依赖当前家庭。请先前往“用户与家庭”页面创建家庭或通过邀请码加入家庭。
+        规则定义、预算联动和通知查询都依赖当前家庭。请先在“用户与家庭”页面创建家庭或加入家庭。
       </div>
     </article>
 
     <div class="stats-grid">
-      <StatCard label="当前家庭" :value="familyId || '-'" meta="当前页面所有规则评估、预算联动和通知查询都绑定到 familyId" />
-      <StatCard label="启用规则" :value="enabledRuleCount" :meta="`总规则 ${rules.length} 条`" />
+      <StatCard label="当前家庭" :value="familyId || '-'" meta="规则、预算和通知均按当前家庭查询" />
+      <StatCard label="启用规则" :value="enabledRuleCount" :meta="`规则总数 ${rules.length} 条`" />
       <StatCard label="风险预算" :value="riskyBudgetCount" :meta="riskMeta" />
       <StatCard label="未读通知" :value="unreadCount" :meta="notificationMeta" />
     </div>
 
-    <div class="panel-grid panel-grid-wide linkage-grid">
-      <AdminTableCard kicker="联动总览" title="预算风险 -> 规则命中 -> 通知落地" :compact="true">
-        <template #actions>
-          <label class="field-inline field-inline-short">
-            <span>评估月份</span>
-            <input v-model="evaluationMonth" class="field-input" type="month" />
-          </label>
-          <button class="ghost-button" type="button" @click="refreshLinkage">刷新联动</button>
-          <button class="primary-button" type="button" @click="evaluateRules">执行评估</button>
-        </template>
-        <div class="summary-grid linkage-summary-grid">
-          <div class="summary-item">
-            <strong>风险预算数</strong>
-            <span>{{ riskyBudgetCount }} 条达到预警或超支</span>
-            <span :class="riskyBudgetCount > 0 ? 'summary-warn' : 'summary-normal'">
-              {{ riskyBudgetCount > 0 ? '建议立即核对规则覆盖' : '当前预算执行稳定' }}
-            </span>
-          </div>
-          <div class="summary-item">
-            <strong>规则覆盖数</strong>
-            <span>{{ coveredRiskCount }} / {{ riskyBudgetCount }}</span>
-            <span :class="uncoveredRiskCount > 0 ? 'summary-danger' : 'summary-normal'">
-              {{ uncoveredRiskCount > 0 ? `仍有 ${uncoveredRiskCount} 条风险未被规则覆盖` : '风险预算均有对应规则' }}
-            </span>
-          </div>
-          <div class="summary-item">
-            <strong>最近评估结果</strong>
-            <span>{{ evaluationSummary }}</span>
-            <span>{{ evaluationMeta }}</span>
-          </div>
-          <div class="summary-item">
-            <strong>通知落地结果</strong>
-            <span>预算通知 {{ budgetNotificationCount }} 条</span>
-            <span>规则通知 {{ ruleNotificationCount }} 条</span>
-          </div>
-        </div>
-        <template #feedback>
-          <div v-if="ruleFeedback" class="feedback-box info">{{ ruleFeedback }}</div>
-        </template>
-      </AdminTableCard>
-
-      <AdminTableCard kicker="预算风险" title="高风险预算清单" :compact="true">
-        <div class="risk-list">
-          <div v-for="item in riskyBudgetItems" :key="item.budgetId" class="risk-item">
-            <div class="risk-item-head">
-              <div>
-                <strong>{{ item.budgetName }}</strong>
-                <span>{{ item.categoryName || '未绑定分类' }} / {{ item.month }}</span>
-              </div>
-              <span class="status-badge" :class="item.exceeded ? 'is-warn' : 'is-success'">
-                {{ item.exceeded ? '已超支' : '达到预警' }}
-              </span>
-            </div>
-            <div class="risk-item-body">
-              <span>已用 {{ formatPercent(item.usageRatio) }} / 支出 {{ formatAmount(item.spentAmount) }} / 预算 {{ formatAmount(item.budgetAmount) }}</span>
-              <span :class="riskCoverage(item).covered ? 'summary-normal' : 'summary-danger'">
-                {{ riskCoverage(item).label }}
-              </span>
-            </div>
-          </div>
-          <div v-if="riskyBudgetItems.length === 0" class="empty-text">当前月份暂无达到预警线的预算。</div>
-        </div>
-      </AdminTableCard>
-    </div>
-
-    <div class="panel-grid panel-grid-wide linkage-grid">
-      <AdminTableCard kicker="规则覆盖" title="风险预算与规则映射" :compact="true">
-        <div class="table-shell">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>风险预算</th>
-                <th>预算状态</th>
-                <th>匹配规则</th>
-                <th>覆盖情况</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in riskyBudgetItems" :key="`coverage-${item.budgetId}`">
-                <td>
-                  <div class="primary-cell">{{ item.budgetName }}</div>
-                  <div class="secondary-cell">{{ item.categoryName || '-' }} / {{ item.month }}</div>
-                </td>
-                <td>
-                  <div>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</div>
-                  <div class="secondary-cell">{{ formatPercent(item.usageRatio) }} / {{ item.exceeded ? '已超支' : '达到预警' }}</div>
-                </td>
-                <td>
-                  <div v-if="matchedRules(item).length > 0" class="tag-list">
-                    <span v-for="rule in matchedRules(item)" :key="rule.id" class="status-badge is-success">
-                      {{ rule.ruleName }}
-                    </span>
-                  </div>
-                  <div v-else class="secondary-cell">暂无匹配规则</div>
-                </td>
-                <td>
-                  <span class="status-badge" :class="riskCoverage(item).covered ? 'is-success' : 'is-warn'">
-                    {{ riskCoverage(item).covered ? '已覆盖' : '待补规则' }}
-                  </span>
-                </td>
-              </tr>
-              <tr v-if="riskyBudgetItems.length === 0">
-                <td colspan="4" class="table-empty">暂无风险预算，当前不需要联动覆盖分析。</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </AdminTableCard>
-
-      <AdminTableCard kicker="通知来源" title="通知来源分布与最近记录" :compact="true">
-        <template #feedback>
-          <div v-if="notificationFeedback" class="feedback-box info">{{ notificationFeedback }}</div>
-        </template>
-        <div class="summary-grid linkage-summary-grid">
-          <div class="summary-item">
-            <strong>预算来源通知</strong>
-            <span>{{ budgetNotificationCount }} 条</span>
-            <span>{{ budgetUnreadCount }} 条未读</span>
-          </div>
-          <div class="summary-item">
-            <strong>规则来源通知</strong>
-            <span>{{ ruleNotificationCount }} 条</span>
-            <span>{{ ruleUnreadCount }} 条未读</span>
-          </div>
-        </div>
-        <div class="mini-list">
-          <div v-for="item in notificationSourceSummary" :key="item.source" class="mini-list-item">
-            <strong>{{ sourceTypeLabel(item.source) }}</strong>
-            <span>总数 {{ item.count }} / 未读 {{ item.unread }}</span>
-          </div>
-          <div v-if="notificationSourceSummary.length === 0" class="empty-text">当前没有可统计的通知来源。</div>
-        </div>
-        <div class="mini-list recent-list">
-          <div v-for="item in recentImportantNotifications" :key="item.id" class="mini-list-item">
-            <strong>{{ item.title }}</strong>
-            <span>{{ sourceTypeLabel(item.sourceType) }} / {{ formatDateTime(item.createdAt || item.sentAt) }}</span>
-          </div>
-          <div v-if="recentImportantNotifications.length === 0" class="empty-text">当前没有最近通知记录。</div>
-        </div>
-      </AdminTableCard>
-    </div>
-
-    <AdminTableCard kicker="规则" title="规则管理">
+    <AdminTableCard kicker="规则闭环" title="预算风险、规则命中与通知联动">
       <template #actions>
         <label class="field-inline field-inline-short">
           <span>评估月份</span>
           <input v-model="evaluationMonth" class="field-input" type="month" />
         </label>
-        <button class="ghost-button" type="button" @click="evaluateRules">执行评估</button>
-        <button class="primary-button" type="button" @click="openRuleCreate">新增规则</button>
-        <button class="ghost-button" type="button" @click="loadRules">刷新</button>
+        <button class="ghost-button" type="button" @click="refreshLinkage">刷新联动</button>
+        <button class="primary-button" type="button" @click="evaluateRules">执行规则评估</button>
       </template>
       <template #feedback>
         <div v-if="ruleFeedback" class="feedback-box info">{{ ruleFeedback }}</div>
+      </template>
+
+      <div class="summary-grid linkage-summary-grid">
+        <div class="summary-item">
+          <strong>风险预算</strong>
+          <span>{{ riskyBudgetCount }} 条达到预警或超支</span>
+          <span :class="riskyBudgetCount > 0 ? 'summary-warn' : 'summary-normal'">
+            {{ riskyBudgetCount > 0 ? "需要检查规则覆盖情况" : "当前预算执行稳定" }}
+          </span>
+        </div>
+        <div class="summary-item">
+          <strong>规则覆盖</strong>
+          <span>{{ coveredRiskCount }} / {{ riskyBudgetCount }}</span>
+          <span :class="uncoveredRiskCount > 0 ? 'summary-danger' : 'summary-normal'">
+            {{ uncoveredRiskCount > 0 ? `仍有 ${uncoveredRiskCount} 条风险预算待补规则` : "风险预算均有对应规则" }}
+          </span>
+        </div>
+        <div class="summary-item">
+          <strong>最近评估</strong>
+          <span>{{ evaluationSummary }}</span>
+          <span>{{ evaluationMeta }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>通知落地</strong>
+          <span>预算通知 {{ budgetNotificationCount }} 条</span>
+          <span>规则通知 {{ ruleNotificationCount }} 条</span>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>风险预算</th>
+              <th>预算状态</th>
+              <th>匹配规则</th>
+              <th>覆盖情况</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in riskyBudgetItems" :key="`coverage-${item.budgetId}`">
+              <td>
+                <div class="primary-cell">{{ item.budgetName }}</div>
+                <div class="secondary-cell">{{ item.categoryName || "不限分类" }} / {{ item.month }}</div>
+              </td>
+              <td>
+                <div>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</div>
+                <div class="secondary-cell">
+                  {{ formatPercent(item.usageRatio) }} / {{ item.exceeded ? "已超支" : "达到预警" }}
+                </div>
+              </td>
+              <td>
+                <div v-if="matchedRules(item).length > 0" class="tag-list">
+                  <span v-for="rule in matchedRules(item)" :key="rule.id" class="status-badge is-success">
+                    {{ rule.ruleName }}
+                  </span>
+                </div>
+                <div v-else class="secondary-cell">暂无匹配规则</div>
+              </td>
+              <td>
+                <span class="status-badge" :class="riskCoverage(item).covered ? 'is-success' : 'is-warn'">
+                  {{ riskCoverage(item).covered ? "已覆盖" : "待补规则" }}
+                </span>
+              </td>
+            </tr>
+            <tr v-if="riskyBudgetItems.length === 0">
+              <td colspan="4" class="table-empty">当前月份暂无达到预警线的预算。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </AdminTableCard>
+
+    <AdminTableCard kicker="规则" title="规则管理">
+      <template #actions>
+        <button class="primary-button" type="button" @click="openRuleCreate">新增规则</button>
+        <button class="ghost-button" type="button" @click="loadRules">刷新</button>
       </template>
       <div class="table-shell">
         <table class="admin-table">
@@ -200,15 +134,15 @@
               <td>{{ categoryName(item.categoryId) }}</td>
               <td>{{ item.priority ?? "-" }}</td>
               <td>
-                <span class="status-badge" :class="item.enabled === 1 ? 'is-success' : 'is-muted'">
-                  {{ item.enabled === 1 ? "启用" : "停用" }}
+                <span class="status-badge" :class="Number(item.enabled) === 1 ? 'is-success' : 'is-muted'">
+                  {{ Number(item.enabled) === 1 ? "启用" : "停用" }}
                 </span>
               </td>
               <td>
                 <div class="row-actions row-actions-left">
                   <button class="ghost-button small" type="button" @click="openRuleEdit(item)">编辑</button>
                   <button class="ghost-button small" type="button" @click="toggleRule(item)">
-                    {{ item.enabled === 1 ? "停用" : "启用" }}
+                    {{ Number(item.enabled) === 1 ? "停用" : "启用" }}
                   </button>
                   <button class="ghost-button danger small" type="button" @click="deleteRule(item.id)">删除</button>
                 </div>
@@ -251,6 +185,18 @@
       <template #feedback>
         <div v-if="notificationFeedback" class="feedback-box info">{{ notificationFeedback }}</div>
       </template>
+      <div class="summary-grid linkage-summary-grid">
+        <div class="summary-item">
+          <strong>预算来源通知</strong>
+          <span>{{ budgetNotificationCount }} 条</span>
+          <span>{{ budgetUnreadCount }} 条未读</span>
+        </div>
+        <div class="summary-item">
+          <strong>规则来源通知</strong>
+          <span>{{ ruleNotificationCount }} 条</span>
+          <span>{{ ruleUnreadCount }} 条未读</span>
+        </div>
+      </div>
       <div class="table-shell">
         <table class="admin-table">
           <thead>
@@ -272,8 +218,8 @@
               <td>{{ item.levelCode || "-" }}</td>
               <td>{{ sourceTypeLabel(item.sourceType) }}</td>
               <td>
-                <span class="status-badge" :class="item.readStatus === 1 ? 'is-muted' : 'is-warn'">
-                  {{ item.readStatus === 1 ? "已读" : "未读" }}
+                <span class="status-badge" :class="Number(item.readStatus) === 1 ? 'is-muted' : 'is-warn'">
+                  {{ Number(item.readStatus) === 1 ? "已读" : "未读" }}
                 </span>
               </td>
               <td>{{ formatDateTime(item.createdAt || item.sentAt) }}</td>
@@ -337,7 +283,7 @@
         <label class="field-block">
           <span>关联分类</span>
           <select v-model.number="ruleForm.categoryId" class="field-input" :disabled="ruleForm.metricType !== 'CATEGORY_EXPENSE'">
-            <option :value="null">{{ ruleForm.metricType === 'CATEGORY_EXPENSE' ? '请选择分类' : '当前不需要' }}</option>
+            <option :value="null">{{ ruleForm.metricType === "CATEGORY_EXPENSE" ? "请选择分类" : "当前不需要" }}</option>
             <option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option>
           </select>
         </label>
@@ -354,14 +300,14 @@
           <input v-model.trim="ruleForm.messageTemplate" class="field-input" type="text" />
         </label>
         <label class="field-block field-block-full">
-          <span>thresholdJson</span>
+          <span>高级参数</span>
           <input v-model.trim="ruleForm.thresholdJson" class="field-input" type="text" :placeholder="thresholdJsonPlaceholder" />
         </label>
       </div>
       <div class="button-row">
-        <button class="ghost-button small" type="button" @click="applyThresholdPreset('threshold')">清空 thresholdJson</button>
-        <button class="ghost-button small" type="button" @click="applyThresholdPreset('consecutive')">填入连续超阈模板</button>
-        <button class="ghost-button small" type="button" @click="applyThresholdPreset('trend')">填入趋势异常模板</button>
+        <button class="ghost-button small" type="button" @click="applyThresholdPreset('threshold')">单点阈值模板</button>
+        <button class="ghost-button small" type="button" @click="applyThresholdPreset('consecutive')">连续超阈模板</button>
+        <button class="ghost-button small" type="button" @click="applyThresholdPreset('trend')">趋势异常模板</button>
       </div>
       <div class="feedback-box info">{{ thresholdHint }}</div>
       <div class="button-row">
@@ -397,21 +343,7 @@ const notificationFeedback = ref("");
 const showRuleModal = ref(false);
 const evaluationMonth = ref(currentMonth());
 
-const ruleForm = reactive({
-  id: null,
-  categoryId: null,
-  ruleName: "",
-  ruleType: "THRESHOLD",
-  metricType: "FAMILY_EXPENSE",
-  timeScope: "MONTH",
-  operatorType: "GT",
-  thresholdValue: 1000,
-  thresholdJson: "",
-  actionType: "NOTIFY",
-  messageTemplate: "管理端触发的规则通知",
-  priority: 10
-});
-
+const ruleForm = reactive(defaultRuleForm());
 const notificationFilter = reactive({
   targetMemberId: null,
   readStatus: "",
@@ -436,50 +368,27 @@ const budgetNotificationCount = computed(() => notifications.value.filter((item)
 const ruleNotificationCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "RULE").length);
 const budgetUnreadCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "BUDGET" && Number(item.readStatus) !== 1).length);
 const ruleUnreadCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "RULE" && Number(item.readStatus) !== 1).length);
-const notificationSourceSummary = computed(() => {
-  const summary = new Map();
-  notifications.value.forEach((item) => {
-    const source = normalizeSourceType(item.sourceType) || "OTHER";
-    if (!summary.has(source)) {
-      summary.set(source, { source, count: 0, unread: 0 });
-    }
-    const target = summary.get(source);
-    target.count += 1;
-    if (Number(item.readStatus) !== 1) {
-      target.unread += 1;
-    }
-  });
-  return Array.from(summary.values()).sort((a, b) => b.count - a.count);
-});
-const recentImportantNotifications = computed(() => notifications.value.slice(0, 5));
 const thresholdJsonPlaceholder = computed(() => {
   if (ruleForm.ruleType === "CONSECUTIVE_THRESHOLD") {
-    return '{"consecutiveMonths":2}';
+    return "{\"consecutiveMonths\":2}";
   }
   if (ruleForm.ruleType === "TREND_ANOMALY") {
-    return '{"baselineMonths":2}';
+    return "{\"baselineMonths\":2}";
   }
-  return "THRESHOLD 类型时请保持为空";
+  return "单点阈值规则不需要填写";
 });
 const thresholdHint = computed(() => {
   if (ruleForm.ruleType === "CONSECUTIVE_THRESHOLD") {
-    return "连续超阈规则需要 thresholdJson = {\"consecutiveMonths\":2}，且时间范围必须为月度。";
+    return "连续超阈规则需要高级参数 {\"consecutiveMonths\":2}，时间范围固定为月度。";
   }
   if (ruleForm.ruleType === "TREND_ANOMALY") {
-    return "趋势异常规则需要 thresholdJson = {\"baselineMonths\":2}，且时间范围必须为月度，比较符建议用 > 或 >=。";
+    return "趋势异常规则需要高级参数 {\"baselineMonths\":2}，适合判断本月支出相对历史均值的异常增长。";
   }
-  return "单点阈值规则不需要 thresholdJson，留空即可。";
+  return "单点阈值规则只判断当前周期金额是否达到阈值，高级参数可留空。";
 });
 
-function ensureFamilyId() {
-  if (!familyId.value) {
-    throw new Error("当前会话没有可用的家庭上下文。");
-  }
-  return familyId.value;
-}
-
-function resetRuleForm() {
-  Object.assign(ruleForm, {
+function defaultRuleForm() {
+  return {
     id: null,
     categoryId: null,
     ruleName: "",
@@ -492,7 +401,18 @@ function resetRuleForm() {
     actionType: "NOTIFY",
     messageTemplate: "管理端触发的规则通知",
     priority: 10
-  });
+  };
+}
+
+function ensureFamilyId() {
+  if (!familyId.value) {
+    throw new Error("当前会话没有可用的家庭上下文。");
+  }
+  return familyId.value;
+}
+
+function resetRuleForm() {
+  Object.assign(ruleForm, defaultRuleForm());
 }
 
 function syncRuleConstraints() {
@@ -505,14 +425,14 @@ function syncRuleConstraints() {
   }
   ruleForm.timeScope = "MONTH";
   if (ruleForm.ruleType === "CONSECUTIVE_THRESHOLD") {
-    ruleForm.thresholdJson = '{"consecutiveMonths":2}';
+    ruleForm.thresholdJson = "{\"consecutiveMonths\":2}";
     return;
   }
   if (ruleForm.ruleType === "TREND_ANOMALY") {
+    ruleForm.thresholdJson = "{\"baselineMonths\":2}";
     if (!["GT", "GTE"].includes(ruleForm.operatorType)) {
       ruleForm.operatorType = "GT";
     }
-    ruleForm.thresholdJson = '{"baselineMonths":2}';
   }
 }
 
@@ -524,20 +444,27 @@ function applyThresholdPreset(mode) {
   }
   if (mode === "consecutive") {
     ruleForm.ruleType = "CONSECUTIVE_THRESHOLD";
-    ruleForm.thresholdJson = '{"consecutiveMonths":2}';
+    ruleForm.thresholdJson = "{\"consecutiveMonths\":2}";
     ruleForm.timeScope = "MONTH";
     return;
   }
-  if (mode === "trend") {
-    ruleForm.ruleType = "TREND_ANOMALY";
-    ruleForm.thresholdJson = '{"baselineMonths":2}';
-    ruleForm.timeScope = "MONTH";
-    ruleForm.operatorType = "GT";
-  }
+  ruleForm.ruleType = "TREND_ANOMALY";
+  ruleForm.thresholdJson = "{\"baselineMonths\":2}";
+  ruleForm.timeScope = "MONTH";
+  ruleForm.operatorType = "GT";
 }
 
 function openRuleCreate() {
   resetRuleForm();
+  showRuleModal.value = true;
+}
+
+function openRuleEdit(item) {
+  Object.assign(ruleForm, {
+    ...item,
+    thresholdJson: item.thresholdJson || "",
+    actionType: "NOTIFY"
+  });
   showRuleModal.value = true;
 }
 
@@ -557,16 +484,7 @@ function applyAutofillFromQuery() {
   ruleForm.messageTemplate = String(route.query.messageTemplate || ruleForm.messageTemplate);
   syncRuleConstraints();
   showRuleModal.value = true;
-  ruleFeedback.value = "The rule form has been prefilled from the analysis recommendation.";
-}
-
-function openRuleEdit(item) {
-  Object.assign(ruleForm, {
-    ...item,
-    thresholdJson: item.thresholdJson || "",
-    actionType: "NOTIFY"
-  });
-  showRuleModal.value = true;
+  ruleFeedback.value = "已根据分析页推荐内容预填规则表单。";
 }
 
 async function loadCategories() {
@@ -600,6 +518,9 @@ async function refreshLinkage() {
 async function submitRule() {
   try {
     syncRuleConstraints();
+    if (!ruleForm.ruleName) {
+      throw new Error("规则名称不能为空。");
+    }
     if (ruleForm.metricType === "CATEGORY_EXPENSE" && !ruleForm.categoryId) {
       throw new Error("分类支出规则必须选择分类。");
     }
@@ -620,7 +541,7 @@ async function submitRule() {
 
 async function toggleRule(item) {
   try {
-    if (item.enabled === 1) {
+    if (Number(item.enabled) === 1) {
       await rulesApi.disable(item.id);
     } else {
       await rulesApi.enable(item.id);
@@ -710,9 +631,6 @@ function matchedRules(usageItem) {
     if (Number(rule.enabled) !== 1) {
       return false;
     }
-    if (!["MONTH", usageItem.month?.length === 7 ? "MONTH" : "YEAR"].includes(rule.timeScope)) {
-      return false;
-    }
     if (rule.metricType === "FAMILY_EXPENSE") {
       return true;
     }
@@ -726,19 +644,9 @@ function matchedRules(usageItem) {
 function riskCoverage(usageItem) {
   const matched = matchedRules(usageItem);
   if (matched.length > 0) {
-    return {
-      covered: true,
-      label: `已由 ${matched.length} 条规则覆盖`
-    };
+    return { covered: true, label: `已由 ${matched.length} 条规则覆盖` };
   }
-  return {
-    covered: false,
-    label: "当前风险预算没有对应启用规则"
-  };
-}
-
-function normalizeSourceType(value) {
-  return String(value || "").trim().toUpperCase();
+  return { covered: false, label: "当前风险预算没有对应启用规则" };
 }
 
 function nullableNumber(value) {
@@ -746,6 +654,10 @@ function nullableNumber(value) {
     return null;
   }
   return Number(value);
+}
+
+function normalizeSourceType(value) {
+  return String(value || "").trim().toUpperCase();
 }
 
 function formatDateTime(value) {
@@ -773,7 +685,7 @@ function categoryName(categoryId) {
   if (!categoryId) {
     return "不限分类";
   }
-  return categories.value.find((item) => item.id === categoryId)?.categoryName || `#${categoryId}`;
+  return categories.value.find((item) => Number(item.id) === Number(categoryId))?.categoryName || `#${categoryId}`;
 }
 
 function currentMonth() {
