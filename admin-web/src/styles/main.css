@@ -642,6 +642,64 @@ textarea {
   color: var(--danger);
 }
 
+.linkage-grid {
+  align-items: start;
+}
+
+.linkage-summary-grid {
+  margin-bottom: 14px;
+}
+
+.risk-list,
+.mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.risk-item,
+.mini-list-item {
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.risk-item-head,
+.risk-item-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.risk-item-head strong,
+.mini-list-item strong {
+  display: block;
+}
+
+.risk-item-head span,
+.risk-item-body span,
+.mini-list-item span {
+  color: var(--text-subtle);
+  line-height: 1.6;
+}
+
+.risk-item-body {
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recent-list {
+  margin-top: 14px;
+}
+
 .modal-mask {
   position: fixed;
   inset: 0;
@@ -703,6 +761,10 @@ textarea {
   background: #fff;
   color: var(--text-subtle);
   font-size: 13px;
+}
+
+.dashboard-sublist {
+  margin-top: 14px;
 }
 
 .auth-shell {

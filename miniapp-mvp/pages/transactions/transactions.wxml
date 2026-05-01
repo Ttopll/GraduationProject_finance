@@ -1,0 +1,65 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Transactions</view>
+          <view class="panel-title">Record List</view>
+          <view class="panel-desc">View recent family records and create a new one.</view>
+        </view>
+        <button class="primary-btn" bindtap="goCreate">New Record</button>
+      </view>
+      <view class="field-block">
+        <view class="field-label">Type</view>
+        <picker mode="selector" range="{{['All','Expense','Income','Transfer']}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="field-picker">{{typeIndex === 1 ? 'Expense' : typeIndex === 2 ? 'Income' : typeIndex === 3 ? 'Transfer' : 'All'}}</view>
+        </picker>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 16rpx;">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">Total</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">Recent transactions in current filter</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Expense</view>
+        <view class="stat-value">{{stats.expenseCount}}</view>
+        <view class="stat-meta">Expense records</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Income</view>
+        <view class="stat-value">{{stats.incomeCount}}</view>
+        <view class="stat-meta">Income records</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Risk Related</view>
+        <view class="stat-value">{{stats.riskyCount}}</view>
+        <view class="stat-meta">Mapped to warning budgets</view>
+      </view>
+    </view>
+
+    <view class="record-list" wx:if="{{items.length}}">
+      <view class="record-item" wx:for="{{items}}" wx:key="id">
+        <view class="record-top">
+          <view class="record-title">{{item.merchantName || item.counterpartyName || 'Manual Record'}}</view>
+          <view class="record-amount {{item.transactionType === 'EXPENSE' ? 'amount-expense' : item.transactionType === 'INCOME' ? 'amount-income' : 'amount-transfer'}}">{{item.amountText}}</view>
+        </view>
+        <view class="record-meta">{{item.typeLabel}} / {{item.note || item.sourcePlatform || '-'}}</view>
+        <view wx:if="{{item.budgetRisk}}" class="feedback-box" style="margin-top: 12rpx;">
+          Related budget "{{item.budgetRisk.budgetName}}" is {{item.budgetRisk.exceeded ? 'Exceeded' : 'In Warning'}}. Current usage {{item.budgetRisk.usageRatioText}}.
+        </view>
+        <view class="record-bottom" style="margin-top: 12rpx;">
+          <view class="record-meta">{{item.accountDisplayName}} / {{item.categoryDisplayName}}</view>
+          <view class="button-row">
+            <view class="tag">{{item.transactionTimeText}}</view>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="openRecord">Open</button>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-box" wx:else>No records found.</view>
+  </view>
+</view>

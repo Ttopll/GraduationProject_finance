@@ -1,0 +1,76 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Create</view>
+          <view class="panel-title">{{isEditMode ? 'Edit Record' : 'New Record'}}</view>
+          <view class="panel-desc">{{isEditMode ? 'Review and update the selected transaction record.' : 'Complete account, type, amount, time and note.'}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">Account</view>
+          <picker mode="selector" range="{{accounts}}" range-key="accountName" bindchange="onPickerChange" data-field="accountId">
+            <view class="field-picker {{form.accountId ? '' : 'is-placeholder'}}">{{form.accountId ? selectedAccountName : 'Select account'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Category</view>
+          <picker wx:if="{{categories.length}}" mode="selector" range="{{categories}}" range-key="categoryName" bindchange="onPickerChange" data-field="categoryId">
+            <view class="field-picker {{form.categoryId ? '' : 'is-placeholder'}}">{{form.categoryId ? selectedCategoryName : 'Optional'}}</view>
+          </picker>
+          <view wx:else class="field-picker is-placeholder">Optional</view>
+          <view wx:if="{{categoryHint}}" class="feedback-box" style="margin-top: 12rpx;">{{categoryHint}}</view>
+          <view wx:if="{{budgetHint}}" class="feedback-box" style="margin-top: 12rpx;">{{budgetHint}}</view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Transaction Type</view>
+          <picker mode="selector" range="{{['Expense','Income','Transfer']}}" bindchange="onTypeChange">
+            <view class="field-picker">{{form.transactionType === 'EXPENSE' ? 'Expense' : form.transactionType === 'INCOME' ? 'Income' : 'Transfer'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Amount</view>
+          <input class="field-input" type="digit" placeholder="Enter amount" value="{{form.amount}}" data-field="amount" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">Date</view>
+            <picker mode="date" value="{{form.date}}" bindchange="onDateChange">
+              <view class="field-picker">{{form.date}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">Time</view>
+            <picker mode="time" value="{{form.time}}" bindchange="onTimeChange">
+              <view class="field-picker">{{form.time}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Merchant</view>
+          <input class="field-input" placeholder="Example: Supermarket" value="{{form.merchantName}}" data-field="merchantName" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Note</view>
+          <input class="field-input" placeholder="Optional" value="{{form.note}}" data-field="note" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? 'Update' : 'Submit'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteRecord">Delete</button>
+      </view>
+
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>

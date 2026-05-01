@@ -1,0 +1,78 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Account</view>
+          <view class="panel-title">{{isEditMode ? 'Edit Account' : 'New Account'}}</view>
+          <view class="panel-desc">{{isEditMode ? 'Update account metadata and status.' : 'Create a family account for transactions and balances.'}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">Account Name</view>
+          <input class="field-input" value="{{form.accountName}}" data-field="accountName" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Account Type</view>
+          <picker mode="selector" range="{{['Cash','Bank Card','Credit Card','Alipay','WeChat']}}" value="{{typeIndex}}" bindchange="onTypeChange">
+            <view class="field-picker">{{form.accountType}}</view>
+          </picker>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">Institution</view>
+            <input class="field-input" value="{{form.institutionName}}" data-field="institutionName" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">Tail No.</view>
+            <input class="field-input" value="{{form.accountNoMask}}" data-field="accountNoMask" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">Initial Balance</view>
+            <input class="field-input" disabled="{{isEditMode}}" type="digit" value="{{form.currentBalance}}" data-field="currentBalance" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">Credit Limit</view>
+            <input class="field-input" type="digit" value="{{form.creditLimit}}" data-field="creditLimit" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">Billing Day</view>
+            <input class="field-input" type="number" value="{{form.billingDay}}" data-field="billingDay" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">Repayment Day</view>
+            <input class="field-input" type="number" value="{{form.repaymentDay}}" data-field="repaymentDay" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="switch-row">
+          <view class="field-label">Shared Account</view>
+          <switch checked="{{form.isShared === 1}}" bindchange="onSharedChange" color="#2c5f93" />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">Remark</view>
+          <input class="field-input" value="{{form.remark}}" data-field="remark" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? 'Update' : 'Submit'}}</button>
+        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleStatus">{{status === 1 ? 'Disable' : 'Enable'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteAccount">Delete</button>
+      </view>
+
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>

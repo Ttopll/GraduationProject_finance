@@ -1,17 +1,36 @@
-﻿{
+{
   "pages": [
     "pages/login/login",
-    "pages/retail/retail",
-    "pages/worldbank/worldbank",
-    "pages/fred/fred",
-    "pages/summary/summary"
+    "pages/home/home",
+    "pages/accounts/accounts",
+    "pages/account-form/account-form",
+    "pages/transactions/transactions",
+    "pages/transaction-form/transaction-form",
+    "pages/notifications/notifications",
+    "pages/profile/profile",
+    "pages/budgets/budgets",
+    "pages/budget-form/budget-form",
+    "pages/family/family"
   ],
   "window": {
-    "navigationBarTitleText": "Finance Mini MVP",
-    "navigationBarBackgroundColor": "#0f172a",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f8fafc",
-    "backgroundTextStyle": "light"
+    "navigationBarTitleText": "Finance Mini",
+    "navigationBarBackgroundColor": "#f8fbff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f3f6fb",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6b7280",
+    "selectedColor": "#2c5f93",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "Home" },
+      { "pagePath": "pages/accounts/accounts", "text": "Accounts" },
+      { "pagePath": "pages/transactions/transactions", "text": "Records" },
+      { "pagePath": "pages/notifications/notifications", "text": "Alerts" },
+      { "pagePath": "pages/profile/profile", "text": "Profile" }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

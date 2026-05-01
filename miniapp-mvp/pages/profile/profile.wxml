@@ -1,0 +1,89 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Profile</view>
+          <view class="panel-title">My Account</view>
+          <view class="panel-desc">View current login account, family role and session info.</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadProfile">Refresh</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">Username</view>
+        <view class="stat-value">{{user ? user.username : '-'}}</view>
+        <view class="stat-meta">System login account</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Nickname</view>
+        <view class="stat-value">{{user ? (user.nickname || '-') : '-'}}</view>
+        <view class="stat-meta">Display name</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Current Family</view>
+        <view class="stat-value">{{currentMembership ? currentMembership.familyName : '-'}}</view>
+        <view class="stat-meta">Current family context</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Role</view>
+        <view class="stat-value">{{currentMembership ? currentMembership.roleCode : '-'}}</view>
+        <view class="stat-meta">Role in current family</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Account Info</view>
+          <view class="panel-title">Basic Details</view>
+        </view>
+      </view>
+      <view class="summary-list">
+        <view class="summary-item">
+          <view class="record-title">Real Name</view>
+          <view class="record-meta">{{user ? (user.realName || '-') : '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">Phone</view>
+          <view class="record-meta">{{user ? (user.phone || '-') : '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">Email</view>
+          <view class="record-meta">{{user ? (user.email || '-') : '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">Family Count</view>
+          <view class="record-meta">{{memberships.length}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">More</view>
+          <view class="panel-title">Related Pages</view>
+        </view>
+      </view>
+      <view class="button-row">
+        <button class="ghost-btn" bindtap="goFamilyInfo">Family Info</button>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Session</view>
+          <view class="panel-title">Actions</view>
+        </view>
+      </view>
+      <view class="button-row">
+        <button class="warn-btn" bindtap="logout">Logout</button>
+      </view>
+    </view>
+  </view>
+</view>

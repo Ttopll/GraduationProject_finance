@@ -1,28 +1,35 @@
 ﻿# miniapp-mvp
 
-A minimal WeChat Mini Program scaffold for this project.
+当前目录已经改造成用户端微信小程序 MVP，不再是之前那套“真实数据分析演示页”。
 
-## Scope
+## 当前范围
 
-- Page 1: Login (`/api/auth/login`)
-- Page 2: Retail overview (`/api/real-data-analysis/retail-overview`)
-- Page 3: World Bank trend (`/api/real-data-analysis/world-bank-trend`)
-- Page 4: FRED series (`/api/real-data-analysis/fred-series`)
-- Page 5: Defense summary (`/api/real-data-analysis/defense-summary`)
+- 登录页
+- 家庭首页
+- 账户总览
+- 交易列表
+- 新增交易
+- 通知中心
 
-## Local backend
+## 依赖后端
 
-The app default backend is:
+默认连接本机后端：
 
 - `http://127.0.0.1:8088`
 
-If your backend runs elsewhere, update `app.js`.
+如需修改，请编辑：
 
-## Quick start
+- `miniapp-mvp/app.js`
 
-1. Start backend (`mvn spring-boot:run`).
-2. Open WeChat DevTools.
-3. Import `miniapp-mvp` as a Mini Program project.
-4. In DevTools local settings, disable domain validation for local debugging.
-5. Login with an existing user.
-6. Verify retail overview, world-bank trend, fred-series, and defense-summary load.
+## 快速启动
+
+1. 启动后端服务。
+2. 用微信开发者工具导入 `miniapp-mvp`。
+3. 在本地设置中关闭合法域名校验。
+4. 使用已有账号登录。
+5. 先验证：首页、账户、交易、记账、通知这 5 条主线。
+
+## 说明
+
+- 当前是小程序端第一版，目标是先把用户主闭环跑通。
+- 后续再继续补页面精度、家庭操作、更多查询筛选和图表展示。

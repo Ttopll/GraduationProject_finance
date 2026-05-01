@@ -1,0 +1,60 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Family</view>
+          <view class="panel-title">Family Info</view>
+          <view class="panel-desc">View current family settings and members.</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadFamily">Refresh</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid" wx:if="{{family}}">
+      <view class="stat-card">
+        <view class="stat-label">Family Name</view>
+        <view class="stat-value">{{family.familyName || '-'}}</view>
+        <view class="stat-meta">Current family display name</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Invite Code</view>
+        <view class="stat-value">{{family.inviteCode || '-'}}</view>
+        <view class="stat-meta">Used for joining the family</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Currency</view>
+        <view class="stat-value">{{family.currencyCode || '-'}}</view>
+        <view class="stat-meta">Family default currency</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Timezone</view>
+        <view class="stat-value">{{family.timezone || '-'}}</view>
+        <view class="stat-meta">Family timezone setting</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Members</view>
+          <view class="panel-title">Member List</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{members.length}}">
+        <view class="record-item" wx:for="{{members}}" wx:key="memberId">
+          <view class="record-top">
+            <view class="record-title">{{item.memberName || item.nickname || item.username || ('Member #' + item.memberId)}}</view>
+            <view class="tag">{{item.roleCode || '-'}}</view>
+          </view>
+          <view class="record-meta">User: {{item.username || '-'}} / Nickname: {{item.nickname || '-'}}</view>
+          <view class="record-bottom" style="margin-top: 12rpx;">
+            <view class="record-meta">Joined: {{item.joinedAt || '-'}} / Status: {{item.status === 1 ? 'Active' : 'Inactive'}}</view>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>No family members found.</view>
+    </view>
+  </view>
+</view>

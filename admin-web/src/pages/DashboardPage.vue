@@ -1,39 +1,52 @@
 <template>
   <section class="page-section">
     <div class="stats-grid">
-      <StatCard label="&#24403;&#21069;&#29992;&#25143;" :value="authStore.user?.nickname || authStore.user?.username || '-'" :meta="userMeta" />
-      <StatCard label="&#24403;&#21069;&#23478;&#24237;" :value="familyId || '-'" :meta="familyMeta" />
-      <StatCard label="&#26410;&#35835;&#36890;&#30693;" :value="unreadCount" :meta="notificationMeta" />
-      <StatCard label="&#20928;&#36164;&#20135;" :value="formatAmount(overview.netAssetValue)" :meta="netAssetMeta" />
+      <StatCard label="Current User" :value="authStore.user?.nickname || authStore.user?.username || '-'" :meta="userMeta" />
+      <StatCard label="Current Family" :value="familyId || '-'" :meta="familyMeta" />
+      <StatCard label="Unread Alerts" :value="unreadCount" :meta="notificationMeta" />
+      <StatCard label="Net Assets" :value="formatAmount(overview.netAssetValue)" :meta="netAssetMeta" />
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="&#24555;&#36895;&#20837;&#21475;" title="&#31995;&#32479;&#24635;&#25511;&#21488;">
-        <div class="summary-grid">
+      <AdminTableCard kicker="Workbench" title="Admin Overview">
+        <template #actions>
+          <button class="ghost-button" type="button" @click="refreshAll">Refresh overview</button>
+        </template>
+        <div class="summary-grid dashboard-link-grid">
           <RouterLink to="/analysis" class="summary-item summary-link">
-            <strong>&#30495;&#23454;&#25968;&#25454;&#20998;&#26512;</strong>
+            <strong>Real Data Analysis</strong>
             <span>{{ latestImportLabel }}</span>
             <span>{{ defenseSummaryLabel }}</span>
           </RouterLink>
+          <RouterLink to="/operations" class="summary-item summary-link">
+            <strong>Import and Export</strong>
+            <span>{{ pendingCount }} pending items</span>
+            <span>{{ exportLogs.length }} export logs</span>
+          </RouterLink>
           <RouterLink to="/business" class="summary-item summary-link">
-            <strong>&#19994;&#21153;&#25968;&#25454;&#31649;&#29702;</strong>
-            <span>{{ accounts.length }} &#20010;&#36134;&#25143; / {{ transactionsTotal }} &#26465;&#20132;&#26131;</span>
-            <span>{{ budgets.length }} &#26465;&#39044;&#31639;</span>
+            <strong>Business Data</strong>
+            <span>{{ accounts.length }} accounts / {{ transactionsTotal }} transactions</span>
+            <span>{{ budgets.length }} budgets under management</span>
           </RouterLink>
           <RouterLink to="/assets" class="summary-item summary-link">
-            <strong>&#36164;&#20135;&#19982;&#36127;&#20538;</strong>
-            <span>{{ formatAmount(overview.totalFixedAssetValue) }} &#36164;&#20135;</span>
-            <span>{{ formatAmount(overview.totalDebtBalance) }} &#36127;&#20538;</span>
+            <strong>Assets and Debts</strong>
+            <span>Assets {{ formatAmount(overview.totalFixedAssetValue) }}</span>
+            <span>Debt {{ formatAmount(overview.totalDebtBalance) }}</span>
           </RouterLink>
-          <RouterLink to="/operations" class="summary-item summary-link">
-            <strong>&#23548;&#20837;&#19982;&#23548;&#20986;</strong>
-            <span>{{ pendingCount }} &#26465;&#24453;&#22788;&#29702;</span>
-            <span>{{ exportLogs.length }} &#26465;&#23548;&#20986;&#35760;&#24405;</span>
+          <RouterLink to="/bill-parse-rules" class="summary-item summary-link">
+            <strong>Bill Parse Rules</strong>
+            <span>{{ parseRuleCount }} active parse rules</span>
+            <span>{{ parseRuleHitCount }} total hits</span>
+          </RouterLink>
+          <RouterLink to="/rules" class="summary-item summary-link">
+            <strong>Rules and Alerts</strong>
+            <span>{{ enabledRuleCount }} enabled rules</span>
+            <span>{{ riskyBudgetCount }} risky budgets / {{ unreadCount }} unread</span>
           </RouterLink>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="&#31572;&#36777;&#25688;&#35201;" title="&#30495;&#23454;&#25968;&#25454;&#32467;&#35770;" :compact="true">
+      <AdminTableCard kicker="Defense" title="Real Data Conclusions" :compact="true">
         <div class="conclusion-list">
           <li>{{ defenseCountryConclusion }}</li>
           <li>{{ defenseRetailConclusion }}</li>
@@ -42,54 +55,142 @@
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="&#19994;&#21153;&#25351;&#26631;" title="&#25910;&#25903;&#19982;&#39044;&#31639;" :compact="true">
-        <div class="summary-grid">
+      <AdminTableCard kicker="Linkage" title="Budget -> Rule -> Notification" :compact="true">
+        <div class="summary-grid dashboard-linkage-grid">
           <div class="summary-item">
-            <strong>&#36817; 6 &#26376;&#25910;&#20837;</strong>
-            <span>{{ formatAmount(totalIncome) }}</span>
-            <span>{{ monthlySummary.length }} &#20010;&#26376;&#24230;&#28857;&#20301;</span>
+            <strong>Budget Risk</strong>
+            <span>{{ riskyBudgetCount }} budgets in warning or exceeded state</span>
+            <span :class="riskyBudgetCount > 0 ? 'summary-warn' : 'summary-normal'">
+              {{ riskyBudgetCount > 0 ? `Exceeded ${exceededBudgetCount} / Warning ${warningBudgetCount}` : 'No risk budget this month' }}
+            </span>
           </div>
           <div class="summary-item">
-            <strong>&#36817; 6 &#26376;&#25903;&#20986;</strong>
-            <span>{{ formatAmount(totalExpense) }}</span>
-            <span>{{ exceededBudgetCount }} &#26465;&#39044;&#31639;&#24050;&#36229;&#25903;</span>
+            <strong>Rule Coverage</strong>
+            <span>{{ coveredBudgetCount }} / {{ riskyBudgetCount }} risky budgets covered</span>
+            <span :class="uncoveredBudgetCount > 0 ? 'summary-danger' : 'summary-normal'">
+              {{ uncoveredBudgetCount > 0 ? `${uncoveredBudgetCount} risky budgets still need rule coverage` : 'All risky budgets are covered' }}
+            </span>
           </div>
+          <div class="summary-item">
+            <strong>Budget Alerts</strong>
+            <span>{{ budgetNotificationCount }} notifications</span>
+            <span>{{ budgetUnreadCount }} unread</span>
+          </div>
+          <div class="summary-item">
+            <strong>Rule Alerts</strong>
+            <span>{{ ruleNotificationCount }} notifications</span>
+            <span>{{ ruleUnreadCount }} unread</span>
+          </div>
+        </div>
+        <div class="table-list compact-table dashboard-sublist">
+          <div v-for="item in riskyBudgetCoverageRows" :key="item.budgetId" class="table-row-four">
+            <strong>{{ item.budgetName }}</strong>
+            <span>{{ item.categoryName || '-' }} / {{ item.month || '-' }}</span>
+            <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
+              {{ item.exceeded ? 'Exceeded' : 'Warning' }} {{ formatPercent(item.usageRatio) }}
+            </span>
+            <span>{{ item.coverageLabel }}</span>
+          </div>
+          <div v-if="riskyBudgetCoverageRows.length === 0" class="empty-text">No risky budgets need linkage review.</div>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="&#35268;&#21017;&#24341;&#25806;" title="&#35268;&#21017;&#19982;&#36890;&#30693;" :compact="true">
+      <AdminTableCard kicker="Alerts" title="Notification Source Summary" :compact="true">
         <div class="summary-grid">
-          <div class="summary-item">
-            <strong>&#21551;&#29992;&#35268;&#21017;</strong>
-            <span>{{ enabledRuleCount }} &#26465;</span>
-            <span>{{ rules.length }} &#26465;&#24635;&#35268;&#21017;</span>
+          <div v-for="item in notificationSourceSummary" :key="item.source" class="summary-item">
+            <strong>{{ sourceTypeLabel(item.source) }}</strong>
+            <span>{{ item.count }} notifications</span>
+            <span>{{ item.unread }} unread</span>
           </div>
-          <div class="summary-item">
-            <strong>&#26410;&#35835;&#36890;&#30693;</strong>
-            <span>{{ unreadCount }} &#26465;</span>
-            <span>{{ notifications.length }} &#26465;&#24403;&#21069;&#25289;&#21462;</span>
+          <div v-if="notificationSourceSummary.length === 0" class="empty-text">No notification source data.</div>
+        </div>
+        <div class="table-list compact-table dashboard-sublist">
+          <div v-for="item in latestNotifications" :key="item.id" class="table-row-three">
+            <strong>{{ item.title || "System Alert" }}</strong>
+            <span>{{ sourceTypeLabel(item.sourceType) }}</span>
+            <span>{{ formatDateTime(item.createdAt || item.sentAt) }}</span>
           </div>
+          <div v-if="latestNotifications.length === 0" class="empty-text">No recent notifications.</div>
         </div>
       </AdminTableCard>
     </div>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="&#26368;&#36817;&#26376;&#24230;" title="&#25910;&#25903;&#26376;&#24230;&#36208;&#21183;" :compact="true">
+      <AdminTableCard kicker="Budget Risk" title="Warning and Exceeded Budgets" :compact="true">
         <div class="table-list compact-table">
-          <div v-for="item in monthlySummary" :key="item.month" class="table-row-three">
-            <strong>{{ item.month }}</strong>
-            <span>&#25910;&#20837; {{ formatAmount(item.income) }}</span>
-            <span>&#25903;&#20986; {{ formatAmount(item.expense) }}</span>
+          <div v-for="item in highlightedBudgets" :key="item.budgetId" class="table-row-four">
+            <strong>{{ item.budgetName }}</strong>
+            <span>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</span>
+            <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
+              {{ item.exceeded ? "Exceeded" : "Warning" }}
+            </span>
+            <span>{{ item.categoryName || "-" }}</span>
           </div>
-          <div v-if="monthlySummary.length === 0" class="empty-text">&#26242;&#26080;&#26376;&#24230;&#27719;&#24635;&#25968;&#25454;&#12290;</div>
+          <div v-if="highlightedBudgets.length === 0" class="empty-text">No budget warning items right now.</div>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="&#24453;&#21150;" title="&#24403;&#21069;&#20219;&#21153;&#25552;&#31034;" :compact="true">
-        <div class="conclusion-list">
-          <li>{{ pendingCount > 0 ? `当前仍有 ${pendingCount} 条账单待归类，可前往导入与导出页面批量处理。` : "当前没有账单待归类项。" }}</li>
-          <li>{{ unreadCount > 0 ? `当前仍有 ${unreadCount} 条未读通知，可前往规则与通知页面处理。` : "当前没有未读通知。" }}</li>
+      <AdminTableCard kicker="Trend" title="Last 6 Months Cash Flow" :compact="true">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <strong>Income</strong>
+            <span>{{ formatAmount(totalIncome) }}</span>
+            <span>{{ monthlySummary.length }} monthly points</span>
+          </div>
+          <div class="summary-item">
+            <strong>Expense</strong>
+            <span>{{ formatAmount(totalExpense) }}</span>
+            <span>{{ highlightedBudgets.length }} risky budgets</span>
+          </div>
+        </div>
+        <div class="table-list compact-table dashboard-sublist">
+          <div v-for="item in monthlySummary" :key="item.month" class="table-row-three">
+            <strong>{{ item.month }}</strong>
+            <span>Income {{ formatAmount(item.income) }}</span>
+            <span>Expense {{ formatAmount(item.expense) }}</span>
+          </div>
+          <div v-if="monthlySummary.length === 0" class="empty-text">No monthly summary data.</div>
+        </div>
+      </AdminTableCard>
+    </div>
+
+    <div class="panel-grid panel-grid-wide">
+      <AdminTableCard kicker="Import" title="Recent Imports and Pending Items" :compact="true">
+        <div class="table-list compact-table">
+          <div v-for="item in recentImports" :key="item.id" class="table-row-four">
+            <strong>#{{ item.id }} / {{ item.originalFileName || "batch-file" }}</strong>
+            <span>{{ item.sourcePlatform || "-" }}</span>
+            <span>{{ item.successCount || 0 }} / {{ item.totalCount || 0 }}</span>
+            <span>{{ item.unmatchedCount || 0 }} pending classify</span>
+          </div>
+          <div v-if="recentImports.length === 0" class="empty-text">No bill import batches yet.</div>
+        </div>
+        <div class="conclusion-list dashboard-sublist">
+          <li>{{ pendingCount > 0 ? `There are still ${pendingCount} unresolved import items waiting for manual handling.` : "There are no unresolved bill import items." }}</li>
           <li>{{ latestImportLabel }}</li>
+        </div>
+      </AdminTableCard>
+
+      <AdminTableCard kicker="Rule Engine" title="Parse and Alert Rules" :compact="true">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <strong>Parse Rules</strong>
+            <span>{{ parseRuleCount }} configured</span>
+            <span>{{ parseRuleHitCount }} accumulated hits</span>
+          </div>
+          <div class="summary-item">
+            <strong>Alert Rules</strong>
+            <span>{{ enabledRuleCount }} enabled</span>
+            <span>{{ rules.length }} total definitions</span>
+          </div>
+        </div>
+        <div class="table-list compact-table dashboard-sublist">
+          <div v-for="item in rules.slice(0, 4)" :key="item.id" class="table-row-three">
+            <strong>{{ item.ruleName }}</strong>
+            <span>{{ item.metricType || "-" }}</span>
+            <span>{{ Number(item.enabled) === 1 ? "Enabled" : "Disabled" }}</span>
+          </div>
+          <div v-if="rules.length === 0" class="empty-text">No rule definitions found.</div>
         </div>
       </AdminTableCard>
     </div>
@@ -111,6 +212,7 @@ import { fixedAssetsApi } from "@/api/fixedAssets";
 import { realDataApi } from "@/api/realData";
 import { billImportsApi } from "@/api/billImports";
 import { dataExportsApi } from "@/api/dataExports";
+import { billParseRulesApi } from "@/api/billParseRules";
 import { usePageRefresh } from "@/composables/pageRefresh";
 
 const familyId = computed(() => authStore.currentFamilyId);
@@ -124,6 +226,7 @@ const importHistory = ref([]);
 const defenseSummary = ref(null);
 const pendingItems = ref([]);
 const exportLogs = ref([]);
+const parseRules = ref([]);
 const overview = ref({
   totalFixedAssetValue: 0,
   totalDebtBalance: 0,
@@ -132,43 +235,78 @@ const overview = ref({
 const transactionsTotal = ref(0);
 
 const userMeta = computed(() => authStore.user?.userType || "USER");
-const familyMeta = computed(() => `${authStore.memberships.length} \u6761\u5bb6\u5ead\u5173\u7cfb`);
+const familyMeta = computed(() => `${authStore.memberships.length} family memberships`);
 const unreadCount = computed(() => notifications.value.filter((item) => Number(item.readStatus) !== 1).length);
-const notificationMeta = computed(() => `${notifications.value.length} \u6761\u6700\u65b0\u901a\u77e5`);
-const netAssetMeta = computed(() => `\u8d44\u4ea7 ${formatAmount(overview.value.totalFixedAssetValue)} / \u8d1f\u503a ${formatAmount(overview.value.totalDebtBalance)}`);
+const notificationMeta = computed(() => `${notifications.value.length} recent notifications`);
+const netAssetMeta = computed(() => `Assets ${formatAmount(overview.value.totalFixedAssetValue)} / Debt ${formatAmount(overview.value.totalDebtBalance)}`);
 const latestImportLabel = computed(() => {
   const item = importHistory.value[0];
-  return item ? `最近导入批次 #${item.id}，状态 ${item.importStatus || "-"}` : "\u5c1a\u672a\u67e5\u5230\u771f\u5b9e\u6570\u636e\u5bfc\u5165\u6279\u6b21";
+  return item ? `Latest import batch #${item.id}, status ${item.importStatus || "-"}` : "No real-data import batch found yet";
+});
+const defenseSummaryLabel = computed(() => {
+  const conclusions = defenseSummary.value?.conclusions || [];
+  return conclusions[0] || "Open analysis page for detailed real-data summary";
 });
 const defenseCountryConclusion = computed(() => {
   const points = defenseSummary.value?.worldBankTrend?.points || [];
   if (points.length < 2) {
-    return "\u56fd\u5bb6\u8d8b\u52bf\u6570\u636e\u6682\u4e0d\u8db3\uff0c\u8fd8\u4e0d\u9002\u5408\u505a\u7a33\u5b9a\u7b54\u8fa9\u7ed3\u8bba\u3002";
+    return "Country trend points are still insufficient for a stable oral-defense conclusion.";
   }
   const first = points[0];
   const last = points[points.length - 1];
-  return `${defenseSummary.value?.worldBankTrend?.countryName || "CHN"} 在 ${first.year} 到 ${last.year} 之间已有 ${points.length} 个年度点位，可直接用于国家趋势展示。`;
+  return `${defenseSummary.value?.worldBankTrend?.countryName || "CHN"} keeps ${points.length} yearly points from ${first.year} to ${last.year}, which is enough for a country-level trend demonstration.`;
 });
 const defenseRetailConclusion = computed(() => {
   const first = defenseSummary.value?.retailOverview?.topCountries?.[0];
   if (!first) {
-    return "\u96f6\u552e\u4ea4\u6613\u7ed3\u6784\u6570\u636e\u6682\u672a\u52a0\u8f7d\u3002";
+    return "Retail structure data has not been loaded yet.";
   }
-  return `交易量最高国家为 ${first.country || "未知国家"}，记录数 ${first.recordCount || 0}，总金额 ${formatAmount(first.totalAmount)}。`;
-});
-const defenseSummaryLabel = computed(() => {
-  const conclusions = defenseSummary.value?.conclusions || [];
-  return conclusions[0] || "\u53ef\u4ece\u5206\u6790\u9875\u67e5\u770b\u66f4\u5b8c\u6574\u771f\u5b9e\u6570\u636e\u6458\u8981";
+  return `The highest-volume retail country is ${first.country || "Unknown"}, with ${first.recordCount || 0} records and total amount ${formatAmount(first.totalAmount)}.`;
 });
 const totalIncome = computed(() => monthlySummary.value.reduce((sum, item) => sum + Number(item.income || 0), 0));
 const totalExpense = computed(() => monthlySummary.value.reduce((sum, item) => sum + Number(item.expense || 0), 0));
-const exceededBudgetCount = computed(() => budgetUsage.value.filter((item) => item.exceeded).length);
 const enabledRuleCount = computed(() => rules.value.filter((item) => Number(item.enabled) === 1).length);
 const pendingCount = computed(() => pendingItems.value.filter((item) => item.status !== "RESOLVED").length);
+const recentImports = computed(() => importHistory.value.slice(0, 4));
+const latestNotifications = computed(() => notifications.value.slice(0, 4));
+const parseRuleCount = computed(() => parseRules.value.length);
+const parseRuleHitCount = computed(() => parseRules.value.reduce((sum, item) => sum + Number(item.hitCount || 0), 0));
+const highlightedBudgets = computed(() => budgetUsage.value.filter((item) => item.exceeded || item.alertTriggered).slice(0, 6));
+const riskyBudgetCount = computed(() => highlightedBudgets.value.length);
+const warningBudgetCount = computed(() => highlightedBudgets.value.filter((item) => item.alertTriggered && !item.exceeded).length);
+const exceededBudgetCount = computed(() => highlightedBudgets.value.filter((item) => item.exceeded).length);
+const budgetNotificationCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "BUDGET").length);
+const ruleNotificationCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "RULE").length);
+const budgetUnreadCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "BUDGET" && Number(item.readStatus) !== 1).length);
+const ruleUnreadCount = computed(() => notifications.value.filter((item) => normalizeSourceType(item.sourceType) === "RULE" && Number(item.readStatus) !== 1).length);
+const notificationSourceSummary = computed(() => {
+  const summary = new Map();
+  notifications.value.forEach((item) => {
+    const source = normalizeSourceType(item.sourceType) || "OTHER";
+    if (!summary.has(source)) {
+      summary.set(source, { source, count: 0, unread: 0 });
+    }
+    const target = summary.get(source);
+    target.count += 1;
+    if (Number(item.readStatus) !== 1) {
+      target.unread += 1;
+    }
+  });
+  return Array.from(summary.values()).sort((a, b) => b.count - a.count);
+});
+const riskyBudgetCoverageRows = computed(() => highlightedBudgets.value.map((item) => {
+  const coverage = matchedRules(item);
+  return {
+    ...item,
+    coverageLabel: coverage.length > 0 ? `${coverage.length} rules matched` : "No enabled rule matched"
+  };
+}));
+const coveredBudgetCount = computed(() => riskyBudgetCoverageRows.value.filter((item) => item.coverageLabel !== "No enabled rule matched").length);
+const uncoveredBudgetCount = computed(() => Math.max(riskyBudgetCount.value - coveredBudgetCount.value, 0));
 
 function ensureFamilyId() {
   if (!familyId.value) {
-    throw new Error("\u5f53\u524d\u4f1a\u8bdd\u6ca1\u6709\u53ef\u7528\u7684\u5bb6\u5ead\u4e0a\u4e0b\u6587\u3002");
+    throw new Error("Current session has no family context.");
   }
   return familyId.value;
 }
@@ -178,7 +316,7 @@ async function refreshAll() {
     return;
   }
   const id = ensureFamilyId();
-  const notificationsResponse = await notificationsApi.search({ familyId: id, page: 0, size: 10 });
+  const notificationsResponse = await notificationsApi.search({ familyId: id, page: 0, size: 12 });
   const transactionSearch = await transactionsApi.search({ familyId: id, page: 0, size: 1 });
   const [
     accountsResult,
@@ -190,6 +328,7 @@ async function refreshAll() {
     importHistoryResult,
     pendingItemsResult,
     exportLogsResult,
+    parseRulesResult,
     defenseSummaryResult
   ] = await Promise.all([
     accountsApi.listByFamily(id),
@@ -198,9 +337,10 @@ async function refreshAll() {
     transactionsApi.monthlySummary(id, 6),
     rulesApi.listByFamily(id),
     fixedAssetsApi.overview(id),
-    realDataApi.getImportHistory(),
+    billImportsApi.list(id).catch(() => []),
     billImportsApi.pendingItems(id, "PENDING"),
     dataExportsApi.list(id),
+    billParseRulesApi.list(id).catch(() => []),
     realDataApi.getDefenseSummary({ countryIso3: "CHN", seriesId: "PCE", topCountries: 5 }).catch(() => null)
   ]);
   accounts.value = accountsResult;
@@ -213,8 +353,36 @@ async function refreshAll() {
   importHistory.value = importHistoryResult || [];
   pendingItems.value = pendingItemsResult || [];
   exportLogs.value = exportLogsResult || [];
+  parseRules.value = parseRulesResult || [];
   defenseSummary.value = defenseSummaryResult;
   transactionsTotal.value = transactionSearch.totalElements || 0;
+}
+
+function matchedRules(usageItem) {
+  return rules.value.filter((rule) => {
+    if (Number(rule.enabled) !== 1) {
+      return false;
+    }
+    if (rule.metricType === "FAMILY_EXPENSE") {
+      return true;
+    }
+    if (rule.metricType === "CATEGORY_EXPENSE") {
+      return Number(rule.categoryId) === Number(usageItem.categoryId);
+    }
+    return false;
+  });
+}
+
+function normalizeSourceType(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function sourceTypeLabel(value) {
+  return {
+    RULE: "Rule Trigger",
+    BUDGET: "Budget Alert",
+    OTHER: "Other"
+  }[normalizeSourceType(value)] || value || "-";
 }
 
 function formatAmount(value) {
@@ -222,6 +390,20 @@ function formatAmount(value) {
     return "-";
   }
   return Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatPercent(value) {
+  if (value === undefined || value === null || value === "") {
+    return "-";
+  }
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+  return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
 onMounted(refreshAll);

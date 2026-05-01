@@ -300,7 +300,7 @@
       <div class="form-grid">
         <label class="field-block"><span>&#39044;&#31639;&#21517;&#31216;</span><input v-model.trim="budgetForm.budgetName" class="field-input" type="text" /></label>
         <label class="field-block"><span>&#20851;&#32852;&#20998;&#31867;</span><select v-model.number="budgetForm.categoryId" class="field-input"><option :value="null">&#35831;&#36873;&#25321;</option><option v-for="item in categories" :key="item.id" :value="item.id">{{ item.categoryName }}</option></select></label>
-        <label class="field-block"><span>&#39044;&#31639;&#21608;&#26399;</span><select v-model="budgetForm.periodType" class="field-input"><option value="MONTHLY">&#26376;&#24230;</option><option value="WEEKLY">&#21608;&#24230;</option><option value="YEARLY">&#24180;&#24230;</option></select></label>
+        <label class="field-block"><span>&#39044;&#31639;&#21608;&#26399;</span><select v-model="budgetForm.periodType" class="field-input"><option value="MONTH">&#26376;&#24230;</option><option value="YEAR">&#24180;&#24230;</option></select></label>
         <label class="field-block"><span>&#39044;&#31639;&#37329;&#39069;</span><input v-model.number="budgetForm.amount" class="field-input" type="number" min="0.01" step="0.01" /></label>
         <label class="field-block"><span>&#39044;&#35686;&#27604;&#20363;</span><input v-model.number="budgetForm.alertRatio" class="field-input" type="number" min="0" max="1" step="0.01" /></label>
         <label class="field-block"><span>&#24320;&#22987;&#26085;&#26399;</span><input v-model="budgetForm.startDate" class="field-input" type="date" /></label>
@@ -395,7 +395,7 @@ const budgetForm = reactive({
   id: null,
   categoryId: null,
   budgetName: "",
-  periodType: "MONTHLY",
+  periodType: "MONTH",
   amount: 0,
   alertRatio: 0.8,
   startDate: todayDate(),
@@ -469,7 +469,7 @@ function resetBudgetForm() {
     id: null,
     categoryId: null,
     budgetName: "",
-    periodType: "MONTHLY",
+    periodType: "MONTH",
     amount: 0,
     alertRatio: 0.8,
     startDate: todayDate(),
@@ -958,7 +958,7 @@ function scopeTypeLabel(value) {
 }
 
 function budgetPeriodLabel(value) {
-  return { MONTHLY: "\u6708\u5ea6", WEEKLY: "\u5468\u5ea6", YEARLY: "\u5e74\u5ea6" }[value] || value || "-";
+  return { MONTH: "\\u6708\\u5ea6", YEAR: "\\u5e74\\u5ea6" }[value] || value || "-";
 }
 
 onMounted(async () => {

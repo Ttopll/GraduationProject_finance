@@ -1,6 +1,26 @@
-﻿function buildUrl(path) {
+function buildUrl(path) {
   const app = getApp();
   return `${app.globalData.baseUrl}${path}`;
+}
+
+function normalizeFailMessage(error) {
+  if (!error) {
+    return "Request failed";
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error.errMsg) {
+    return error.errMsg;
+  }
+  if (error.message) {
+    return error.message;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch (_) {
+    return "Request failed";
+  }
 }
 
 function request(path, method = "GET", data = null, auth = true) {
@@ -21,9 +41,14 @@ function request(path, method = "GET", data = null, auth = true) {
           resolve(res.data);
           return;
         }
-        reject(new Error(`HTTP ${res.statusCode}`));
+        const message = res.data && (res.data.message || res.data.error || res.data.path)
+          ? (res.data.message || res.data.error || res.data.path)
+          : `HTTP ${res.statusCode}`;
+        reject(new Error(`HTTP ${res.statusCode}: ${message}`));
       },
-      fail: reject
+      fail: (error) => {
+        reject(new Error(normalizeFailMessage(error)));
+      }
     });
   });
 }

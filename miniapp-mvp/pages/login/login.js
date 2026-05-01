@@ -1,11 +1,19 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
+const session = require("../../utils/session");
 
 Page({
   data: {
     username: "",
     password: "",
     loading: false,
-    error: ""
+    feedback: ""
+  },
+
+  onLoad(options) {
+    this.redirectUrl = options.redirect ? decodeURIComponent(options.redirect) : "/pages/home/home";
+    if (session.isLoggedIn()) {
+      wx.reLaunch({ url: this.redirectUrl });
+    }
   },
 
   onUsernameInput(e) {
@@ -16,22 +24,24 @@ Page({
     this.setData({ password: e.detail.value });
   },
 
+  fillDemo() {
+    this.setData({ username: "admin1", password: "12345678", feedback: "" });
+  },
+
   async submitLogin() {
     const { username, password } = this.data;
     if (!username || !password) {
-      this.setData({ error: "请输入用户名和密码" });
+      this.setData({ feedback: "Please enter username and password." });
       return;
     }
-
-    this.setData({ loading: true, error: "" });
+    this.setData({ loading: true, feedback: "Signing in..." });
     try {
       const loginRes = await request("/api/auth/login", "POST", { username, password }, false);
-      wx.setStorageSync("accessToken", loginRes.accessToken || "");
-      wx.setStorageSync("loginUser", loginRes.user || {});
-      wx.showToast({ title: "登录成功", icon: "success" });
-      wx.redirectTo({ url: "/pages/retail/retail" });
-    } catch (err) {
-      this.setData({ error: `登录失败: ${err.message}` });
+      session.setSession(loginRes);
+      this.setData({ feedback: "Login success. Redirecting..." });
+      wx.reLaunch({ url: this.redirectUrl });
+    } catch (error) {
+      this.setData({ feedback: `Login failed: ${error.message}` });
     } finally {
       this.setData({ loading: false });
     }

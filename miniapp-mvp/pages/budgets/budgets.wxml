@@ -1,0 +1,148 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Budgets</view>
+          <view class="panel-title">Budget Summary</view>
+          <view class="panel-desc">View budget usage and recent monthly income/expense summary.</view>
+        </view>
+        <view class="button-row">
+          <button class="primary-btn" bindtap="goCreate">New</button>
+          <button class="ghost-btn" bindtap="loadBudgetSummary">Refresh</button>
+        </view>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">Total Budgets</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">Current active budget items</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Warnings</view>
+        <view class="stat-value">{{stats.warningCount}}</view>
+        <view class="stat-meta">Close to alert threshold</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Exceeded</view>
+        <view class="stat-value">{{stats.exceededCount}}</view>
+        <view class="stat-meta">Already over budget</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">Normal</view>
+        <view class="stat-value">{{stats.normalCount}}</view>
+        <view class="stat-meta">Still within safe range</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Linkage</view>
+          <view class="panel-title">Budget Risk and Alert Flow</view>
+          <view class="panel-desc">Check current budget risk, matched rules and delivered notifications.</view>
+        </view>
+      </view>
+      <view class="stats-grid">
+        <view class="stat-card">
+          <view class="stat-label">Risk Budgets</view>
+          <view class="stat-value">{{riskyBudgets.length}}</view>
+          <view class="stat-meta">Warning or exceeded budgets</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">Budget Alerts</view>
+          <view class="stat-value">{{notificationStats.budgetCount}}</view>
+          <view class="stat-meta">{{notificationStats.budgetUnread}} unread budget notifications</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">Rule Alerts</view>
+          <view class="stat-value">{{notificationStats.ruleCount}}</view>
+          <view class="stat-meta">{{notificationStats.ruleUnread}} unread rule notifications</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">Coverage Rows</view>
+          <view class="stat-value">{{coverageRows.length}}</view>
+          <view class="stat-meta">Risk budgets waiting for review</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Usage</view>
+          <view class="panel-title">Budget Usage</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{budgetUsage.length}}">
+        <view class="record-item" wx:for="{{budgetUsage}}" wx:key="budgetId">
+          <view class="record-top">
+            <view class="record-title">{{item.budgetName}}</view>
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+          </view>
+          <view class="record-meta">Category: {{item.categoryName || '-'}} / Month: {{item.month || '-'}}</view>
+          <view class="record-meta">Spent {{item.spentAmountText}} / Budget {{item.budgetAmountText}} / Remaining {{item.remainingAmountText}}</view>
+          <view class="progress-track" style="margin-top: 14rpx;">
+            <view class="progress-fill {{item.progressClass}}" style="width: {{item.progressWidth}};"></view>
+          </view>
+          <view class="record-bottom" style="margin-top: 12rpx;">
+            <view class="record-meta">Usage Ratio</view>
+            <view class="button-row">
+              <view class="record-amount">{{item.usageRatioText}}</view>
+              <button class="ghost-btn" size="mini" data-id="{{item.budgetId}}" bindtap="openBudget">Open</button>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>No budget usage data yet. Create budgets in admin first.</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Coverage</view>
+          <view class="panel-title">Risk Budget Coverage</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{coverageRows.length}}">
+        <view class="record-item" wx:for="{{coverageRows}}" wx:key="budgetId">
+          <view class="record-top">
+            <view class="record-title">{{item.budgetName}}</view>
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+          </view>
+          <view class="record-meta">{{item.categoryName}} / {{item.month}}</view>
+          <view class="record-meta">Spent {{item.spentAmountText}} / Budget {{item.budgetAmountText}} / Usage {{item.usageRatioText}}</view>
+          <view class="record-bottom" style="margin-top: 12rpx;">
+            <view class="record-meta">{{item.coverageText}}</view>
+            <view class="tag {{item.coverageCount > 0 ? 'status-normal' : 'status-danger'}}">
+              {{item.coverageCount > 0 ? 'Covered' : 'Uncovered'}}
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>No risky budget needs rule coverage review.</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Monthly</view>
+          <view class="panel-title">Last 6 Months</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{monthlySummary.length}}">
+        <view class="record-item" wx:for="{{monthlySummary}}" wx:key="month">
+          <view class="record-top">
+            <view class="record-title">{{item.month}}</view>
+            <view class="record-amount {{item.netClass}}">{{item.netAmountText}}</view>
+          </view>
+          <view class="record-meta">Income {{item.incomeText}} / Expense {{item.expenseText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>No monthly summary data.</view>
+    </view>
+  </view>
+</view>
