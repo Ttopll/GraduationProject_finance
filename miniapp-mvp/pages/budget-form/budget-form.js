@@ -201,12 +201,23 @@ Page({
     if (!this.data.isEditMode || !this.data.budgetId) {
       return;
     }
-    try {
-      await request(`/api/budgets/${this.data.budgetId}`, "DELETE");
-      wx.showToast({ title: "Deleted", icon: "success" });
-      wx.navigateBack();
-    } catch (error) {
-      this.setData({ feedback: `Delete failed: ${error.message}` });
-    }
+    wx.showModal({
+      title: "Delete Budget",
+      content: "Delete this budget plan? Usage statistics will no longer include it.",
+      confirmText: "Delete",
+      confirmColor: "#d64545",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          await request(`/api/budgets/${this.data.budgetId}`, "DELETE");
+          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `Delete failed: ${error.message}` });
+        }
+      }
+    });
   }
 });

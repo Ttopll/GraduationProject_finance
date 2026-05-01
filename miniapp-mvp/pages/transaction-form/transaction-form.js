@@ -216,12 +216,23 @@ Page({
     if (!this.data.isEditMode || !this.data.recordId) {
       return;
     }
-    try {
-      await request(`/api/transaction-records/${this.data.recordId}`, "DELETE");
-      wx.showToast({ title: "Deleted", icon: "success" });
-      wx.navigateBack();
-    } catch (error) {
-      this.setData({ feedback: `Delete failed: ${error.message}` });
-    }
+    wx.showModal({
+      title: "Delete Record",
+      content: "Delete this transaction record?",
+      confirmText: "Delete",
+      confirmColor: "#d64545",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          await request(`/api/transaction-records/${this.data.recordId}`, "DELETE");
+          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `Delete failed: ${error.message}` });
+        }
+      }
+    });
   }
 });

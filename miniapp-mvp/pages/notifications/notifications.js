@@ -91,12 +91,22 @@ Page({
     if (!familyId) {
       return;
     }
-    try {
-      await request(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId || ""}`, "POST");
-      this.loadNotifications();
-    } catch (error) {
-      this.setData({ feedback: `Mark all read failed: ${error.message}` });
-    }
+    wx.showModal({
+      title: "Mark All Read",
+      content: "Mark all current notifications as read?",
+      confirmText: "Confirm",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          await request(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId || ""}`, "POST");
+          this.loadNotifications();
+        } catch (error) {
+          this.setData({ feedback: `Mark all read failed: ${error.message}` });
+        }
+      }
+    });
   },
 
   openNotificationLink(e) {

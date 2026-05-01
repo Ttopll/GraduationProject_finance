@@ -159,16 +159,23 @@ Page({
     if (!this.data.isEditMode || !this.data.accountId) {
       return;
     }
-    try {
-      await request(`/api/accounts/${this.data.accountId}`, "DELETE");
-      wx.showToast({ title: "Deleted", icon: "success" });
-      wx.navigateBack();
-    } catch (error) {
-      this.setData({ feedback: `Delete failed: ${error.message}` });
-    }
-  },
-
-  accountTypeLabels() {
-    return ACCOUNT_TYPE_LABELS;
+    wx.showModal({
+      title: "Delete Account",
+      content: "Delete this account? Related transactions may prevent deletion.",
+      confirmText: "Delete",
+      confirmColor: "#d64545",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          await request(`/api/accounts/${this.data.accountId}`, "DELETE");
+          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `Delete failed: ${error.message}` });
+        }
+      }
+    });
   }
 });
