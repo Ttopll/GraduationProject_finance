@@ -124,5 +124,13 @@ Page({
 
   onPullDownRefresh() {
     this.loadPage().finally(() => wx.stopPullDownRefresh());
+  },
+
+  goRepayment(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) {
+      return;
+    }
+    wx.navigateTo({ url: `/pages/debt-repayment/debt-repayment?debtId=${id}` });
   }
 });

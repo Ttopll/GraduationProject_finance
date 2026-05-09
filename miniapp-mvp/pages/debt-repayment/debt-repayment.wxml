@@ -1,0 +1,64 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">债务还款</view>
+          <view class="panel-title">记录一笔还款</view>
+          <view class="panel-desc">提交后会减少债务余额；如果选择付款账户，也会同步扣减账户余额。</view>
+        </view>
+      </view>
+
+      <view class="summary-list" wx:if="{{debt}}">
+        <view class="summary-item">
+          <view class="record-title">{{debt.debtName}}</view>
+          <view class="record-meta">当前剩余 {{debt.currentBalanceText}} / 类型 {{debt.debtTypeText}}</view>
+          <view class="record-meta">到期日 {{debt.dueDate || '-'}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack" style="margin-top: 20rpx;">
+        <view class="field-block">
+          <view class="field-label">付款账户</view>
+          <picker mode="selector" range="{{accountLabels}}" value="{{accountIndex}}" bindchange="onAccountChange">
+            <view class="field-picker">{{accountLabels.length ? accountLabels[accountIndex] : '不选择账户'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">还款总额</view>
+            <input class="field-input" type="digit" value="{{form.amount}}" data-field="amount" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">本金</view>
+            <input class="field-input" type="digit" value="{{form.principalPaid}}" data-field="principalPaid" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">利息</view>
+            <input class="field-input" type="digit" value="{{form.interestPaid}}" data-field="interestPaid" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">还款时间</view>
+            <input class="field-input" value="{{form.repaymentTime}}" data-field="repaymentTime" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">备注</view>
+          <input class="field-input" value="{{form.note}}" data-field="note" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">提交还款</button>
+        <button class="ghost-btn" bindtap="fillFullRepayment">填入全部剩余</button>
+      </view>
+
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>

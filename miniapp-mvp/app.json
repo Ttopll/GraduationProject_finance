@@ -12,7 +12,8 @@
     "pages/budget-form/budget-form",
     "pages/family/family",
     "pages/finance-advice/finance-advice",
-    "pages/assets-overview/assets-overview"
+    "pages/assets-overview/assets-overview",
+    "pages/debt-repayment/debt-repayment"
   ],
   "window": {
     "navigationBarTitleText": "家庭理财",

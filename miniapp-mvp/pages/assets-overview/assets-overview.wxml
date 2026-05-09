@@ -105,7 +105,10 @@
             <view class="record-amount amount-expense">{{item.currentBalanceText}}</view>
           </view>
           <view class="record-meta">{{item.debtTypeText}} / 到期日 {{item.dueDate || '-'}}</view>
-          <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+          <view class="record-bottom" style="margin-top: 12rpx;">
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+            <button wx:if="{{item.status === 'ACTIVE'}}" class="ghost-btn" size="mini" data-id="{{item.debtId}}" bindtap="goRepayment">记录还款</button>
+          </view>
         </view>
       </view>
       <view class="empty-box" wx:else>暂无债务数据。</view>
