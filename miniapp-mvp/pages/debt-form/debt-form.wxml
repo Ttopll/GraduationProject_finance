@@ -1,0 +1,72 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">债务</view>
+          <view class="panel-title">{{isEditMode ? '编辑债务' : '新增债务'}}</view>
+          <view class="panel-desc">{{isEditMode ? '修改债务金额、还款日和到期信息。' : '记录房贷、车贷、信用卡等待还债务，用于提醒和资产负债分析。'}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">债务名称</view>
+          <input class="field-input" value="{{form.debtName}}" data-field="debtName" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">债务类型</view>
+            <picker mode="selector" range="{{debtTypeLabels}}" value="{{debtTypeIndex}}" bindchange="onDebtTypeChange">
+              <view class="field-picker">{{debtTypeLabels[debtTypeIndex]}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">债权方</view>
+            <input class="field-input" value="{{form.lenderName}}" data-field="lenderName" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">本金</view>
+            <input class="field-input" type="digit" value="{{form.principalAmount}}" data-field="principalAmount" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">年利率</view>
+            <input class="field-input" type="digit" value="{{form.annualRate}}" data-field="annualRate" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">账单日</view>
+            <input class="field-input" type="number" value="{{form.billingDay}}" data-field="billingDay" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">还款日</view>
+            <input class="field-input" type="number" value="{{form.repaymentDay}}" data-field="repaymentDay" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">到期日</view>
+          <picker mode="date" value="{{form.dueDate}}" bindchange="onDueDateChange">
+            <view class="field-picker {{form.dueDate ? '' : 'is-placeholder'}}">{{form.dueDate || '可不填'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">备注</view>
+          <input class="field-input" value="{{form.remark}}" data-field="remark" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存债务'}}</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>

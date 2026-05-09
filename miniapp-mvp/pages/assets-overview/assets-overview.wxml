@@ -7,7 +7,11 @@
           <view class="panel-title">家庭资产看板</view>
           <view class="panel-desc">查看账户、固定资产、债务和净资产情况，判断家庭资产是否健康。</view>
         </view>
-        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+        <view class="button-row">
+          <button class="ghost-btn" bindtap="loadPage">刷新</button>
+          <button class="primary-btn" bindtap="goCreateAsset">新增资产</button>
+          <button class="ghost-btn" bindtap="goCreateDebt">新增债务</button>
+        </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
     </view>
@@ -77,6 +81,7 @@
           <view class="panel-kicker">固定资产</view>
           <view class="panel-title">房产、车辆和其他资产</view>
         </view>
+        <button class="ghost-btn" bindtap="goCreateAsset">新增</button>
       </view>
       <view class="record-list" wx:if="{{fixedAssets.length}}">
         <view class="record-item" wx:for="{{fixedAssets}}" wx:key="assetId">
@@ -86,6 +91,9 @@
           </view>
           <view class="record-meta">{{item.assetTypeText}} / 买入 {{item.purchaseAmountText}}</view>
           <view class="record-meta">估值日期：{{item.valuationDate || '-'}}</view>
+          <view class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" data-id="{{item.assetId}}" bindtap="goEditAsset">编辑</button>
+          </view>
         </view>
       </view>
       <view class="empty-box" wx:else>暂无固定资产数据。</view>
@@ -97,6 +105,7 @@
           <view class="panel-kicker">债务</view>
           <view class="panel-title">待还债务</view>
         </view>
+        <button class="ghost-btn" bindtap="goCreateDebt">新增</button>
       </view>
       <view class="record-list" wx:if="{{debts.length}}">
         <view class="record-item" wx:for="{{debts}}" wx:key="debtId">
@@ -107,7 +116,10 @@
           <view class="record-meta">{{item.debtTypeText}} / 到期日 {{item.dueDate || '-'}}</view>
           <view class="record-bottom" style="margin-top: 12rpx;">
             <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
-            <button wx:if="{{item.status === 'ACTIVE'}}" class="ghost-btn" size="mini" data-id="{{item.debtId}}" bindtap="goRepayment">记录还款</button>
+            <view class="button-row">
+              <button class="ghost-btn" size="mini" data-id="{{item.debtId}}" bindtap="goEditDebt">编辑</button>
+              <button wx:if="{{item.status === 'ACTIVE'}}" class="ghost-btn" size="mini" data-id="{{item.debtId}}" bindtap="goRepayment">记录还款</button>
+            </view>
           </view>
         </view>
       </view>

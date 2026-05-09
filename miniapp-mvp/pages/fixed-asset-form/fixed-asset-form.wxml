@@ -1,0 +1,63 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">固定资产</view>
+          <view class="panel-title">{{isEditMode ? '编辑固定资产' : '新增固定资产'}}</view>
+          <view class="panel-desc">{{isEditMode ? '修改资产金额、估值和备注。' : '记录房产、车辆、定存等资产，用于计算家庭总资产和净资产。'}}</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">资产名称</view>
+          <input class="field-input" value="{{form.assetName}}" data-field="assetName" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">资产类型</view>
+            <picker mode="selector" range="{{assetTypeLabels}}" value="{{assetTypeIndex}}" bindchange="onAssetTypeChange">
+              <view class="field-picker">{{assetTypeLabels[assetTypeIndex]}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">买入金额</view>
+            <input class="field-input" type="digit" value="{{form.purchaseAmount}}" data-field="purchaseAmount" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">买入日期</view>
+            <picker mode="date" value="{{form.purchaseDate}}" bindchange="onPurchaseDateChange">
+              <view class="field-picker {{form.purchaseDate ? '' : 'is-placeholder'}}">{{form.purchaseDate || '可不填'}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">最新估值</view>
+            <input class="field-input" type="digit" value="{{form.valuationAmount}}" data-field="valuationAmount" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">估值日期</view>
+          <picker mode="date" value="{{form.valuationDate}}" bindchange="onValuationDateChange">
+            <view class="field-picker {{form.valuationDate ? '' : 'is-placeholder'}}">{{form.valuationDate || '可不填'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">备注</view>
+          <input class="field-input" value="{{form.remark}}" data-field="remark" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存资产'}}</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>
