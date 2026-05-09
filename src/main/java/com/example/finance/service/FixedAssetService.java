@@ -16,7 +16,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -25,6 +27,7 @@ public class FixedAssetService {
 
     private static final Integer ACTIVE_STATUS = 1;
     private static final String ACTIVE_DEBT_STATUS = "ACTIVE";
+    private static final int RATIO_SCALE = 4;
 
     private final FixedAssetRepository fixedAssetRepository;
     private final AccountRepository accountRepository;
@@ -164,6 +167,14 @@ public class FixedAssetService {
                 .map(FixedAssetApiModels.DebtBalanceItem::currentBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalAssetValue = totalAccountBalance.add(totalFixedAssetValue);
+        BigDecimal netAssetValue = totalAssetValue.subtract(totalDebtBalance);
+        BigDecimal debtToAssetRatio = totalAssetValue.compareTo(BigDecimal.ZERO) > 0
+                ? totalDebtBalance.divide(totalAssetValue, RATIO_SCALE, RoundingMode.HALF_UP)
+                : null;
+        BigDecimal fixedAssetRatio = totalAssetValue.compareTo(BigDecimal.ZERO) > 0
+                ? totalFixedAssetValue.divide(totalAssetValue, RATIO_SCALE, RoundingMode.HALF_UP)
+                : null;
+        DebtRisk debtRisk = buildDebtRisk(debtItems, netAssetValue, debtToAssetRatio, fixedAssetRatio);
 
         return new FixedAssetApiModels.OverviewResponse(
                 familyId,
@@ -171,7 +182,14 @@ public class FixedAssetService {
                 totalFixedAssetValue,
                 totalDebtBalance,
                 totalAssetValue,
-                totalAssetValue.subtract(totalDebtBalance),
+                netAssetValue,
+                debtToAssetRatio,
+                fixedAssetRatio,
+                debtRisk.dueDebtCount,
+                debtRisk.overdueDebtCount,
+                debtRisk.riskLevel,
+                debtRisk.riskConclusion,
+                debtRisk.suggestions,
                 accountItems.size(),
                 fixedAssetItems.size(),
                 debtItems.size(),
@@ -179,6 +197,65 @@ public class FixedAssetService {
                 fixedAssetItems,
                 debtItems
         );
+    }
+
+    private DebtRisk buildDebtRisk(
+            List<FixedAssetApiModels.DebtBalanceItem> debtItems,
+            BigDecimal netAssetValue,
+            BigDecimal debtToAssetRatio,
+            BigDecimal fixedAssetRatio
+    ) {
+        LocalDate today = LocalDate.now();
+        LocalDate dueWindowEnd = today.plusDays(30);
+        int dueDebtCount = 0;
+        int overdueDebtCount = 0;
+        for (FixedAssetApiModels.DebtBalanceItem debtItem : debtItems) {
+            if (debtItem.dueDate() == null || debtItem.currentBalance().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (debtItem.dueDate().isBefore(today)) {
+                overdueDebtCount++;
+            } else if (!debtItem.dueDate().isAfter(dueWindowEnd)) {
+                dueDebtCount++;
+            }
+        }
+
+        List<String> suggestions = new ArrayList<>();
+        if (netAssetValue.compareTo(BigDecimal.ZERO) < 0) {
+            suggestions.add("当前净资产为负，建议优先降低负债余额并减少新增借款。");
+        }
+        if (debtToAssetRatio != null && debtToAssetRatio.compareTo(new BigDecimal("0.50")) > 0) {
+            suggestions.add("负债率超过 50%，建议优先偿还高利率或短期债务。");
+        }
+        if (fixedAssetRatio != null && fixedAssetRatio.compareTo(new BigDecimal("0.80")) > 0) {
+            suggestions.add("固定资产占比较高，需关注现金流和短期偿债能力。");
+        }
+        if (overdueDebtCount > 0) {
+            suggestions.add("存在逾期债务，请尽快处理还款并查看消息提醒。");
+        } else if (dueDebtCount > 0) {
+            suggestions.add("未来 30 天存在即将到期债务，请提前安排还款资金。");
+        }
+        if (suggestions.isEmpty()) {
+            suggestions.add("当前资产负债结构整体可控，建议持续维护资产估值和债务还款记录。");
+        }
+
+        String riskLevel;
+        String riskConclusion;
+        if (overdueDebtCount > 0 || netAssetValue.compareTo(BigDecimal.ZERO) < 0
+                || (debtToAssetRatio != null && debtToAssetRatio.compareTo(new BigDecimal("0.70")) > 0)) {
+            riskLevel = "HIGH";
+            riskConclusion = "资产负债压力较高";
+        } else if (dueDebtCount > 0
+                || (debtToAssetRatio != null && debtToAssetRatio.compareTo(new BigDecimal("0.50")) > 0)
+                || (fixedAssetRatio != null && fixedAssetRatio.compareTo(new BigDecimal("0.80")) > 0)) {
+            riskLevel = "MEDIUM";
+            riskConclusion = "需要关注短期偿债和资产流动性";
+        } else {
+            riskLevel = "LOW";
+            riskConclusion = "资产负债结构相对稳定";
+        }
+
+        return new DebtRisk(dueDebtCount, overdueDebtCount, riskLevel, riskConclusion, suggestions);
     }
 
     private void validateOwnerMember(Long familyId, Long ownerMemberId) {
@@ -213,5 +290,14 @@ public class FixedAssetService {
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private record DebtRisk(
+            Integer dueDebtCount,
+            Integer overdueDebtCount,
+            String riskLevel,
+            String riskConclusion,
+            List<String> suggestions
+    ) {
     }
 }

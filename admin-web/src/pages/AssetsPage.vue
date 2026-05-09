@@ -15,11 +15,11 @@
     <div class="stats-grid">
       <StatCard label="&#24403;&#21069;&#23478;&#24237;" :value="familyId || '-'" meta="&#22266;&#23450;&#36164;&#20135;&#12289;&#20538;&#21153;&#21644;&#20928;&#36164;&#20135;&#37117;&#32465;&#23450; familyId" />
       <StatCard label="&#20928;&#36164;&#20135;" :value="formatAmount(overview.netAssetValue)" :meta="overviewMeta" />
-      <StatCard label="&#22266;&#23450;&#36164;&#20135;&#25968;" :value="assets.length" :meta="formatAmount(overview.totalFixedAssetValue)" />
-      <StatCard label="&#20538;&#21153;&#25968;" :value="debts.length" :meta="formatAmount(overview.totalDebtBalance)" />
+      <StatCard label="负债率" :value="formatPercent(overview.debtToAssetRatio)" :meta="riskLevelLabel(overview.riskLevel)" />
+      <StatCard label="30 天到期债务" :value="overview.dueDebtCount || 0" :meta="`${overview.overdueDebtCount || 0} 条逾期`" />
     </div>
 
-    <AdminTableCard kicker="&#20928;&#36164;&#20135;" title="&#36164;&#20135;&#36127;&#20538;&#27010;&#35272;">
+    <AdminTableCard kicker="资产负债诊断" title="净资产、负债率与短期偿债风险">
       <template #actions>
         <button class="ghost-button" type="button" @click="refreshAll">&#21047;&#26032;</button>
         <button class="ghost-button" type="button" @click="checkReminders">&#26816;&#26597;&#20538;&#21153;&#25552;&#37266;</button>
@@ -47,6 +47,27 @@
           <strong>&#24635;&#36164;&#20135;</strong>
           <span>{{ formatAmount(overview.totalAssetValue) }}</span>
           <span :class="netAssetClass">{{ netAssetLabel }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>负债率</strong>
+          <span>{{ formatPercent(overview.debtToAssetRatio) }}</span>
+          <span :class="riskTextClass(overview.riskLevel)">{{ overview.riskConclusion || "等待诊断" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>固定资产占比</strong>
+          <span>{{ formatPercent(overview.fixedAssetRatio) }}</span>
+          <span>用于观察资产流动性</span>
+        </div>
+        <div class="summary-item">
+          <strong>到期风险</strong>
+          <span>{{ overview.dueDebtCount || 0 }} 条即将到期 / {{ overview.overdueDebtCount || 0 }} 条逾期</span>
+          <span>{{ riskLevelLabel(overview.riskLevel) }}</span>
+        </div>
+      </div>
+      <div class="summary-grid dashboard-sublist">
+        <div v-for="item in overview.diagnosisSuggestions || []" :key="item" class="summary-item">
+          <strong>诊断建议</strong>
+          <span>{{ item }}</span>
         </div>
       </div>
     </AdminTableCard>
@@ -307,6 +328,13 @@ const overview = reactive({
   totalDebtBalance: 0,
   totalAssetValue: 0,
   netAssetValue: 0,
+  debtToAssetRatio: null,
+  fixedAssetRatio: null,
+  dueDebtCount: 0,
+  overdueDebtCount: 0,
+  riskLevel: "",
+  riskConclusion: "",
+  diagnosisSuggestions: [],
   accountCount: 0,
   fixedAssetCount: 0,
   debtCount: 0
@@ -726,6 +754,13 @@ function formatAmount(value) {
   return Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatPercent(value) {
+  if (value === undefined || value === null || value === "") {
+    return "-";
+  }
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
 function formatDateTime(value) {
   if (!value) {
     return "-";
@@ -766,6 +801,18 @@ function debtStatusLabel(value) {
     ACTIVE: "\u672a\u7ed3\u6e05",
     CLEARED: "\u5df2\u7ed3\u6e05"
   }[value] || value || "-";
+}
+
+function riskLevelLabel(value) {
+  return {
+    HIGH: "高风险",
+    MEDIUM: "需关注",
+    LOW: "较稳定"
+  }[value] || "等待诊断";
+}
+
+function riskTextClass(value) {
+  return value === "HIGH" ? "summary-danger" : "summary-normal";
 }
 
 onMounted(async () => {
