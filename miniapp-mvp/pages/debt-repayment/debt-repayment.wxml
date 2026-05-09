@@ -56,6 +56,7 @@
       <view class="button-row" style="margin-top: 20rpx;">
         <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">提交还款</button>
         <button class="ghost-btn" bindtap="fillFullRepayment">填入全部剩余</button>
+        <button class="ghost-btn" bindtap="goAssetsOverview">资产看板</button>
       </view>
 
       <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>

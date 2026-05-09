@@ -11,6 +11,7 @@
           <button class="ghost-btn" bindtap="loadPage">刷新</button>
           <button class="primary-btn" bindtap="goCreateAsset">新增资产</button>
           <button class="ghost-btn" bindtap="goCreateDebt">新增债务</button>
+          <button class="ghost-btn" bindtap="goFinanceAdvice">理财建议</button>
         </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
@@ -54,6 +55,29 @@
         </view>
       </view>
       <view class="empty-box" wx:else>暂无资产负债诊断建议。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">下一步</view>
+          <view class="panel-title">资产管理动作</view>
+          <view class="panel-desc">根据当前资产和债务情况，优先处理这些事项。</view>
+        </view>
+        <button class="ghost-btn" bindtap="goFinanceAnalysis">财务分析</button>
+      </view>
+      <view class="record-list" wx:if="{{actionItems.length}}">
+        <view class="record-item" wx:for="{{actionItems}}" wx:key="title">
+          <view class="record-top">
+            <view>
+              <view class="record-title">{{item.title}}</view>
+              <view class="record-meta">{{item.desc}}</view>
+            </view>
+            <button class="ghost-btn" size="mini" data-action="{{item.action}}" bindtap="handleAction">处理</button>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无需要处理的资产事项。</view>
     </view>
 
     <view class="panel-card">

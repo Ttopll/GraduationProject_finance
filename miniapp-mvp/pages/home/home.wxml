@@ -139,6 +139,7 @@
         <button class="ghost-btn" bindtap="goAccounts">账户总览</button>
         <button class="ghost-btn" bindtap="goNotifications">消息提醒</button>
         <button class="ghost-btn" bindtap="goBudgetSummary">预算汇总</button>
+        <button class="ghost-btn" bindtap="goSpendingAlerts">消费提醒</button>
         <button class="ghost-btn" bindtap="goFinanceAnalysis">财务分析</button>
         <button class="ghost-btn" bindtap="goAssetsOverview">资产负债</button>
         <button class="ghost-btn" bindtap="goFinanceAdvice">理财建议</button>

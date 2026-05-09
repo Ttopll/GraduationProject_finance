@@ -183,6 +183,10 @@ Page({
     wx.navigateTo({ url: "/pages/budgets/budgets" });
   },
 
+  goSpendingAlerts() {
+    wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+  },
+
   goFinanceAnalysis() {
     wx.navigateTo({ url: "/pages/finance-analysis/finance-analysis" });
   },

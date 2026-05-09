@@ -1,0 +1,106 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">消费提醒</view>
+          <view class="panel-title">自动提醒设置</view>
+          <view class="panel-desc">当家庭支出或某个分类支出达到你设置的条件时，系统会自动生成提醒。</view>
+        </view>
+        <view class="button-row">
+          <button class="ghost-btn" bindtap="loadPage">刷新</button>
+          <button class="primary-btn" bindtap="goCreate">新增提醒</button>
+        </view>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">提醒规则</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">当前家庭全部设置</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">启用中</view>
+        <view class="stat-value">{{stats.enabled}}</view>
+        <view class="stat-meta">正在自动判断的提醒</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">风险预算</view>
+        <view class="stat-value">{{stats.riskBudget}}</view>
+        <view class="stat-meta">接近上限或已超支</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">未读提醒</view>
+        <view class="stat-value">{{stats.unread}}</view>
+        <view class="stat-meta">预算和自动提醒</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">执行检查</view>
+          <view class="panel-title">生成本月提醒</view>
+          <view class="panel-desc">点击后系统会按当前规则检查本月支出，并把命中的结果写入提醒中心。</view>
+        </view>
+      </view>
+      <view class="field-block">
+        <view class="field-label">检查月份</view>
+        <picker mode="date" fields="month" value="{{month}}" bindchange="onMonthChange">
+          <view class="field-picker">{{month}}</view>
+        </picker>
+      </view>
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{evaluating}}" bindtap="evaluateRules">立即检查</button>
+        <button class="ghost-btn" bindtap="goNotifications">查看提醒中心</button>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">说明</view>
+          <view class="panel-title">规则如何理解</view>
+        </view>
+      </view>
+      <view class="summary-list">
+        <view class="summary-item">
+          <view class="record-title">单月超额提醒</view>
+          <view class="record-meta">适合设置“本月支出超过 3000 元提醒我”。</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">连续超额提醒</view>
+          <view class="record-meta">适合设置“连续两个月餐饮支出超额提醒我”。</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">异常增长提醒</view>
+          <view class="record-meta">适合发现本月支出比前几个月明显变高的情况。</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="record-list" wx:if="{{items.length}}">
+      <view class="record-item" wx:for="{{items}}" wx:key="id">
+        <view class="record-top">
+          <view>
+            <view class="record-title">{{item.ruleName}}</view>
+            <view class="record-meta">{{item.metricText}} / {{item.ruleTypeText}}</view>
+          </view>
+          <view class="tag {{item.enabled === 1 ? 'status-normal' : 'status-danger'}}">{{item.enabled === 1 ? '启用' : '停用'}}</view>
+        </view>
+        <view class="record-meta">条件：{{item.conditionText}}</view>
+        <view class="record-meta">提醒内容：{{item.messageTemplate}}</view>
+        <view class="record-bottom" style="margin-top: 12rpx;">
+          <view class="record-meta">优先级 {{item.priority || 100}}</view>
+          <view class="button-row">
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="goEdit">编辑</button>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" data-enabled="{{item.enabled}}" bindtap="toggleEnabled">{{item.enabled === 1 ? '停用' : '启用'}}</button>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-box" wx:else>暂无消费提醒设置。</view>
+  </view>
+</view>

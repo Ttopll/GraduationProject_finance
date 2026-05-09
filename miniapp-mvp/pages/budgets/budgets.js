@@ -174,6 +174,10 @@ Page({
     wx.navigateTo({ url: "/pages/budget-form/budget-form" });
   },
 
+  goSpendingAlerts() {
+    wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+  },
+
   openBudget(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) {

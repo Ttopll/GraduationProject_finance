@@ -20,7 +20,9 @@
     "pages/finance-analysis/finance-analysis",
     "pages/categories/categories",
     "pages/category-form/category-form",
-    "pages/data-backup/data-backup"
+    "pages/data-backup/data-backup",
+    "pages/spending-alerts/spending-alerts",
+    "pages/spending-alert-form/spending-alert-form"
   ],
   "window": {
     "navigationBarTitleText": "家庭理财",

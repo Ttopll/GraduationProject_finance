@@ -74,6 +74,7 @@
         <button class="ghost-btn" bindtap="goFinancialProfile">理财画像</button>
         <button class="ghost-btn" bindtap="goCategories">分类管理</button>
         <button class="ghost-btn" bindtap="goDataBackup">数据备份</button>
+        <button class="ghost-btn" bindtap="goSpendingAlerts">消费提醒</button>
       </view>
     </view>
 

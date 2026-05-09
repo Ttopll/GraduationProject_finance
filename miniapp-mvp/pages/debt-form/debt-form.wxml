@@ -65,6 +65,7 @@
 
       <view class="button-row" style="margin-top: 20rpx;">
         <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存债务'}}</button>
+        <button class="ghost-btn" bindtap="goAssetsOverview">资产看板</button>
         <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="clearDebt">结清债务</button>
         <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteDebt">删除债务</button>
       </view>

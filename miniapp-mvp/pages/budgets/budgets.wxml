@@ -45,6 +45,7 @@
           <view class="panel-title">预算风险和提醒</view>
           <view class="panel-desc">查看哪些预算需要注意，以及系统是否已经发出提醒。</view>
         </view>
+        <button class="ghost-btn" bindtap="goSpendingAlerts">设置提醒</button>
       </view>
       <view class="stats-grid">
         <view class="stat-card">

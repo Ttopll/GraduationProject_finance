@@ -7,7 +7,10 @@
           <view class="panel-title">家庭财务报表</view>
           <view class="panel-desc">汇总本月收支、预算、消费结构、资产负债和健康评分。</view>
         </view>
-        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+        <view class="button-row">
+          <button class="ghost-btn" bindtap="loadPage">刷新</button>
+          <button class="primary-btn" bindtap="goAddTransaction">新增流水</button>
+        </view>
       </view>
       <view class="field-grid-2">
         <view class="field-block">
@@ -47,6 +50,37 @@
         <view class="stat-value">{{healthScore.score}}</view>
         <view class="stat-meta">{{healthScore.levelLabel}}</view>
       </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">下一步</view>
+          <view class="panel-title">分析后的处理建议</view>
+          <view class="panel-desc">根据本月报表自动整理可执行动作，方便直接处理预算、提醒、资产和流水问题。</view>
+        </view>
+      </view>
+      <view class="button-row" style="margin-bottom: 16rpx;">
+        <button class="ghost-btn" bindtap="goBudgetSummary">预算</button>
+        <button class="ghost-btn" bindtap="goSpendingAlerts">消费提醒</button>
+        <button class="ghost-btn" bindtap="goAssetsOverview">资产负债</button>
+        <button class="ghost-btn" bindtap="goFinanceAdvice">理财建议</button>
+      </view>
+      <view class="record-list" wx:if="{{actionItems.length}}">
+        <view class="record-item" wx:for="{{actionItems}}" wx:key="title">
+          <view class="record-top">
+            <view>
+              <view class="record-title">{{item.title}}</view>
+              <view class="record-meta">{{item.desc}}</view>
+            </view>
+            <view class="tag">{{item.tag}}</view>
+          </view>
+          <view class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" data-action="{{item.action}}" bindtap="handleAction">去处理</button>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无需要处理的分析事项。</view>
     </view>
 
     <view class="panel-card">

@@ -192,6 +192,18 @@ Page({
     wx.navigateTo({ url: "/pages/financial-profile/financial-profile" });
   },
 
+  goAssetsOverview() {
+    wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+  },
+
+  goFinanceAnalysis() {
+    wx.navigateTo({ url: "/pages/finance-analysis/finance-analysis" });
+  },
+
+  goSpendingAlerts() {
+    wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+  },
+
   currentMonth() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

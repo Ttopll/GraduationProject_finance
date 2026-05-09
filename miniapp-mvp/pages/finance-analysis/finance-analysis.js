@@ -96,6 +96,7 @@ Page({
     monthlyTrend: [],
     expenseStructure: [],
     budgetProgress: [],
+    actionItems: [],
     feedback: ""
   },
 
@@ -128,6 +129,7 @@ Page({
         monthlyTrend: (data.monthlyTrend || []).map(normalizeTrendItem),
         expenseStructure: (data.expenseStructure || []).map(normalizeExpenseItem),
         budgetProgress: (data.budgetProgress || []).map(normalizeBudgetItem),
+        actionItems: this.buildActionItems(data),
         feedback: ""
       });
     } catch (error) {
@@ -143,6 +145,111 @@ Page({
   onTrendChange(e) {
     this.setData({ trendIndex: Number(e.detail.value) });
     this.loadPage();
+  },
+
+  buildActionItems(data) {
+    const overview = data.overview || {};
+    const healthScore = data.healthScore || {};
+    const budgetProgress = data.budgetProgress || [];
+    const expenseStructure = data.expenseStructure || [];
+    const monthlyReport = data.monthlyReport || {};
+    const items = [];
+    const savingsRate = Number(overview.savingsRate || 0);
+    const riskBudgets = budgetProgress.filter((item) => item.alertTriggered || item.exceeded);
+    const topExpense = expenseStructure[0] || null;
+
+    if ((healthScore.score || 0) < 70) {
+      items.push({
+        title: "优先查看理财建议",
+        desc: `当前健康评分 ${healthScore.score || "-"}，建议先查看系统生成的改善步骤。`,
+        action: "advice",
+        tag: "重点"
+      });
+    }
+    if (riskBudgets.length > 0) {
+      items.push({
+        title: "处理预算风险",
+        desc: `当前有 ${riskBudgets.length} 个预算接近上限或已超支，建议查看预算并设置消费提醒。`,
+        action: "budget",
+        tag: "预算"
+      });
+    }
+    if (savingsRate < 0.1) {
+      items.push({
+        title: "补充消费提醒",
+        desc: "本月结余率偏低，可给家庭总支出或重点分类设置自动提醒。",
+        action: "alert",
+        tag: "提醒"
+      });
+    }
+    if (topExpense && Number(topExpense.ratio || 0) >= 0.35) {
+      items.push({
+        title: "检查最大支出分类",
+        desc: `${topExpense.categoryName || "某个分类"}占本月支出较高，可查看流水确认是否正常。`,
+        action: "transactions",
+        tag: "流水"
+      });
+    }
+    if (monthlyReport.assetDebtConclusion) {
+      items.push({
+        title: "核对资产负债",
+        desc: monthlyReport.assetDebtConclusion,
+        action: "assets",
+        tag: "资产"
+      });
+    }
+    items.push({
+      title: "新增一笔流水",
+      desc: "如果本月数据不完整，先补录收入或支出，分析结果会更准确。",
+      action: "addTransaction",
+      tag: "补录"
+    });
+    return items.slice(0, 5);
+  },
+
+  handleAction(e) {
+    const action = e.currentTarget.dataset.action;
+    if (action === "advice") {
+      wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+      return;
+    }
+    if (action === "budget") {
+      wx.navigateTo({ url: "/pages/budgets/budgets" });
+      return;
+    }
+    if (action === "alert") {
+      wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+      return;
+    }
+    if (action === "transactions") {
+      wx.switchTab({ url: "/pages/transactions/transactions" });
+      return;
+    }
+    if (action === "assets") {
+      wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+      return;
+    }
+    wx.navigateTo({ url: "/pages/transaction-form/transaction-form" });
+  },
+
+  goBudgetSummary() {
+    wx.navigateTo({ url: "/pages/budgets/budgets" });
+  },
+
+  goSpendingAlerts() {
+    wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+  },
+
+  goAssetsOverview() {
+    wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+  },
+
+  goFinanceAdvice() {
+    wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+  },
+
+  goAddTransaction() {
+    wx.navigateTo({ url: "/pages/transaction-form/transaction-form" });
   },
 
   onPullDownRefresh() {

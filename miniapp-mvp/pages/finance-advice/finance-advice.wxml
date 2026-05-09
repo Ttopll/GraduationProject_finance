@@ -10,10 +10,28 @@
         <view class="button-row">
           <button class="ghost-btn" bindtap="loadPage">刷新</button>
           <button class="ghost-btn" bindtap="goFinancialProfile">设置画像</button>
+          <button class="ghost-btn" bindtap="goAssetsOverview">资产负债</button>
+          <button class="ghost-btn" bindtap="goFinanceAnalysis">财务分析</button>
           <button class="primary-btn" loading="{{generating}}" bindtap="generateAdvice">生成本月建议</button>
         </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">执行入口</view>
+          <view class="panel-title">按建议继续处理</view>
+          <view class="panel-desc">理财建议不是单独查看用的，可以继续进入资产、报表和消费提醒页面处理问题。</view>
+        </view>
+      </view>
+      <view class="button-row">
+        <button class="ghost-btn" bindtap="goAssetsOverview">处理资产债务</button>
+        <button class="ghost-btn" bindtap="goFinanceAnalysis">查看财务报表</button>
+        <button class="ghost-btn" bindtap="goSpendingAlerts">设置消费提醒</button>
+        <button class="ghost-btn" bindtap="goFinancialProfile">调整理财画像</button>
+      </view>
     </view>
 
     <view class="stats-grid">

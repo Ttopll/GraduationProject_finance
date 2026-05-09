@@ -1,0 +1,92 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">消费提醒</view>
+          <view class="panel-title">{{isEditMode ? '编辑提醒' : '新增提醒'}}</view>
+          <view class="panel-desc">用通俗条件设置自动提醒，例如本月总支出超过 3000 元时提醒。</view>
+        </view>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">提醒名称</view>
+          <input class="field-input" value="{{form.ruleName}}" data-field="ruleName" bindinput="onFieldInput" placeholder="例如：本月总支出超额提醒" />
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">提醒方式</view>
+            <picker mode="selector" range="{{ruleTypeLabels}}" value="{{ruleTypeIndex}}" bindchange="onRuleTypeChange">
+              <view class="field-picker">{{ruleTypeLabels[ruleTypeIndex]}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">关注对象</view>
+            <picker mode="selector" range="{{metricLabels}}" value="{{metricIndex}}" bindchange="onMetricChange">
+              <view class="field-picker">{{metricLabels[metricIndex]}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="field-block" wx:if="{{form.metricType === 'CATEGORY_EXPENSE'}}">
+          <view class="field-label">支出分类</view>
+          <picker wx:if="{{categories.length}}" mode="selector" range="{{categories}}" range-key="categoryName" value="{{categoryIndex}}" bindchange="onCategoryChange">
+            <view class="field-picker">{{categories[categoryIndex].categoryName}}</view>
+          </picker>
+          <view wx:else class="field-picker is-placeholder">暂无支出分类</view>
+          <view wx:if="{{!categories.length}}" class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" bindtap="goCategories">去创建分类</button>
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">比较条件</view>
+            <picker mode="selector" range="{{operatorLabels}}" value="{{operatorIndex}}" bindchange="onOperatorChange">
+              <view class="field-picker">{{operatorLabels[operatorIndex]}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">提醒金额</view>
+            <input class="field-input" type="digit" value="{{form.thresholdValue}}" data-field="thresholdValue" bindinput="onFieldInput" placeholder="例如：3000" />
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">统计周期</view>
+          <picker mode="selector" range="{{timeScopeLabels}}" value="{{timeScopeIndex}}" bindchange="onTimeScopeChange">
+            <view class="field-picker">{{timeScopeLabels[timeScopeIndex]}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block" wx:if="{{form.ruleType !== 'THRESHOLD'}}">
+          <view class="field-label">{{form.ruleType === 'TREND_ANOMALY' ? '对比月份数' : '连续月份数'}}</view>
+          <input class="field-input" type="number" value="{{advancedMonths}}" bindinput="onAdvancedMonthsInput" />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">提醒内容</view>
+          <input class="field-input" value="{{form.messageTemplate}}" data-field="messageTemplate" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">优先级</view>
+          <input class="field-input" type="number" value="{{form.priority}}" data-field="priority" bindinput="onFieldInput" />
+        </view>
+      </view>
+
+      <view class="feedback-box" style="margin-top: 20rpx;">{{ruleHint}}</view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存提醒'}}</button>
+        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleEnabled">{{enabled === 1 ? '停用' : '启用'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteRule">删除</button>
+      </view>
+    </view>
+  </view>
+</view>

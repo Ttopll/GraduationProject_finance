@@ -159,6 +159,10 @@ Page({
     });
   },
 
+  goAssetsOverview() {
+    wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+  },
+
   deleteDebt() {
     if (!this.data.isEditMode || !this.data.debtId) {
       return;

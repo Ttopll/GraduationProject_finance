@@ -77,6 +77,7 @@ Page({
     accounts: [],
     fixedAssets: [],
     debts: [],
+    actionItems: [],
     feedback: ""
   },
 
@@ -115,11 +116,48 @@ Page({
           statusText: item.status === "ACTIVE" ? "待还" : "已结清",
           statusClass: item.status === "ACTIVE" ? "status-warn" : "status-normal"
         })),
+        actionItems: this.buildActionItems(overview),
         feedback: ""
       });
     } catch (error) {
       this.setData({ feedback: `资产负债加载失败：${error.message}` });
     }
+  },
+
+  buildActionItems(overview) {
+    const data = overview || {};
+    const items = [];
+    if (!data.fixedAssets || data.fixedAssets.length === 0) {
+      items.push({ title: "补充固定资产", desc: "如果家庭有房产、车辆、定期存款等资产，建议先录入，净资产会更准确。", action: "asset" });
+    }
+    if (!data.debts || data.debts.length === 0) {
+      items.push({ title: "补充债务信息", desc: "如果有房贷、车贷、信用卡或借款，录入后可以计算负债率和到期提醒。", action: "debt" });
+    }
+    if ((data.overdueDebtCount || 0) > 0 || (data.dueDebtCount || 0) > 0) {
+      items.push({ title: "处理近期债务", desc: `当前有 ${data.dueDebtCount || 0} 条 30 天内到期债务，其中 ${data.overdueDebtCount || 0} 条逾期。`, action: "debtList" });
+    }
+    if (data.riskLevel === "HIGH" || data.riskLevel === "MEDIUM") {
+      items.push({ title: "查看理财建议", desc: "资产负债存在需要关注的地方，建议生成本月理财建议并按步骤处理。", action: "advice" });
+    }
+    items.push({ title: "查看财务分析", desc: "结合收支、预算、资产负债和健康评分查看完整财务报表。", action: "analysis" });
+    return items.slice(0, 4);
+  },
+
+  handleAction(e) {
+    const action = e.currentTarget.dataset.action;
+    if (action === "asset") {
+      this.goCreateAsset();
+      return;
+    }
+    if (action === "debt" || action === "debtList") {
+      this.goCreateDebt();
+      return;
+    }
+    if (action === "advice") {
+      wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+      return;
+    }
+    wx.navigateTo({ url: "/pages/finance-analysis/finance-analysis" });
   },
 
   onPullDownRefresh() {
@@ -156,5 +194,13 @@ Page({
       return;
     }
     wx.navigateTo({ url: `/pages/debt-form/debt-form?debtId=${id}` });
+  },
+
+  goFinanceAdvice() {
+    wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+  },
+
+  goFinanceAnalysis() {
+    wx.navigateTo({ url: "/pages/finance-analysis/finance-analysis" });
   }
 });

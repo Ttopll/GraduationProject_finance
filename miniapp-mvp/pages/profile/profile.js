@@ -53,6 +53,10 @@ Page({
     wx.navigateTo({ url: "/pages/data-backup/data-backup" });
   },
 
+  goSpendingAlerts() {
+    wx.navigateTo({ url: "/pages/spending-alerts/spending-alerts" });
+  },
+
   logout() {
     session.clearSession();
     wx.reLaunch({ url: "/pages/login/login" });

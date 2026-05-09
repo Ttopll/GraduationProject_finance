@@ -109,6 +109,10 @@ Page({
     });
   },
 
+  goAssetsOverview() {
+    wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+  },
+
   async submitForm() {
     const familyId = session.getCurrentFamilyId();
     const form = this.data.form;
