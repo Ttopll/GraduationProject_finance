@@ -38,12 +38,13 @@
           <button class="ghost-button" type="button" @click="applyImportPreset(10000, false)">增量批次</button>
         </div>
         <div :class="['feedback-box', importFeedback.type]">{{ importFeedback.text }}</div>
+
         <div class="two-column">
           <div class="sub-panel">
             <h3>最近一次导入</h3>
             <dl class="detail-list">
-              <div><dt>批次</dt><dd>{{ latestImport?.importBatchId || '-' }}</dd></div>
-              <div><dt>状态</dt><dd>{{ latestImport?.importStatus || '尚未开始' }}</dd></div>
+              <div><dt>批次</dt><dd>{{ latestImport?.importBatchId || latestImport?.id || "-" }}</dd></div>
+              <div><dt>状态</dt><dd>{{ latestImport?.importStatus || "尚未开始" }}</dd></div>
               <div><dt>零售交易</dt><dd>{{ latestImport?.retailImported || 0 }}</dd></div>
               <div><dt>世行数据</dt><dd>{{ latestImport?.worldBankImported || 0 }}</dd></div>
               <div><dt>FRED</dt><dd>{{ latestImport?.fredImported || 0 }}</dd></div>
@@ -105,16 +106,6 @@
             <li v-if="conclusions.length === 0">暂无自动生成结论。</li>
           </ul>
         </div>
-        <div class="sub-panel">
-          <h3>推荐规则</h3>
-          <div class="mini-list">
-            <div v-for="item in recommendedRules" :key="item.key" class="mini-list-item">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.desc }}</span>
-              <RouterLink :to="{ name: 'rules', query: item.query }" class="quick-link">带入规则页</RouterLink>
-            </div>
-          </div>
-        </div>
       </article>
     </div>
 
@@ -139,7 +130,7 @@
             <span>平均金额 {{ formatAmount(retailOverview?.averageAmount) }}</span>
           </div>
         </div>
-        <div class="table-shell" style="margin-top: 14px;">
+        <div class="table-shell">
           <table class="admin-table">
             <thead>
               <tr>
@@ -182,7 +173,7 @@
             <span>{{ worldBankLatestPoint ? formatAmount(worldBankLatestPoint.value) : "-" }}</span>
           </div>
         </div>
-        <div class="table-shell" style="margin-top: 14px;">
+        <div class="table-shell">
           <table class="admin-table">
             <thead>
               <tr>
@@ -219,7 +210,7 @@
           <div class="summary-item">
             <strong>序列 ID</strong>
             <span>{{ fredSeries?.seriesId || analysisForm.seriesId }}</span>
-            <span>{{ formatNumber(fredSeries?.points?.length, 0) }} points</span>
+            <span>{{ formatNumber(fredSeries?.points?.length, 0) }} 个点位</span>
           </div>
           <div class="summary-item">
             <strong>最新点位</strong>
@@ -227,7 +218,7 @@
             <span>{{ fredLatestPoint ? formatAmount(fredLatestPoint.value) : "-" }}</span>
           </div>
         </div>
-        <div class="table-shell" style="margin-top: 14px;">
+        <div class="table-shell">
           <table class="admin-table">
             <thead>
               <tr>
@@ -241,7 +232,7 @@
                 <td>{{ formatAmount(item.value) }}</td>
               </tr>
               <tr v-if="fredPointsPreview.length === 0">
-                <td colspan="2" class="table-empty">暂无 FRED 点位。</td>
+                <td colspan="2" class="table-empty">暂无 FRED 点位。FRED 网络失败时允许为空，不影响主流程。</td>
               </tr>
             </tbody>
           </table>
@@ -251,11 +242,17 @@
       <article class="panel-card">
         <div class="panel-head">
           <div>
-            <div class="panel-kicker">原始数据</div>
-            <h2>摘要 JSON</h2>
+            <div class="panel-kicker">推荐规则</div>
+            <h2>从分析结果生成规则</h2>
           </div>
         </div>
-        <div class="raw-box">{{ rawPayload }}</div>
+        <div class="mini-list">
+          <div v-for="item in recommendedRules" :key="item.key" class="mini-list-item">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.desc }}</span>
+            <RouterLink :to="{ name: 'rules', query: item.query }" class="quick-link">带入规则页</RouterLink>
+          </div>
+        </div>
       </article>
     </div>
   </section>
@@ -291,12 +288,11 @@ const analysisForm = reactive({
 });
 
 const importSummary = computed(() => ({
-  batch: latestImport.value?.importBatchId || "-",
+  batch: latestImport.value?.importBatchId || latestImport.value?.id || "-",
   meta: latestImport.value
-    ? `${latestImport.value.importStatus} / ${formatDateTime(latestImport.value.importedAt)}`
+    ? `${latestImport.value.importStatus || "-"} / ${formatDateTime(latestImport.value.importedAt || latestImport.value.createdAt)}`
     : "最新导入结果会显示在这里"
 }));
-
 const summaryStats = computed(() => ({
   retailRecords: formatNumber(retailOverview.value?.totalRecords || 0, 0),
   retailMeta: `总金额 ${formatAmount(retailOverview.value?.totalAmount)}`,
@@ -305,7 +301,6 @@ const summaryStats = computed(() => ({
   fredPoints: formatNumber(fredSeries.value?.points?.length || 0, 0),
   fredMeta: fredSeries.value?.seriesId || "FRED 序列尚未加载"
 }));
-
 const topCountries = computed(() => retailOverview.value?.topCountries || []);
 const conclusions = computed(() => summary.value?.conclusions || []);
 const worldBankSortedPoints = computed(() => [...(worldBankTrend.value?.points || [])].sort((a, b) => Number(a.year) - Number(b.year)));
@@ -320,9 +315,8 @@ const retailRangeText = computed(() => {
   if (!retailOverview.value?.earliestInvoiceTime || !retailOverview.value?.latestInvoiceTime) {
     return "时间范围暂不可用";
   }
-  return `${formatDateTime(retailOverview.value.earliestInvoiceTime)} -> ${formatDateTime(retailOverview.value.latestInvoiceTime)}`;
+  return `${formatDateTime(retailOverview.value.earliestInvoiceTime)} 至 ${formatDateTime(retailOverview.value.latestInvoiceTime)}`;
 });
-
 const retailConclusion = computed(() => {
   const first = topCountries.value[0];
   if (!first) {
@@ -330,7 +324,6 @@ const retailConclusion = computed(() => {
   }
   return `交易量最高的国家为 ${first.country || "未知国家"}，共有 ${formatNumber(first.recordCount, 0)} 条记录，总金额为 ${formatAmount(first.totalAmount)}。`;
 });
-
 const countryConclusion = computed(() => {
   const points = worldBankSortedPoints.value;
   if (points.length < 2) {
@@ -340,11 +333,8 @@ const countryConclusion = computed(() => {
   const last = points[points.length - 1];
   return `${worldBankTrend.value?.countryName || analysisForm.countryIso3} 在 ${first.year} 至 ${last.year} 间共有 ${formatNumber(points.length, 0)} 个年度点位，可支撑答辩中的国家趋势说明。`;
 });
-
 const recommendedRules = computed(() => {
   const retailAverage = Number(retailOverview.value?.averageAmount || 0);
-  const worldBankPointCount = Number(worldBankTrend.value?.points?.length || 0);
-  const fredPointCount = Number(fredSeries.value?.points?.length || 0);
   return [
     {
       key: "family-threshold",
@@ -365,7 +355,7 @@ const recommendedRules = computed(() => {
     {
       key: "family-trend",
       title: "家庭支出趋势异常",
-      desc: `可使用 ${Math.max(2, Math.min(6, worldBankPointCount || 2))} 个月作为趋势异常检测基线。`,
+      desc: "适合识别本月支出相对历史平均值明显增长的情况。",
       query: {
         autofill: "1",
         ruleName: "家庭支出趋势异常提醒",
@@ -374,7 +364,7 @@ const recommendedRules = computed(() => {
         timeScope: "MONTH",
         operatorType: "GT",
         thresholdValue: "1.10",
-        thresholdJson: `{"baselineMonths":${Math.max(2, Math.min(6, worldBankPointCount || 2))}}`,
+        thresholdJson: '{"baselineMonths":2}',
         priority: "8",
         messageTemplate: "家庭支出趋势超过月度基线。"
       }
@@ -382,7 +372,7 @@ const recommendedRules = computed(() => {
     {
       key: "family-consecutive",
       title: "连续月份超阈",
-      desc: `可使用连续 ${fredPointCount > 0 ? 3 : 2} 个月作为重复超阈的预警窗口。`,
+      desc: "适合识别连续多个月支出偏高的长期风险。",
       query: {
         autofill: "1",
         ruleName: "连续超阈提醒",
@@ -391,15 +381,13 @@ const recommendedRules = computed(() => {
         timeScope: "MONTH",
         operatorType: "GT",
         thresholdValue: "1.00",
-        thresholdJson: `{"consecutiveMonths":${fredPointCount > 0 ? 3 : 2}}`,
+        thresholdJson: '{"consecutiveMonths":2}',
         priority: "9",
         messageTemplate: "家庭支出已连续多月超过阈值。"
       }
     }
   ];
 });
-
-const rawPayload = computed(() => JSON.stringify(summary.value || { message: "等待加载" }, null, 2));
 
 function applyImportPreset(batchSize, truncateBeforeImport) {
   importForm.batchSize = batchSize;

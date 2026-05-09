@@ -13,6 +13,7 @@ public final class FinancialAnalysisApiModels {
             Overview overview,
             AssetSnapshot assetSnapshot,
             KeyIndicators keyIndicators,
+            HealthScore healthScore,
             List<MonthlyTrendItem> monthlyTrend,
             List<ExpenseStructureItem> expenseStructure,
             List<BudgetProgressItem> budgetProgress
@@ -49,6 +50,24 @@ public final class FinancialAnalysisApiModels {
             Integer activeBudgetCount,
             Integer alertBudgetCount,
             Integer exceededBudgetCount
+    ) {
+    }
+
+    public record HealthScore(
+            Integer score,
+            String level,
+            String levelLabel,
+            List<HealthScoreFactor> factors,
+            List<String> improvementSuggestions
+    ) {
+    }
+
+    public record HealthScoreFactor(
+            String factorCode,
+            String factorName,
+            Integer factorScore,
+            Integer maxScore,
+            String conclusion
     ) {
     }
 

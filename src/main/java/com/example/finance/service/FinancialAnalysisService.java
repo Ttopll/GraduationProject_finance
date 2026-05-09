@@ -32,6 +32,10 @@ public class FinancialAnalysisService {
     private static final int DEFAULT_TREND_MONTHS = 6;
     private static final int MAX_TREND_MONTHS = 24;
     private static final int RATIO_SCALE = 4;
+    private static final BigDecimal ZERO_POINT_ONE = new BigDecimal("0.10");
+    private static final BigDecimal ZERO_POINT_TWO = new BigDecimal("0.20");
+    private static final BigDecimal ZERO_POINT_THREE = new BigDecimal("0.30");
+    private static final BigDecimal ZERO_POINT_FIVE = new BigDecimal("0.50");
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
     private static final Set<String> FOOD_CATEGORY_KEYWORDS = Set.of(
             "餐", "饮", "食", "饭", "food", "meal", "grocery", "grocer", "dining", "breakfast", "lunch", "dinner"
@@ -82,11 +86,14 @@ public class FinancialAnalysisService {
 
         List<BudgetApiModels.UsageResponse> budgetUsage = budgetService.getUsage(familyId, month.toString());
 
+        FinancialAnalysisApiModels.KeyIndicators keyIndicators = buildKeyIndicators(overview, assetSnapshot, expenseStructure, budgetUsage);
+
         return new FinancialAnalysisApiModels.DashboardResponse(
                 month.toString(),
                 overview,
                 assetSnapshot,
-                buildKeyIndicators(overview, assetSnapshot, expenseStructure, budgetUsage),
+                keyIndicators,
+                buildHealthScore(overview, keyIndicators),
                 buildMonthlyTrend(familyId, month, trendMonths),
                 expenseStructure,
                 budgetUsage.stream().map(this::toBudgetProgressItem).toList()
@@ -122,6 +129,184 @@ public class FinancialAnalysisService {
                 incomeCount,
                 expenseCount
         );
+    }
+
+    private FinancialAnalysisApiModels.HealthScore buildHealthScore(
+            FinancialAnalysisApiModels.Overview overview,
+            FinancialAnalysisApiModels.KeyIndicators keyIndicators
+    ) {
+        List<FinancialAnalysisApiModels.HealthScoreFactor> factors = new ArrayList<>();
+        List<String> suggestions = new ArrayList<>();
+
+        int savingsScore = scoreSavingsRate(overview.savingsRate());
+        factors.add(new FinancialAnalysisApiModels.HealthScoreFactor(
+                "SAVINGS_RATE",
+                "储蓄率",
+                savingsScore,
+                25,
+                savingsScore >= 20 ? "结余能力较好" : "结余能力仍需提升"
+        ));
+        if (savingsScore < 20) {
+            suggestions.add("提高固定储蓄比例，优先压缩弹性消费。");
+        }
+
+        int debtScore = scoreDebtRatio(keyIndicators.debtToAssetRatio());
+        factors.add(new FinancialAnalysisApiModels.HealthScoreFactor(
+                "DEBT_RATIO",
+                "负债率",
+                debtScore,
+                20,
+                debtScore >= 16 ? "负债水平可控" : "负债压力偏高"
+        ));
+        if (debtScore < 16) {
+            suggestions.add("优先偿还高利率债务，避免继续扩大分期和借款。");
+        }
+
+        int liquidityScore = scoreLiquidity(keyIndicators.liquidityCoverageMonths());
+        factors.add(new FinancialAnalysisApiModels.HealthScoreFactor(
+                "LIQUIDITY",
+                "应急资金覆盖",
+                liquidityScore,
+                20,
+                liquidityScore >= 16 ? "流动资金较安全" : "应急资金覆盖不足"
+        ));
+        if (liquidityScore < 16) {
+            suggestions.add("将至少 3 个月支出作为应急资金目标。");
+        }
+
+        int budgetScore = scoreBudgetRisk(keyIndicators.alertBudgetCount(), keyIndicators.exceededBudgetCount());
+        factors.add(new FinancialAnalysisApiModels.HealthScoreFactor(
+                "BUDGET_RISK",
+                "预算执行",
+                budgetScore,
+                20,
+                budgetScore >= 16 ? "预算执行稳定" : "预算存在预警或超支"
+        ));
+        if (budgetScore < 16) {
+            suggestions.add("复盘超支分类，调整预算或减少对应支出。");
+        }
+
+        int concentrationScore = scoreExpenseConcentration(keyIndicators.topExpenseRatio());
+        factors.add(new FinancialAnalysisApiModels.HealthScoreFactor(
+                "EXPENSE_STRUCTURE",
+                "消费结构",
+                concentrationScore,
+                15,
+                concentrationScore >= 12 ? "支出结构较均衡" : "支出集中度偏高"
+        ));
+        if (concentrationScore < 12) {
+            suggestions.add("检查最大支出分类，判断是否存在可压缩空间。");
+        }
+
+        int totalScore = factors.stream()
+                .mapToInt(FinancialAnalysisApiModels.HealthScoreFactor::factorScore)
+                .sum();
+        String level = resolveHealthLevel(totalScore);
+        if (suggestions.isEmpty()) {
+            suggestions.add("当前财务状态较稳定，可继续保持预算复盘和定期储蓄。");
+        }
+        return new FinancialAnalysisApiModels.HealthScore(
+                totalScore,
+                level,
+                resolveHealthLevelLabel(level),
+                factors,
+                suggestions
+        );
+    }
+
+    private int scoreSavingsRate(BigDecimal savingsRate) {
+        if (savingsRate == null) {
+            return 8;
+        }
+        if (savingsRate.compareTo(ZERO_POINT_TWO) >= 0) {
+            return 25;
+        }
+        if (savingsRate.compareTo(ZERO_POINT_ONE) >= 0) {
+            return 18;
+        }
+        if (savingsRate.compareTo(BigDecimal.ZERO) >= 0) {
+            return 12;
+        }
+        return 4;
+    }
+
+    private int scoreDebtRatio(BigDecimal debtToAssetRatio) {
+        if (debtToAssetRatio == null || debtToAssetRatio.compareTo(BigDecimal.ZERO) == 0) {
+            return 20;
+        }
+        if (debtToAssetRatio.compareTo(ZERO_POINT_THREE) <= 0) {
+            return 18;
+        }
+        if (debtToAssetRatio.compareTo(ZERO_POINT_FIVE) <= 0) {
+            return 12;
+        }
+        return 6;
+    }
+
+    private int scoreLiquidity(BigDecimal liquidityCoverageMonths) {
+        if (liquidityCoverageMonths == null) {
+            return 8;
+        }
+        if (liquidityCoverageMonths.compareTo(new BigDecimal("6")) >= 0) {
+            return 20;
+        }
+        if (liquidityCoverageMonths.compareTo(new BigDecimal("3")) >= 0) {
+            return 16;
+        }
+        if (liquidityCoverageMonths.compareTo(BigDecimal.ONE) >= 0) {
+            return 10;
+        }
+        return 4;
+    }
+
+    private int scoreBudgetRisk(Integer alertBudgetCount, Integer exceededBudgetCount) {
+        int alerts = alertBudgetCount == null ? 0 : alertBudgetCount;
+        int exceeded = exceededBudgetCount == null ? 0 : exceededBudgetCount;
+        if (exceeded > 0) {
+            return 6;
+        }
+        if (alerts > 2) {
+            return 10;
+        }
+        if (alerts > 0) {
+            return 15;
+        }
+        return 20;
+    }
+
+    private int scoreExpenseConcentration(BigDecimal topExpenseRatio) {
+        if (topExpenseRatio == null) {
+            return 10;
+        }
+        if (topExpenseRatio.compareTo(ZERO_POINT_THREE) <= 0) {
+            return 15;
+        }
+        if (topExpenseRatio.compareTo(ZERO_POINT_FIVE) <= 0) {
+            return 10;
+        }
+        return 5;
+    }
+
+    private String resolveHealthLevel(int score) {
+        if (score >= 85) {
+            return "EXCELLENT";
+        }
+        if (score >= 70) {
+            return "GOOD";
+        }
+        if (score >= 55) {
+            return "WATCH";
+        }
+        return "RISK";
+    }
+
+    private String resolveHealthLevelLabel(String level) {
+        return switch (level) {
+            case "EXCELLENT" -> "健康";
+            case "GOOD" -> "良好";
+            case "WATCH" -> "关注";
+            default -> "风险";
+        };
     }
 
     private List<FinancialAnalysisApiModels.MonthlyTrendItem> buildMonthlyTrend(

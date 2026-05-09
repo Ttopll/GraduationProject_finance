@@ -7,68 +7,62 @@
       <StatCard label="净资产" :value="formatAmount(overview.netAssetValue)" :meta="netAssetMeta" />
     </div>
 
-    <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="工作台" title="后台总览">
-        <template #actions>
-          <button class="ghost-button" type="button" @click="refreshAll">刷新总览</button>
-        </template>
-        <div class="summary-grid dashboard-link-grid">
-          <RouterLink to="/analysis" class="summary-item summary-link">
-            <strong>真实数据分析</strong>
-            <span>{{ latestImportLabel }}</span>
-            <span>{{ defenseSummaryLabel }}</span>
-          </RouterLink>
-          <RouterLink to="/operations" class="summary-item summary-link">
-            <strong>导入与导出</strong>
-            <span>{{ pendingCount }} 条待处理</span>
-            <span>{{ exportLogs.length }} 条导出记录</span>
-          </RouterLink>
-          <RouterLink to="/business" class="summary-item summary-link">
-            <strong>业务数据管理</strong>
-            <span>{{ accounts.length }} 个账户 / {{ transactionsTotal }} 条交易</span>
-            <span>{{ budgets.length }} 条预算正在管理</span>
-          </RouterLink>
-          <RouterLink to="/assets" class="summary-item summary-link">
-            <strong>资产与负债</strong>
-            <span>资产 {{ formatAmount(overview.totalFixedAssetValue) }}</span>
-            <span>负债 {{ formatAmount(overview.totalDebtBalance) }}</span>
-          </RouterLink>
-          <RouterLink to="/bill-parse-rules" class="summary-item summary-link">
-            <strong>账单解析规则</strong>
-            <span>{{ parseRuleCount }} 条解析规则</span>
-            <span>累计命中 {{ parseRuleHitCount }} 次</span>
-          </RouterLink>
-          <RouterLink to="/rules" class="summary-item summary-link">
-            <strong>规则与通知</strong>
-            <span>{{ enabledRuleCount }} 条启用规则</span>
-            <span>{{ riskyBudgetCount }} 条风险预算 / {{ unreadCount }} 条未读</span>
-          </RouterLink>
-        </div>
-      </AdminTableCard>
-
-      <AdminTableCard kicker="答辩摘要" title="真实数据结论" :compact="true">
-        <div class="conclusion-list">
-          <li>{{ defenseCountryConclusion }}</li>
-          <li>{{ defenseRetailConclusion }}</li>
-        </div>
-      </AdminTableCard>
-    </div>
+    <AdminTableCard kicker="工作台" title="后台总览">
+      <template #actions>
+        <button class="ghost-button" type="button" @click="refreshAll">刷新总览</button>
+      </template>
+      <template #feedback>
+        <div v-if="feedback" class="feedback-box info">{{ feedback }}</div>
+      </template>
+      <div class="summary-grid dashboard-link-grid">
+        <RouterLink to="/business" class="summary-item summary-link">
+          <strong>业务数据管理</strong>
+          <span>{{ accounts.length }} 个账户 / {{ transactionsTotal }} 条交易</span>
+          <span>{{ budgets.length }} 条预算正在管理</span>
+        </RouterLink>
+        <RouterLink to="/rules" class="summary-item summary-link">
+          <strong>规则与通知</strong>
+          <span>{{ enabledRuleCount }} 条启用规则</span>
+          <span>{{ riskyBudgetCount }} 条风险预算 / {{ unreadCount }} 条未读</span>
+        </RouterLink>
+        <RouterLink to="/analysis" class="summary-item summary-link">
+          <strong>真实数据分析</strong>
+          <span>{{ latestImportLabel }}</span>
+          <span>{{ defenseSummaryLabel }}</span>
+        </RouterLink>
+        <RouterLink to="/assets" class="summary-item summary-link">
+          <strong>资产与负债</strong>
+          <span>资产 {{ formatAmount(overview.totalFixedAssetValue) }}</span>
+          <span>负债 {{ formatAmount(overview.totalDebtBalance) }}</span>
+        </RouterLink>
+        <RouterLink to="/operations" class="summary-item summary-link">
+          <strong>导入与导出</strong>
+          <span>{{ pendingCount }} 条待处理账单</span>
+          <span>{{ exportLogs.length }} 条导出记录</span>
+        </RouterLink>
+        <RouterLink to="/bill-parse-rules" class="summary-item summary-link">
+          <strong>账单解析规则</strong>
+          <span>{{ parseRuleCount }} 条解析规则</span>
+          <span>累计命中 {{ parseRuleHitCount }} 次</span>
+        </RouterLink>
+      </div>
+    </AdminTableCard>
 
     <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="联动闭环" title="预算 -> 规则 -> 通知" :compact="true">
+      <AdminTableCard kicker="核心闭环" title="预算、规则与通知">
         <div class="summary-grid dashboard-linkage-grid">
           <div class="summary-item">
             <strong>预算风险</strong>
             <span>{{ riskyBudgetCount }} 条预算处于预警或超支状态</span>
             <span :class="riskyBudgetCount > 0 ? 'summary-warn' : 'summary-normal'">
-              {{ riskyBudgetCount > 0 ? `超支 ${exceededBudgetCount} 条 / 预警 ${warningBudgetCount} 条` : '本月暂无风险预算' }}
+              {{ riskyBudgetCount > 0 ? `超支 ${exceededBudgetCount} 条 / 预警 ${warningBudgetCount} 条` : "本月暂无风险预算" }}
             </span>
           </div>
           <div class="summary-item">
             <strong>规则覆盖</strong>
             <span>{{ coveredBudgetCount }} / {{ riskyBudgetCount }} 条风险预算已覆盖</span>
             <span :class="uncoveredBudgetCount > 0 ? 'summary-danger' : 'summary-normal'">
-              {{ uncoveredBudgetCount > 0 ? `${uncoveredBudgetCount} 条风险预算仍需补规则` : '风险预算均已覆盖' }}
+              {{ uncoveredBudgetCount > 0 ? `${uncoveredBudgetCount} 条风险预算仍需补规则` : "风险预算均已覆盖" }}
             </span>
           </div>
           <div class="summary-item">
@@ -82,20 +76,93 @@
             <span>{{ ruleUnreadCount }} 条未读</span>
           </div>
         </div>
-        <div class="table-list compact-table dashboard-sublist">
-          <div v-for="item in riskyBudgetCoverageRows" :key="item.budgetId" class="table-row-four">
-            <strong>{{ item.budgetName }}</strong>
-            <span>{{ item.categoryName || '-' }} / {{ item.month || '-' }}</span>
-            <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
-              {{ item.exceeded ? '已超支' : '已预警' }} {{ formatPercent(item.usageRatio) }}
-            </span>
-            <span>{{ item.coverageLabel }}</span>
-          </div>
-          <div v-if="riskyBudgetCoverageRows.length === 0" class="empty-text">暂无需要联动复核的风险预算。</div>
+        <div class="table-shell compact-table-shell">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>预算</th>
+                <th>分类 / 月份</th>
+                <th>使用情况</th>
+                <th>规则覆盖</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in riskyBudgetCoverageRows" :key="item.budgetId">
+                <td>{{ item.budgetName }}</td>
+                <td>{{ item.categoryName || "-" }} / {{ item.month || "-" }}</td>
+                <td>
+                  <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
+                    {{ item.exceeded ? "已超支" : "已预警" }} {{ formatPercent(item.usageRatio) }}
+                  </span>
+                </td>
+                <td>{{ item.coverageLabel }}</td>
+              </tr>
+              <tr v-if="riskyBudgetCoverageRows.length === 0">
+                <td colspan="4" class="table-empty">暂无需要联动复核的风险预算。</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </AdminTableCard>
 
-      <AdminTableCard kicker="通知来源" title="通知来源汇总" :compact="true">
+      <AdminTableCard kicker="真实数据" title="分析结论">
+        <div class="conclusion-list">
+          <li>{{ defenseCountryConclusion }}</li>
+          <li>{{ defenseRetailConclusion }}</li>
+        </div>
+        <div class="summary-grid dashboard-sublist">
+          <div class="summary-item">
+            <strong>最近导入</strong>
+            <span>{{ latestImportLabel }}</span>
+            <span>{{ importHistory.length }} 条导入批次记录</span>
+          </div>
+          <div class="summary-item">
+            <strong>分析入口</strong>
+            <span>零售概览、国家趋势、宏观序列</span>
+            <span>进入真实数据分析页查看详情</span>
+          </div>
+        </div>
+      </AdminTableCard>
+    </div>
+
+    <div class="panel-grid panel-grid-wide">
+      <AdminTableCard kicker="收支趋势" title="最近 6 个月收支">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <strong>收入合计</strong>
+            <span>{{ formatAmount(totalIncome) }}</span>
+            <span>{{ monthlySummary.length }} 个统计点</span>
+          </div>
+          <div class="summary-item">
+            <strong>支出合计</strong>
+            <span>{{ formatAmount(totalExpense) }}</span>
+            <span>{{ highlightedBudgets.length }} 条风险预算</span>
+          </div>
+        </div>
+        <div class="table-shell compact-table-shell">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>月份</th>
+                <th>收入</th>
+                <th>支出</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in monthlySummary" :key="item.month">
+                <td>{{ item.month }}</td>
+                <td>{{ formatAmount(item.income) }}</td>
+                <td>{{ formatAmount(item.expense) }}</td>
+              </tr>
+              <tr v-if="monthlySummary.length === 0">
+                <td colspan="3" class="table-empty">暂无月度汇总数据。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </AdminTableCard>
+
+      <AdminTableCard kicker="最新通知" title="通知来源汇总">
         <div class="summary-grid">
           <div v-for="item in notificationSourceSummary" :key="item.source" class="summary-item">
             <strong>{{ sourceTypeLabel(item.source) }}</strong>
@@ -104,93 +171,26 @@
           </div>
           <div v-if="notificationSourceSummary.length === 0" class="empty-text">暂无通知来源数据。</div>
         </div>
-        <div class="table-list compact-table dashboard-sublist">
-          <div v-for="item in latestNotifications" :key="item.id" class="table-row-three">
-            <strong>{{ item.title || "系统通知" }}</strong>
-            <span>{{ sourceTypeLabel(item.sourceType) }}</span>
-            <span>{{ formatDateTime(item.createdAt || item.sentAt) }}</span>
-          </div>
-          <div v-if="latestNotifications.length === 0" class="empty-text">暂无最近通知。</div>
-        </div>
-      </AdminTableCard>
-    </div>
-
-    <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="预算风险" title="预警与超支预算" :compact="true">
-        <div class="table-list compact-table">
-          <div v-for="item in highlightedBudgets" :key="item.budgetId" class="table-row-four">
-            <strong>{{ item.budgetName }}</strong>
-            <span>{{ formatAmount(item.spentAmount) }} / {{ formatAmount(item.budgetAmount) }}</span>
-            <span :class="item.exceeded ? 'summary-danger' : 'summary-warn'">
-              {{ item.exceeded ? "已超支" : "已预警" }}
-            </span>
-            <span>{{ item.categoryName || "-" }}</span>
-          </div>
-          <div v-if="highlightedBudgets.length === 0" class="empty-text">当前暂无预算预警项。</div>
-        </div>
-      </AdminTableCard>
-
-      <AdminTableCard kicker="趋势" title="近 6 个月收支趋势" :compact="true">
-        <div class="summary-grid">
-          <div class="summary-item">
-            <strong>收入</strong>
-            <span>{{ formatAmount(totalIncome) }}</span>
-            <span>{{ monthlySummary.length }} 个统计点</span>
-          </div>
-          <div class="summary-item">
-            <strong>支出</strong>
-            <span>{{ formatAmount(totalExpense) }}</span>
-            <span>{{ highlightedBudgets.length }} 条风险预算</span>
-          </div>
-        </div>
-        <div class="table-list compact-table dashboard-sublist">
-          <div v-for="item in monthlySummary" :key="item.month" class="table-row-three">
-            <strong>{{ item.month }}</strong>
-            <span>收入 {{ formatAmount(item.income) }}</span>
-            <span>支出 {{ formatAmount(item.expense) }}</span>
-          </div>
-          <div v-if="monthlySummary.length === 0" class="empty-text">暂无月度汇总数据。</div>
-        </div>
-      </AdminTableCard>
-    </div>
-
-    <div class="panel-grid panel-grid-wide">
-      <AdminTableCard kicker="导入" title="最近导入与待处理项" :compact="true">
-        <div class="table-list compact-table">
-          <div v-for="item in recentImports" :key="item.id" class="table-row-four">
-            <strong>#{{ item.id }} / {{ item.originalFileName || "批次文件" }}</strong>
-            <span>{{ item.sourcePlatform || "-" }}</span>
-            <span>{{ item.successCount || 0 }} / {{ item.totalCount || 0 }}</span>
-            <span>{{ item.unmatchedCount || 0 }} 条待归类</span>
-          </div>
-          <div v-if="recentImports.length === 0" class="empty-text">暂无账单导入批次。</div>
-        </div>
-        <div class="conclusion-list dashboard-sublist">
-          <li>{{ pendingCount > 0 ? `当前仍有 ${pendingCount} 条导入记录等待人工处理。` : "当前没有待处理账单导入项。" }}</li>
-          <li>{{ latestImportLabel }}</li>
-        </div>
-      </AdminTableCard>
-
-      <AdminTableCard kicker="规则引擎" title="解析规则与预警规则" :compact="true">
-        <div class="summary-grid">
-          <div class="summary-item">
-            <strong>解析规则</strong>
-            <span>{{ parseRuleCount }} 条已配置</span>
-            <span>累计命中 {{ parseRuleHitCount }} 次</span>
-          </div>
-          <div class="summary-item">
-            <strong>预警规则</strong>
-            <span>{{ enabledRuleCount }} 条启用</span>
-            <span>{{ rules.length }} 条规则定义</span>
-          </div>
-        </div>
-        <div class="table-list compact-table dashboard-sublist">
-          <div v-for="item in rules.slice(0, 4)" :key="item.id" class="table-row-three">
-            <strong>{{ item.ruleName }}</strong>
-            <span>{{ item.metricType || "-" }}</span>
-            <span>{{ Number(item.enabled) === 1 ? "启用" : "停用" }}</span>
-          </div>
-          <div v-if="rules.length === 0" class="empty-text">暂无规则定义。</div>
+        <div class="table-shell compact-table-shell">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>来源</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in latestNotifications" :key="item.id">
+                <td>{{ item.title || "系统通知" }}</td>
+                <td>{{ sourceTypeLabel(item.sourceType) }}</td>
+                <td>{{ formatDateTime(item.createdAt || item.sentAt) }}</td>
+              </tr>
+              <tr v-if="latestNotifications.length === 0">
+                <td colspan="3" class="table-empty">暂无最近通知。</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </AdminTableCard>
     </div>
@@ -227,6 +227,7 @@ const defenseSummary = ref(null);
 const pendingItems = ref([]);
 const exportLogs = ref([]);
 const parseRules = ref([]);
+const feedback = ref("");
 const overview = ref({
   totalFixedAssetValue: 0,
   totalDebtBalance: 0,
@@ -245,12 +246,12 @@ const latestImportLabel = computed(() => {
 });
 const defenseSummaryLabel = computed(() => {
   const conclusions = defenseSummary.value?.conclusions || [];
-  return conclusions[0] || "可进入真实数据分析页查看完整摘要";
+  return conclusions[0] || "进入真实数据分析页查看完整摘要";
 });
 const defenseCountryConclusion = computed(() => {
   const points = defenseSummary.value?.worldBankTrend?.points || [];
   if (points.length < 2) {
-    return "国家趋势点位暂不足，当前不适合形成稳定答辩结论。";
+    return "国家趋势点位暂不足，当前不适合形成稳定结论。";
   }
   const first = points[0];
   const last = points[points.length - 1];
@@ -267,7 +268,6 @@ const totalIncome = computed(() => monthlySummary.value.reduce((sum, item) => su
 const totalExpense = computed(() => monthlySummary.value.reduce((sum, item) => sum + Number(item.expense || 0), 0));
 const enabledRuleCount = computed(() => rules.value.filter((item) => Number(item.enabled) === 1).length);
 const pendingCount = computed(() => pendingItems.value.filter((item) => item.status !== "RESOLVED").length);
-const recentImports = computed(() => importHistory.value.slice(0, 4));
 const latestNotifications = computed(() => notifications.value.slice(0, 4));
 const parseRuleCount = computed(() => parseRules.value.length);
 const parseRuleHitCount = computed(() => parseRules.value.reduce((sum, item) => sum + Number(item.hitCount || 0), 0));
@@ -313,50 +313,57 @@ function ensureFamilyId() {
 }
 
 async function refreshAll() {
-  if (!familyId.value) {
-    return;
+  try {
+    if (!familyId.value) {
+      feedback.value = "当前账号还没有家庭上下文，请先创建或选择家庭。";
+      return;
+    }
+    const id = ensureFamilyId();
+    const notificationsResponse = await notificationsApi.search({ familyId: id, page: 0, size: 12 });
+    const transactionSearch = await transactionsApi.search({ familyId: id, page: 0, size: 1 });
+    const [
+      accountsResult,
+      budgetsResult,
+      budgetUsageResult,
+      monthlySummaryResult,
+      rulesResult,
+      overviewResult,
+      importHistoryResult,
+      pendingItemsResult,
+      exportLogsResult,
+      parseRulesResult,
+      defenseSummaryResult
+    ] = await Promise.all([
+      accountsApi.listByFamily(id),
+      budgetsApi.listByFamily(id),
+      budgetsApi.usage(id),
+      transactionsApi.monthlySummary(id, 6),
+      rulesApi.listByFamily(id),
+      fixedAssetsApi.overview(id),
+      billImportsApi.list(id).catch(() => []),
+      billImportsApi.pendingItems(id, "PENDING"),
+      dataExportsApi.list(id),
+      billParseRulesApi.list(id).catch(() => []),
+      realDataApi.getDefenseSummary({ countryIso3: "CHN", seriesId: "PCE", topCountries: 5 }).catch(() => null)
+    ]);
+
+    accounts.value = accountsResult;
+    budgets.value = budgetsResult;
+    budgetUsage.value = budgetUsageResult;
+    monthlySummary.value = monthlySummaryResult;
+    rules.value = rulesResult;
+    notifications.value = notificationsResponse.items || [];
+    overview.value = overviewResult || overview.value;
+    importHistory.value = importHistoryResult || [];
+    pendingItems.value = pendingItemsResult || [];
+    exportLogs.value = exportLogsResult || [];
+    parseRules.value = parseRulesResult || [];
+    defenseSummary.value = defenseSummaryResult;
+    transactionsTotal.value = transactionSearch.totalElements || 0;
+    feedback.value = "";
+  } catch (error) {
+    feedback.value = `总控台加载失败：${error.message}`;
   }
-  const id = ensureFamilyId();
-  const notificationsResponse = await notificationsApi.search({ familyId: id, page: 0, size: 12 });
-  const transactionSearch = await transactionsApi.search({ familyId: id, page: 0, size: 1 });
-  const [
-    accountsResult,
-    budgetsResult,
-    budgetUsageResult,
-    monthlySummaryResult,
-    rulesResult,
-    overviewResult,
-    importHistoryResult,
-    pendingItemsResult,
-    exportLogsResult,
-    parseRulesResult,
-    defenseSummaryResult
-  ] = await Promise.all([
-    accountsApi.listByFamily(id),
-    budgetsApi.listByFamily(id),
-    budgetsApi.usage(id),
-    transactionsApi.monthlySummary(id, 6),
-    rulesApi.listByFamily(id),
-    fixedAssetsApi.overview(id),
-    billImportsApi.list(id).catch(() => []),
-    billImportsApi.pendingItems(id, "PENDING"),
-    dataExportsApi.list(id),
-    billParseRulesApi.list(id).catch(() => []),
-    realDataApi.getDefenseSummary({ countryIso3: "CHN", seriesId: "PCE", topCountries: 5 }).catch(() => null)
-  ]);
-  accounts.value = accountsResult;
-  budgets.value = budgetsResult;
-  budgetUsage.value = budgetUsageResult;
-  monthlySummary.value = monthlySummaryResult;
-  rules.value = rulesResult;
-  notifications.value = notificationsResponse.items || [];
-  overview.value = overviewResult || overview.value;
-  importHistory.value = importHistoryResult || [];
-  pendingItems.value = pendingItemsResult || [];
-  exportLogs.value = exportLogsResult || [];
-  parseRules.value = parseRulesResult || [];
-  defenseSummary.value = defenseSummaryResult;
-  transactionsTotal.value = transactionSearch.totalElements || 0;
 }
 
 function matchedRules(usageItem) {
@@ -382,6 +389,7 @@ function sourceTypeLabel(value) {
   return {
     RULE: "规则触发",
     BUDGET: "预算提醒",
+    DEBT: "债务提醒",
     OTHER: "其他"
   }[normalizeSourceType(value)] || value || "-";
 }

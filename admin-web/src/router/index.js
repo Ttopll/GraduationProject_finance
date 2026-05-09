@@ -3,6 +3,7 @@ import { authStore } from "@/stores/auth";
 import LoginPage from "@/pages/LoginPage.vue";
 import AdminLayout from "@/layouts/AdminLayout.vue";
 import DashboardPage from "@/pages/DashboardPage.vue";
+import FinanceCorePage from "@/pages/FinanceCorePage.vue";
 import AnalysisPage from "@/pages/AnalysisPage.vue";
 import FamilyPage from "@/pages/FamilyPage.vue";
 import BusinessPage from "@/pages/BusinessPage.vue";
@@ -25,6 +26,7 @@ const routes = [
     children: [
       { path: "", redirect: "/dashboard" },
       { path: "dashboard", name: "dashboard", component: DashboardPage },
+      { path: "finance-core", name: "finance-core", component: FinanceCorePage },
       { path: "analysis", name: "analysis", component: AnalysisPage },
       { path: "family", name: "family", component: FamilyPage },
       { path: "business", name: "business", component: BusinessPage },

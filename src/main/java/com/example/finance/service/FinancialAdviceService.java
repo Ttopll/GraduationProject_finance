@@ -1,6 +1,7 @@
 package com.example.finance.service;
 
 import com.example.finance.dto.FinancialAdviceApiModels;
+import com.example.finance.dto.FinancialAnalysisApiModels;
 import com.example.finance.entity.Account;
 import com.example.finance.entity.Category;
 import com.example.finance.entity.Debt;
@@ -39,6 +40,7 @@ public class FinancialAdviceService {
     private static final int DEFAULT_EMERGENCY_FUND_MONTHS = 3;
     private static final BigDecimal HIGH_EXPENSE_RATIO = new BigDecimal("0.40");
     private static final BigDecimal HIGH_DEBT_RATIO = new BigDecimal("1.00");
+    private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
     private final FinancialAdviceRepository financialAdviceRepository;
     private final FamilyFinancialProfileRepository familyFinancialProfileRepository;
@@ -48,6 +50,7 @@ public class FinancialAdviceService {
     private final CategoryRepository categoryRepository;
     private final FamilyService familyService;
     private final FamilyAccessService familyAccessService;
+    private final FinancialAnalysisService financialAnalysisService;
 
     public FinancialAdviceService(
             FinancialAdviceRepository financialAdviceRepository,
@@ -57,7 +60,8 @@ public class FinancialAdviceService {
             DebtRepository debtRepository,
             CategoryRepository categoryRepository,
             FamilyService familyService,
-            FamilyAccessService familyAccessService
+            FamilyAccessService familyAccessService,
+            FinancialAnalysisService financialAnalysisService
     ) {
         this.financialAdviceRepository = financialAdviceRepository;
         this.familyFinancialProfileRepository = familyFinancialProfileRepository;
@@ -67,6 +71,7 @@ public class FinancialAdviceService {
         this.categoryRepository = categoryRepository;
         this.familyService = familyService;
         this.familyAccessService = familyAccessService;
+        this.financialAnalysisService = financialAnalysisService;
     }
 
     public List<FinancialAdvice> list(Long familyId, String status) {
@@ -154,6 +159,7 @@ public class FinancialAdviceService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         ExpenseCategorySummary topExpenseCategory = resolveTopExpenseCategory(familyId, expenses, totalExpense);
+        FinancialAnalysisApiModels.DashboardResponse dashboard = financialAnalysisService.getDashboard(familyId, month.toString(), 6);
         String snapshotJson = buildSnapshotJson(
                 month,
                 totalIncome,
@@ -163,7 +169,8 @@ public class FinancialAdviceService {
                 totalAccountBalance,
                 totalDebtBalance,
                 profile,
-                topExpenseCategory
+                topExpenseCategory,
+                dashboard
         );
 
         List<FinancialAdvice> createdAdvices = buildAdvices(
@@ -176,6 +183,7 @@ public class FinancialAdviceService {
                 totalDebtBalance,
                 profile,
                 topExpenseCategory,
+                dashboard,
                 snapshotJson
         );
 
@@ -202,6 +210,7 @@ public class FinancialAdviceService {
             BigDecimal totalDebtBalance,
             FamilyFinancialProfile profile,
             ExpenseCategorySummary topExpenseCategory,
+            FinancialAnalysisApiModels.DashboardResponse dashboard,
             String snapshotJson
     ) {
         List<FinancialAdvice> advices = new ArrayList<>();
@@ -234,6 +243,25 @@ public class FinancialAdviceService {
             );
             saveAdviceIfAbsentToday(advices, familyId, "INVESTMENT", title, content, "NORMAL", snapshotJson);
         }
+
+        if (totalIncome.compareTo(BigDecimal.ZERO) > 0 || totalExpense.compareTo(BigDecimal.ZERO) > 0) {
+            AllocationPlan allocationPlan = buildAllocationPlan(profile, totalIncome, totalExpense, totalAccountBalance, totalDebtBalance);
+            String title = "家庭资产配置比例建议";
+            String content = String.format(
+                    Locale.ROOT,
+                    "结合风险偏好 %s、储蓄率 %s、债务余额 %.2f，建议按应急资金 %d%%、债务偿还 %d%%、稳健储蓄 %d%%、长期投资 %d%% 分配可支配结余。",
+                    normalizeRiskPreference(profile),
+                    percentText(savingsRate),
+                    totalDebtBalance,
+                    allocationPlan.emergencyFundPercent,
+                    allocationPlan.debtRepaymentPercent,
+                    allocationPlan.stableSavingPercent,
+                    allocationPlan.longTermInvestmentPercent
+            );
+            saveAdviceIfAbsentToday(advices, familyId, "ALLOCATION", title, content, "NORMAL", snapshotJson);
+        }
+
+        buildHealthDrivenAdvices(advices, familyId, month, dashboard, snapshotJson);
 
         int emergencyFundMonths = profile.getEmergencyFundMonths() == null
                 ? DEFAULT_EMERGENCY_FUND_MONTHS
@@ -299,7 +327,63 @@ public class FinancialAdviceService {
             saveAdviceIfAbsentToday(advices, familyId, "SAVINGS", title, content, "NORMAL", snapshotJson);
         }
 
+        String goalType = resolveGoalType(profile.getInvestmentPreferenceJson());
+        if (goalType != null) {
+            String title = "理财目标执行建议";
+            String content = String.format(
+                    Locale.ROOT,
+                    "当前家庭目标为%s。建议先保证 %d 个月应急资金，再将月度结余按目标专户持续积累，并每月复盘预算执行情况。",
+                    goalTypeLabel(goalType),
+                    emergencyFundMonths
+            );
+            saveAdviceIfAbsentToday(advices, familyId, "GOAL", title, content, "NORMAL", snapshotJson);
+        }
+
         return advices;
+    }
+
+    private void buildHealthDrivenAdvices(
+            List<FinancialAdvice> advices,
+            Long familyId,
+            YearMonth month,
+            FinancialAnalysisApiModels.DashboardResponse dashboard,
+            String snapshotJson
+    ) {
+        if (dashboard == null || dashboard.healthScore() == null) {
+            return;
+        }
+
+        FinancialAnalysisApiModels.HealthScore healthScore = dashboard.healthScore();
+        String suggestionLevel = healthScore.score() != null && healthScore.score() < 70 ? "HIGH" : "NORMAL";
+        String title = "家庭财务健康评分建议";
+        String content = String.format(
+                Locale.ROOT,
+                "%s 家庭财务健康评分为 %d 分，评级为%s。建议优先处理评分最低的指标，并结合预算执行情况逐项改善。",
+                month,
+                healthScore.score() == null ? 0 : healthScore.score(),
+                healthScore.levelLabel() == null ? "待观察" : healthScore.levelLabel()
+        );
+        saveAdviceIfAbsentToday(advices, familyId, "HEALTH_SCORE", title, content, suggestionLevel, snapshotJson);
+
+        FinancialAnalysisApiModels.HealthScoreFactor weakestFactor = healthScore.factors() == null
+                ? null
+                : healthScore.factors().stream()
+                .min((left, right) -> factorRate(left).compareTo(factorRate(right)))
+                .orElse(null);
+        if (weakestFactor == null) {
+            return;
+        }
+
+        String weakTitle = "优先改善：" + weakestFactor.factorName();
+        String weakContent = switch (weakestFactor.factorCode()) {
+            case "SAVINGS_RATE" -> "当前结余能力是财务健康短板。建议设置工资到账后的固定转入金额，先储蓄后消费。";
+            case "DEBT_RATIO" -> "当前负债指标拖累评分。建议优先偿还高利率债务，减少新增分期和透支消费。";
+            case "LIQUIDITY" -> "当前应急资金覆盖不足。建议先建立 3 个月支出规模的备用金，再考虑长期投资。";
+            case "BUDGET_RISK" -> "当前预算执行存在风险。建议重点查看超支或预警分类，调整预算额度或减少对应消费。";
+            case "EXPENSE_STRUCTURE" -> "当前消费结构集中度偏高。建议检查最大支出分类，识别非必要支出并设置分类预算。";
+            default -> "建议根据评分明细逐项复盘家庭财务结构。";
+        };
+        saveAdviceIfAbsentToday(advices, familyId, "HEALTH_FACTOR", weakTitle, weakContent, suggestionLevel, snapshotJson);
     }
 
     private void saveAdviceIfAbsentToday(
@@ -381,7 +465,8 @@ public class FinancialAdviceService {
             BigDecimal totalAccountBalance,
             BigDecimal totalDebtBalance,
             FamilyFinancialProfile profile,
-            ExpenseCategorySummary topExpenseCategory
+            ExpenseCategorySummary topExpenseCategory,
+            FinancialAnalysisApiModels.DashboardResponse dashboard
     ) {
         StringBuilder builder = new StringBuilder();
         builder.append("{")
@@ -404,9 +489,39 @@ public class FinancialAdviceService {
                 ).append(",")
                 .append("\"topExpenseRatio\":").append(
                         topExpenseCategory == null ? "null" : topExpenseCategory.ratio.toPlainString()
+                ).append(",")
+                .append("\"investmentPreference\":").append(jsonString(profile.getInvestmentPreferenceJson()))
+                .append(",")
+                .append("\"healthScore\":").append(
+                        dashboard == null || dashboard.healthScore() == null || dashboard.healthScore().score() == null
+                                ? "null"
+                                : dashboard.healthScore().score()
+                ).append(",")
+                .append("\"healthLevel\":").append(
+                        dashboard == null || dashboard.healthScore() == null
+                                ? "null"
+                                : jsonString(dashboard.healthScore().levelLabel())
+                ).append(",")
+                .append("\"debtToAssetRatio\":").append(
+                        dashboard == null || dashboard.keyIndicators() == null || dashboard.keyIndicators().debtToAssetRatio() == null
+                                ? "null"
+                                : dashboard.keyIndicators().debtToAssetRatio().toPlainString()
+                ).append(",")
+                .append("\"liquidityCoverageMonths\":").append(
+                        dashboard == null || dashboard.keyIndicators() == null || dashboard.keyIndicators().liquidityCoverageMonths() == null
+                                ? "null"
+                                : dashboard.keyIndicators().liquidityCoverageMonths().toPlainString()
                 )
                 .append("}");
         return builder.toString();
+    }
+
+    private BigDecimal factorRate(FinancialAnalysisApiModels.HealthScoreFactor factor) {
+        if (factor == null || factor.maxScore() == null || factor.maxScore() == 0 || factor.factorScore() == null) {
+            return BigDecimal.ONE;
+        }
+        return BigDecimal.valueOf(factor.factorScore())
+                .divide(BigDecimal.valueOf(factor.maxScore()), 4, RoundingMode.HALF_UP);
     }
 
     private String investmentSuggestion(String riskPreference) {
@@ -414,6 +529,78 @@ public class FinancialAdviceService {
             case "HIGH" -> "指数基金、权益类组合等波动较高资产";
             case "MEDIUM" -> "债券与权益混合配置或中低波动基金";
             default -> "存款、货币基金、短债等低风险品种";
+        };
+    }
+
+    private AllocationPlan buildAllocationPlan(
+            FamilyFinancialProfile profile,
+            BigDecimal totalIncome,
+            BigDecimal totalExpense,
+            BigDecimal totalAccountBalance,
+            BigDecimal totalDebtBalance
+    ) {
+        String riskPreference = normalizeRiskPreference(profile);
+        BigDecimal monthlySurplus = totalIncome.subtract(totalExpense);
+        boolean debtPressure = totalDebtBalance.compareTo(BigDecimal.ZERO) > 0
+                && totalAccountBalance.compareTo(BigDecimal.ZERO) > 0
+                && totalDebtBalance.divide(totalAccountBalance, 4, RoundingMode.HALF_UP).compareTo(new BigDecimal("0.50")) >= 0;
+        boolean weakSurplus = monthlySurplus.compareTo(BigDecimal.ZERO) <= 0;
+
+        if (weakSurplus) {
+            return new AllocationPlan(50, debtPressure ? 30 : 20, 30, 0);
+        }
+        if (debtPressure) {
+            return new AllocationPlan(30, 35, 25, 10);
+        }
+        return switch (riskPreference) {
+            case "HIGH" -> new AllocationPlan(20, 10, 25, 45);
+            case "MEDIUM" -> new AllocationPlan(25, 15, 35, 25);
+            default -> new AllocationPlan(35, 15, 40, 10);
+        };
+    }
+
+    private String normalizeRiskPreference(FamilyFinancialProfile profile) {
+        return profile.getRiskPreference() == null ? "LOW" : profile.getRiskPreference().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String percentText(BigDecimal ratio) {
+        if (ratio == null) {
+            return "暂无";
+        }
+        return ratio.multiply(ONE_HUNDRED).setScale(2, RoundingMode.HALF_UP) + "%";
+    }
+
+    private String resolveGoalType(String preferenceJson) {
+        if (!StringUtils.hasText(preferenceJson)) {
+            return null;
+        }
+        String normalized = preferenceJson.toUpperCase(Locale.ROOT);
+        if (normalized.contains("HOUSE")) {
+            return "HOUSE";
+        }
+        if (normalized.contains("CAR")) {
+            return "CAR";
+        }
+        if (normalized.contains("EDUCATION")) {
+            return "EDUCATION";
+        }
+        if (normalized.contains("RETIREMENT")) {
+            return "RETIREMENT";
+        }
+        if (normalized.contains("TRAVEL")) {
+            return "TRAVEL";
+        }
+        return "OTHER";
+    }
+
+    private String goalTypeLabel(String goalType) {
+        return switch (goalType) {
+            case "HOUSE" -> "购房准备";
+            case "CAR" -> "购车准备";
+            case "EDUCATION" -> "教育储备";
+            case "RETIREMENT" -> "养老储备";
+            case "TRAVEL" -> "旅行计划";
+            default -> "家庭储蓄";
         };
     }
 
@@ -450,5 +637,13 @@ public class FinancialAdviceService {
     }
 
     private record ExpenseCategorySummary(Long categoryId, String categoryName, BigDecimal ratio) {
+    }
+
+    private record AllocationPlan(
+            int emergencyFundPercent,
+            int debtRepaymentPercent,
+            int stableSavingPercent,
+            int longTermInvestmentPercent
+    ) {
     }
 }

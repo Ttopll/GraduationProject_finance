@@ -7,7 +7,7 @@ param(
     [string]$Password = "",
     [switch]$AutoCreateUser,
     [string]$ProcessedDir = "data/processed",
-    [bool]$TruncateBeforeImport = $false,
+    [bool]$TruncateBeforeImport = $true,
     [int]$BatchSize = 5000,
     [string]$CountryIso3 = "CHN",
     [string]$FredSeriesId = "PCE"

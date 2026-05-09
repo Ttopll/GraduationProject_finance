@@ -767,6 +767,151 @@ textarea {
   margin-top: 14px;
 }
 
+.finance-core-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.finance-bar-row {
+  display: grid;
+  grid-template-columns: 82px minmax(180px, 1fr) 210px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.finance-bar-label {
+  font-weight: 700;
+}
+
+.finance-bar-track {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.finance-bar-track span,
+.progress-line span {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.finance-bar-income {
+  background: rgba(29, 143, 90, 0.72);
+}
+
+.finance-bar-expense {
+  background: rgba(214, 69, 69, 0.68);
+}
+
+.finance-bar-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-subtle);
+  font-size: 13px;
+}
+
+.progress-line {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-line span {
+  background: var(--brand);
+}
+
+.advice-snapshot {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.health-score-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.health-score-card {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 22px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6fb 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-height: 220px;
+}
+
+.health-score-card span,
+.health-score-card em {
+  color: var(--text-subtle);
+  font-style: normal;
+}
+
+.health-score-card strong {
+  font-size: 58px;
+  line-height: 1;
+}
+
+.health-score-card.is-excellent strong,
+.health-score-card.is-good strong {
+  color: var(--success);
+}
+
+.health-score-card.is-watch strong {
+  color: var(--warning);
+}
+
+.health-score-card.is-risk strong {
+  color: var(--danger);
+}
+
+.health-factor-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.health-factor {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.health-factor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.health-factor small {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-subtle);
+  line-height: 1.6;
+}
+
 .auth-shell {
   min-height: 100vh;
   display: grid;
@@ -841,7 +986,10 @@ textarea {
   .two-column,
   .insight-grid,
   .auth-panel,
-  .summary-grid {
+  .summary-grid,
+  .finance-core-grid,
+  .health-score-layout,
+  .health-factor-list {
     grid-template-columns: 1fr;
   }
 }
@@ -876,5 +1024,9 @@ textarea {
   .field-inline,
   .field-inline-short {
     min-width: 100%;
+  }
+
+  .finance-bar-row {
+    grid-template-columns: 1fr;
   }
 }
