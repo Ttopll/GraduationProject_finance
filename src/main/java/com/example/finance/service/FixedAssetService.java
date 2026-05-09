@@ -142,7 +142,10 @@ public class FixedAssetService {
                         asset.getValuationAmount(),
                         effectiveValue(asset),
                         asset.getPurchaseDate(),
-                        asset.getValuationDate()
+                        asset.getValuationDate(),
+                        valueChange(asset),
+                        appreciationRate(asset),
+                        valuationStatus(asset)
                 ))
                 .toList();
 
@@ -153,7 +156,12 @@ public class FixedAssetService {
                         debt.getDebtType(),
                         defaultAmount(debt.getCurrentBalance()),
                         debt.getDueDate(),
-                        debt.getStatus()
+                        debt.getStatus(),
+                        repaidPrincipal(debt),
+                        repaymentProgress(debt),
+                        remainingRatio(debt),
+                        dueStatus(debt),
+                        daysToDue(debt)
                 ))
                 .toList();
 
@@ -294,6 +302,79 @@ public class FixedAssetService {
         return asset.getValuationAmount() == null
                 ? defaultAmount(asset.getPurchaseAmount())
                 : asset.getValuationAmount();
+    }
+
+    private BigDecimal valueChange(FixedAsset asset) {
+        return effectiveValue(asset).subtract(defaultAmount(asset.getPurchaseAmount()));
+    }
+
+    private BigDecimal appreciationRate(FixedAsset asset) {
+        BigDecimal purchaseAmount = defaultAmount(asset.getPurchaseAmount());
+        if (purchaseAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return valueChange(asset).divide(purchaseAmount, RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private String valuationStatus(FixedAsset asset) {
+        if (asset.getValuationAmount() == null) {
+            return "NO_VALUATION";
+        }
+        BigDecimal change = valueChange(asset);
+        if (change.compareTo(BigDecimal.ZERO) > 0) {
+            return "APPRECIATED";
+        }
+        if (change.compareTo(BigDecimal.ZERO) < 0) {
+            return "DEPRECIATED";
+        }
+        return "UNCHANGED";
+    }
+
+    private BigDecimal repaidPrincipal(Debt debt) {
+        return defaultAmount(debt.getPrincipalAmount()).subtract(defaultAmount(debt.getCurrentBalance()));
+    }
+
+    private BigDecimal repaymentProgress(Debt debt) {
+        BigDecimal principal = defaultAmount(debt.getPrincipalAmount());
+        if (principal.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return repaidPrincipal(debt).divide(principal, RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal remainingRatio(Debt debt) {
+        BigDecimal principal = defaultAmount(debt.getPrincipalAmount());
+        if (principal.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return defaultAmount(debt.getCurrentBalance()).divide(principal, RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private Long daysToDue(Debt debt) {
+        if (debt.getDueDate() == null || !ACTIVE_DEBT_STATUS.equals(debt.getStatus())) {
+            return null;
+        }
+        return java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), debt.getDueDate());
+    }
+
+    private String dueStatus(Debt debt) {
+        Long days = daysToDue(debt);
+        if (!ACTIVE_DEBT_STATUS.equals(debt.getStatus())) {
+            return "CLEARED";
+        }
+        if (days == null) {
+            return "NO_DUE_DATE";
+        }
+        if (days < 0) {
+            return "OVERDUE";
+        }
+        if (days <= 7) {
+            return "DUE_SOON";
+        }
+        if (days <= 30) {
+            return "DUE_THIS_MONTH";
+        }
+        return "NORMAL";
     }
 
     private BigDecimal defaultAmount(BigDecimal value) {

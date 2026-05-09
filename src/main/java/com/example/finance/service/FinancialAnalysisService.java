@@ -92,6 +92,7 @@ public class FinancialAnalysisService {
         List<FinancialAnalysisApiModels.BudgetProgressItem> budgetProgress = budgetUsage.stream()
                 .map(this::toBudgetProgressItem)
                 .toList();
+        List<FinancialAnalysisApiModels.MonthlyTrendItem> monthlyTrend = buildMonthlyTrend(familyId, month, trendMonths);
 
         return new FinancialAnalysisApiModels.DashboardResponse(
                 month.toString(),
@@ -100,9 +101,10 @@ public class FinancialAnalysisService {
                 keyIndicators,
                 healthScore,
                 buildMonthlyReport(month, overview, assetSnapshot, keyIndicators, healthScore, budgetProgress, expenseStructure),
-                buildMonthlyTrend(familyId, month, trendMonths),
+                monthlyTrend,
                 expenseStructure,
-                budgetProgress
+                budgetProgress,
+                buildTrendInsight(monthlyTrend)
         );
     }
 
@@ -522,6 +524,88 @@ public class FinancialAnalysisService {
                     return left.categoryName().compareTo(right.categoryName());
                 })
                 .toList();
+    }
+
+    private FinancialAnalysisApiModels.TrendInsight buildTrendInsight(List<FinancialAnalysisApiModels.MonthlyTrendItem> trendItems) {
+        if (trendItems == null || trendItems.isEmpty()) {
+            return new FinancialAnalysisApiModels.TrendInsight(
+                    "NO_DATA",
+                    "NO_DATA",
+                    "NO_DATA",
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    "暂无趋势数据，建议先补充收支流水。",
+                    List.of("补录最近几个月的收入和支出后，再查看趋势分析。")
+            );
+        }
+
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        BigDecimal totalNet = BigDecimal.ZERO;
+        for (FinancialAnalysisApiModels.MonthlyTrendItem item : trendItems) {
+            totalIncome = totalIncome.add(defaultAmount(item.income()));
+            totalExpense = totalExpense.add(defaultAmount(item.expense()));
+            totalNet = totalNet.add(defaultAmount(item.netAmount()));
+        }
+        BigDecimal count = BigDecimal.valueOf(trendItems.size());
+        BigDecimal averageIncome = safeDivide(totalIncome, count);
+        BigDecimal averageExpense = safeDivide(totalExpense, count);
+        BigDecimal averageNet = safeDivide(totalNet, count);
+        FinancialAnalysisApiModels.MonthlyTrendItem first = trendItems.get(0);
+        FinancialAnalysisApiModels.MonthlyTrendItem latest = trendItems.get(trendItems.size() - 1);
+
+        String incomeTrend = resolveTrend(defaultAmount(first.income()), defaultAmount(latest.income()));
+        String expenseTrend = resolveTrend(defaultAmount(first.expense()), defaultAmount(latest.expense()));
+        String savingsTrend = resolveTrend(defaultAmount(first.netAmount()), defaultAmount(latest.netAmount()));
+
+        List<String> suggestions = new ArrayList<>();
+        if ("UP".equals(expenseTrend) && !"UP".equals(incomeTrend)) {
+            suggestions.add("支出增长快于收入，建议检查最近两个月的大额消费。");
+        }
+        if (latest.netAmount().compareTo(BigDecimal.ZERO) < 0) {
+            suggestions.add("最近月份结余为负，建议优先控制弹性消费并补录收入。");
+        }
+        if ("DOWN".equals(savingsTrend)) {
+            suggestions.add("结余趋势走弱，建议设置月度储蓄目标和消费提醒。");
+        }
+        if (suggestions.isEmpty()) {
+            suggestions.add("趋势整体可控，建议继续保持预算复盘和月度记账。");
+        }
+
+        String conclusion = String.format(
+                Locale.ROOT,
+                "近 %d 个月平均收入 %.2f，平均支出 %.2f，平均结余 %.2f，最近月份结余 %.2f。",
+                trendItems.size(),
+                averageIncome,
+                averageExpense,
+                averageNet,
+                latest.netAmount()
+        );
+        return new FinancialAnalysisApiModels.TrendInsight(
+                incomeTrend,
+                expenseTrend,
+                savingsTrend,
+                averageIncome,
+                averageExpense,
+                averageNet,
+                latest.netAmount(),
+                conclusion,
+                suggestions
+        );
+    }
+
+    private String resolveTrend(BigDecimal first, BigDecimal latest) {
+        BigDecimal threshold = first.abs().multiply(new BigDecimal("0.10")).max(new BigDecimal("100"));
+        BigDecimal delta = latest.subtract(first);
+        if (delta.compareTo(threshold) > 0) {
+            return "UP";
+        }
+        if (delta.compareTo(threshold.negate()) < 0) {
+            return "DOWN";
+        }
+        return "STABLE";
     }
 
     private FinancialAnalysisApiModels.KeyIndicators buildKeyIndicators(

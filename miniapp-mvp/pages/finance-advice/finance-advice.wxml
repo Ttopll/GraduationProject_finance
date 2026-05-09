@@ -85,6 +85,16 @@
               <view class="stat-meta">{{item.meta}}</view>
             </view>
           </view>
+          <view class="summary-list" wx:if="{{item.allocationItems.length}}">
+            <view class="summary-item" wx:for="{{item.allocationItems}}" wx:key="label">
+              <view class="record-top">
+                <view class="record-title">{{item.label}}</view>
+                <view class="tag">{{item.percent}}</view>
+              </view>
+              <view class="record-meta">建议金额：{{item.amount}}</view>
+              <view class="record-meta">{{item.desc}}</view>
+            </view>
+          </view>
           <view class="summary-list" wx:if="{{item.steps.length}}">
             <view class="summary-item" wx:for="{{item.steps}}" wx:key="*this">
               <view class="record-title">执行步骤</view>

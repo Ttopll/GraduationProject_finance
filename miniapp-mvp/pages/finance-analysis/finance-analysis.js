@@ -84,6 +84,30 @@ function normalizeBudgetItem(item) {
   };
 }
 
+function trendText(value) {
+  return {
+    UP: "上升",
+    DOWN: "下降",
+    STABLE: "稳定",
+    NO_DATA: "暂无"
+  }[value] || value || "-";
+}
+
+function normalizeTrendInsight(item) {
+  const data = item || {};
+  return {
+    ...data,
+    incomeTrendText: trendText(data.incomeTrend),
+    expenseTrendText: trendText(data.expenseTrend),
+    savingsTrendText: trendText(data.savingsTrend),
+    averageIncomeText: money(data.averageIncome),
+    averageExpenseText: money(data.averageExpense),
+    averageNetAmountText: money(data.averageNetAmount),
+    latestNetAmountText: money(data.latestNetAmount),
+    suggestions: data.suggestions || []
+  };
+}
+
 Page({
   data: {
     selectedMonth: currentMonth(),
@@ -94,6 +118,7 @@ Page({
     healthFactors: [],
     monthlyReport: {},
     monthlyTrend: [],
+    trendInsight: normalizeTrendInsight({}),
     expenseStructure: [],
     budgetProgress: [],
     actionItems: [],
@@ -127,6 +152,7 @@ Page({
         healthFactors: (healthScore.factors || []).map(normalizeHealthFactor),
         monthlyReport: data.monthlyReport || {},
         monthlyTrend: (data.monthlyTrend || []).map(normalizeTrendItem),
+        trendInsight: normalizeTrendInsight(data.trendInsight),
         expenseStructure: (data.expenseStructure || []).map(normalizeExpenseItem),
         budgetProgress: (data.budgetProgress || []).map(normalizeBudgetItem),
         actionItems: this.buildActionItems(data),

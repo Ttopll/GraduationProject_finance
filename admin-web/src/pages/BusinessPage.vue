@@ -331,6 +331,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import StatCard from "@/components/StatCard.vue";
 import CrudModal from "@/components/CrudModal.vue";
 import AdminTableCard from "@/components/AdminTableCard.vue";
@@ -342,6 +343,7 @@ import { budgetsApi } from "@/api/budgets";
 import { transactionsApi } from "@/api/transactions";
 import { usePageRefresh } from "@/composables/pageRefresh";
 
+const route = useRoute();
 const familyId = computed(() => authStore.currentFamilyId);
 const accounts = ref([]);
 const categories = ref([]);
@@ -594,6 +596,21 @@ async function refreshAll() {
     return;
   }
   await Promise.all([loadAccounts(), loadCategories(), loadBudgets(), loadTransactions(), loadUsageAndMonthly()]);
+  applyFocusHint();
+}
+
+function applyFocusHint() {
+  const focus = String(route.query.focus || "");
+  if (focus === "budget") {
+    budgetFeedback.value = "已从财务分析进入预算处理，请优先检查超支或接近预警线的预算。";
+  }
+  if (focus === "transaction") {
+    transactionFeedback.value = "已从财务分析进入收支处理，请核对支出分类、交易金额和异常消费记录。";
+    transactionFilter.transactionType = "EXPENSE";
+  }
+  if (focus === "category") {
+    categoryFeedback.value = "已进入分类维护，请检查支出分类是否完整，便于后续统计分析。";
+  }
 }
 
 async function submitAccount() {

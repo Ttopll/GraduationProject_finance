@@ -60,7 +60,12 @@ public final class DebtApiModels {
             LocalDate dueDate,
             String status,
             String remark,
-            LocalDate nextReminderDate
+            LocalDate nextReminderDate,
+            BigDecimal repaidPrincipal,
+            BigDecimal repaymentProgress,
+            BigDecimal remainingRatio,
+            String dueStatus,
+            Long daysToDue
     ) {
     }
 

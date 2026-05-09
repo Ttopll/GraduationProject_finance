@@ -58,6 +58,12 @@ function normalizeAdvice(item) {
   if (snapshot.savingsRate !== undefined && snapshot.savingsRate !== null) {
     metrics.push({ label: "储蓄率", value: percent(snapshot.savingsRate), meta: "收入结余比例" });
   }
+  if (snapshot.investableSurplus !== undefined && snapshot.investableSurplus !== null) {
+    metrics.push({ label: "可安排结余", value: money(snapshot.investableSurplus), meta: "可用于储蓄/还债/投资" });
+  }
+  if (snapshot.emergencyFundGap !== undefined && snapshot.emergencyFundGap !== null) {
+    metrics.push({ label: "应急资金缺口", value: money(snapshot.emergencyFundGap), meta: `${snapshot.emergencyFundMonths || 3} 个月目标` });
+  }
   if (snapshot.totalDebtBalance !== undefined && snapshot.totalDebtBalance !== null) {
     metrics.push({ label: "债务余额", value: money(snapshot.totalDebtBalance), meta: "当前未还债务" });
   }
@@ -74,13 +80,41 @@ function normalizeAdvice(item) {
   if (snapshot.topExpenseCategory) {
     reasons.push(`最大支出 ${snapshot.topExpenseCategory}`);
   }
+  const allocationItems = [];
+  if (snapshot.allocationEmergencyFundPercent !== undefined && snapshot.allocationEmergencyFundPercent !== null) {
+    allocationItems.push({
+      label: "应急资金",
+      percent: `${snapshot.allocationEmergencyFundPercent}%`,
+      amount: money(snapshot.allocationEmergencyFundAmount),
+      desc: "先保证短期安全垫"
+    });
+    allocationItems.push({
+      label: "债务处理",
+      percent: `${snapshot.allocationDebtRepaymentPercent}%`,
+      amount: money(snapshot.allocationDebtRepaymentAmount),
+      desc: "优先处理高息或短期债务"
+    });
+    allocationItems.push({
+      label: "稳健储蓄",
+      percent: `${snapshot.allocationStableSavingPercent}%`,
+      amount: money(snapshot.allocationStableSavingAmount),
+      desc: "用于低风险储蓄和现金管理"
+    });
+    allocationItems.push({
+      label: "长期投资",
+      percent: `${snapshot.allocationLongTermInvestmentPercent}%`,
+      amount: money(snapshot.allocationLongTermInvestmentAmount),
+      desc: "按风险偏好逐步配置"
+    });
+  }
   return {
     ...item,
     typeText: typeText(item.adviceType),
     levelText: item.suggestionLevel === "HIGH" ? "重点建议" : "普通建议",
     levelClass: item.suggestionLevel === "HIGH" ? "status-warn" : "status-normal",
     generatedAtText: item.generatedAt ? String(item.generatedAt).replace("T", " ").slice(0, 16) : "-",
-    metrics: metrics.slice(0, 4),
+    metrics: metrics.slice(0, 6),
+    allocationItems,
     steps: splitSteps(item.content),
     reasonText: reasons.join(" / ")
   };

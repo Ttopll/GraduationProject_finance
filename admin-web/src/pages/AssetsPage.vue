@@ -59,6 +59,16 @@
           <span>用于观察资产流动性</span>
         </div>
         <div class="summary-item">
+          <strong>资产估值变化</strong>
+          <span :class="valueChangeClass(assetValueChangeTotal)">{{ formatSignedAmount(assetValueChangeTotal) }}</span>
+          <span>{{ appreciatedAssetCount }} 项增值 / {{ depreciatedAssetCount }} 项贬值</span>
+        </div>
+        <div class="summary-item">
+          <strong>债务偿还进度</strong>
+          <span>{{ formatPercent(averageRepaymentProgress) }}</span>
+          <span>按当前债务台账平均估算</span>
+        </div>
+        <div class="summary-item">
           <strong>到期风险</strong>
           <span>{{ overview.dueDebtCount || 0 }} 条即将到期 / {{ overview.overdueDebtCount || 0 }} 条逾期</span>
           <span>{{ riskLevelLabel(overview.riskLevel) }}</span>
@@ -112,6 +122,7 @@
               <th>&#25152;&#23646;&#25104;&#21592;</th>
               <th>&#20080;&#20837;&#37329;&#39069;</th>
               <th>&#20272;&#20540;</th>
+              <th>估值变化</th>
               <th>&#29366;&#24577;</th>
               <th>&#25805;&#20316;</th>
             </tr>
@@ -126,6 +137,10 @@
               <td>{{ ownerName(item.ownerMemberId) }}</td>
               <td>{{ formatAmount(item.purchaseAmount) }}</td>
               <td>{{ formatAmount(item.effectiveValue) }}</td>
+              <td>
+                <div class="primary-cell" :class="valueChangeClass(item.valueChange)">{{ formatSignedAmount(item.valueChange) }}</div>
+                <div class="secondary-cell">{{ formatPercent(item.appreciationRate) }} / {{ valuationStatusLabel(item.valuationStatus) }}</div>
+              </td>
               <td><span class="status-badge" :class="item.status === 1 ? 'is-success' : 'is-muted'">{{ item.status === 1 ? "\u542f\u7528" : "\u505c\u7528" }}</span></td>
               <td>
                 <div class="row-actions row-actions-left">
@@ -135,7 +150,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="filteredAssets.length === 0"><td colspan="7" class="table-empty">&#24403;&#21069;&#31579;&#36873;&#26465;&#20214;&#19979;&#26242;&#26080;&#22266;&#23450;&#36164;&#20135;&#25968;&#25454;&#12290;</td></tr>
+            <tr v-if="filteredAssets.length === 0"><td colspan="8" class="table-empty">&#24403;&#21069;&#31579;&#36873;&#26465;&#20214;&#19979;&#26242;&#26080;&#22266;&#23450;&#36164;&#20135;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
@@ -182,7 +197,9 @@
               <th>&#20538;&#21153;&#20154;</th>
               <th>&#26412;&#37329;</th>
               <th>&#24403;&#21069;&#20313;&#39069;</th>
+              <th>还款进度</th>
               <th>&#21040;&#26399;&#26085;</th>
+              <th>到期判断</th>
               <th>&#29366;&#24577;</th>
               <th>&#25805;&#20316;</th>
             </tr>
@@ -197,7 +214,17 @@
               <td>{{ ownerName(item.debtorMemberId) }}</td>
               <td>{{ formatAmount(item.principalAmount) }}</td>
               <td>{{ formatAmount(item.currentBalance) }}</td>
+              <td>
+                <div class="primary-cell">{{ formatPercent(item.repaymentProgress) }}</div>
+                <div class="secondary-cell">剩余 {{ formatPercent(item.remainingRatio) }}</div>
+              </td>
               <td>{{ item.dueDate || "-" }}</td>
+              <td>
+                <span class="status-badge" :class="dueStatusClass(item.dueStatus)">
+                  {{ dueStatusLabel(item.dueStatus) }}
+                </span>
+                <div class="secondary-cell">{{ daysToDueText(item.daysToDue) }}</div>
+              </td>
               <td><span class="status-badge" :class="item.status === 'ACTIVE' ? 'is-warn' : 'is-muted'">{{ debtStatusLabel(item.status) }}</span></td>
               <td>
                 <div class="row-actions row-actions-left">
@@ -208,7 +235,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="filteredDebts.length === 0"><td colspan="8" class="table-empty">&#24403;&#21069;&#31579;&#36873;&#26465;&#20214;&#19979;&#26242;&#26080;&#20538;&#21153;&#25968;&#25454;&#12290;</td></tr>
+            <tr v-if="filteredDebts.length === 0"><td colspan="10" class="table-empty">&#24403;&#21069;&#31579;&#36873;&#26465;&#20214;&#19979;&#26242;&#26080;&#20538;&#21153;&#25968;&#25454;&#12290;</td></tr>
           </tbody>
         </table>
       </div>
@@ -287,6 +314,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import StatCard from "@/components/StatCard.vue";
 import CrudModal from "@/components/CrudModal.vue";
 import AdminTableCard from "@/components/AdminTableCard.vue";
@@ -297,6 +325,7 @@ import { fixedAssetsApi } from "@/api/fixedAssets";
 import { debtsApi } from "@/api/debts";
 import { usePageRefresh } from "@/composables/pageRefresh";
 
+const route = useRoute();
 const familyId = computed(() => authStore.currentFamilyId);
 const ownerOptions = computed(() => authStore.memberships
   .filter((item) => item.familyId === familyId.value && item.familyMemberId)
@@ -337,7 +366,9 @@ const overview = reactive({
   diagnosisSuggestions: [],
   accountCount: 0,
   fixedAssetCount: 0,
-  debtCount: 0
+  debtCount: 0,
+  fixedAssets: [],
+  debts: []
 });
 
 const showAssetModal = ref(false);
@@ -384,6 +415,20 @@ const overviewMeta = computed(() => `\u603b\u8d44\u4ea7 ${formatAmount(overview.
 const netAssetClass = computed(() => Number(overview.netAssetValue || 0) >= 0 ? "summary-normal" : "summary-danger");
 const netAssetLabel = computed(() => Number(overview.netAssetValue || 0) >= 0 ? "\u51c0\u8d44\u4ea7\u4e3a\u6b63" : "\u51c0\u8d44\u4ea7\u4e3a\u8d1f");
 const currentDebtName = computed(() => selectedDebt.value?.debtName || "\u5f53\u524d\u503a\u52a1");
+const assetValueChangeTotal = computed(() => (overview.fixedAssets || [])
+  .reduce((total, item) => total + Number(item.valueChange || 0), 0));
+const appreciatedAssetCount = computed(() => (overview.fixedAssets || [])
+  .filter((item) => item.valuationStatus === "APPRECIATED").length);
+const depreciatedAssetCount = computed(() => (overview.fixedAssets || [])
+  .filter((item) => item.valuationStatus === "DEPRECIATED").length);
+const averageRepaymentProgress = computed(() => {
+  const activeDebts = (overview.debts || []).filter((item) => item.status !== "CLEARED");
+  if (!activeDebts.length) {
+    return null;
+  }
+  const total = activeDebts.reduce((sum, item) => sum + Number(item.repaymentProgress || 0), 0);
+  return total / activeDebts.length;
+});
 const filteredAssets = computed(() => assets.value.filter((item) => {
   if (assetFilter.assetType && item.assetType !== assetFilter.assetType) {
     return false;
@@ -549,6 +594,18 @@ async function refreshAll() {
     return;
   }
   await Promise.all([loadAccounts(), loadOverview(), loadAssets(), loadDebts(), loadRepaymentsForCurrent()]);
+  applyFocusHint();
+}
+
+function applyFocusHint() {
+  const focus = String(route.query.focus || "");
+  if (focus === "debt") {
+    debtFilter.status = "ACTIVE";
+    debtFeedback.value = "已从财务分析进入债务处理，请优先查看未结清债务、到期判断和还款进度。";
+  }
+  if (focus === "asset") {
+    assetFeedback.value = "已从财务分析进入固定资产处理，请检查资产估值、估值日期和增减值情况。";
+  }
 }
 
 async function submitAsset() {
@@ -754,6 +811,15 @@ function formatAmount(value) {
   return Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatSignedAmount(value) {
+  if (value === undefined || value === null || value === "") {
+    return "-";
+  }
+  const amount = Number(value);
+  const prefix = amount > 0 ? "+" : "";
+  return `${prefix}${formatAmount(amount)}`;
+}
+
 function formatPercent(value) {
   if (value === undefined || value === null || value === "") {
     return "-";
@@ -801,6 +867,61 @@ function debtStatusLabel(value) {
     ACTIVE: "\u672a\u7ed3\u6e05",
     CLEARED: "\u5df2\u7ed3\u6e05"
   }[value] || value || "-";
+}
+
+function valuationStatusLabel(value) {
+  return {
+    APPRECIATED: "增值",
+    DEPRECIATED: "贬值",
+    UNCHANGED: "持平",
+    NO_VALUATION: "未估值"
+  }[value] || "未估值";
+}
+
+function valueChangeClass(value) {
+  const amount = Number(value || 0);
+  if (amount > 0) {
+    return "summary-normal";
+  }
+  if (amount < 0) {
+    return "summary-danger";
+  }
+  return "";
+}
+
+function dueStatusLabel(value) {
+  return {
+    OVERDUE: "已逾期",
+    DUE_SOON: "7天内到期",
+    DUE_THIS_MONTH: "30天内到期",
+    NORMAL: "正常",
+    NO_DUE_DATE: "未设置",
+    CLEARED: "已结清"
+  }[value] || "正常";
+}
+
+function dueStatusClass(value) {
+  if (value === "OVERDUE" || value === "DUE_SOON") {
+    return "is-warn";
+  }
+  if (value === "CLEARED") {
+    return "is-muted";
+  }
+  return "is-success";
+}
+
+function daysToDueText(value) {
+  if (value === undefined || value === null || value === "") {
+    return "无到期日";
+  }
+  const days = Number(value);
+  if (days < 0) {
+    return `已逾期 ${Math.abs(days)} 天`;
+  }
+  if (days === 0) {
+    return "今天到期";
+  }
+  return `${days} 天后到期`;
 }
 
 function riskLevelLabel(value) {

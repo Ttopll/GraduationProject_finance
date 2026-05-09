@@ -51,7 +51,10 @@ public final class FixedAssetApiModels {
             LocalDate valuationDate,
             BigDecimal effectiveValue,
             String remark,
-            Integer status
+            Integer status,
+            BigDecimal valueChange,
+            BigDecimal appreciationRate,
+            String valuationStatus
     ) {
     }
 
@@ -94,7 +97,10 @@ public final class FixedAssetApiModels {
             BigDecimal valuationAmount,
             BigDecimal effectiveValue,
             LocalDate purchaseDate,
-            LocalDate valuationDate
+            LocalDate valuationDate,
+            BigDecimal valueChange,
+            BigDecimal appreciationRate,
+            String valuationStatus
     ) {
     }
 
@@ -104,7 +110,12 @@ public final class FixedAssetApiModels {
             String debtType,
             BigDecimal currentBalance,
             LocalDate dueDate,
-            String status
+            String status,
+            BigDecimal repaidPrincipal,
+            BigDecimal repaymentProgress,
+            BigDecimal remainingRatio,
+            String dueStatus,
+            Long daysToDue
     ) {
     }
 }

@@ -155,6 +155,44 @@
     <view class="panel-card">
       <view class="panel-head">
         <view>
+          <view class="panel-kicker">趋势洞察</view>
+          <view class="panel-title">近几个月变化判断</view>
+        </view>
+      </view>
+      <view class="stats-grid">
+        <view class="stat-card">
+          <view class="stat-label">收入趋势</view>
+          <view class="stat-value">{{trendInsight.incomeTrendText}}</view>
+          <view class="stat-meta">平均 {{trendInsight.averageIncomeText}}</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">支出趋势</view>
+          <view class="stat-value">{{trendInsight.expenseTrendText}}</view>
+          <view class="stat-meta">平均 {{trendInsight.averageExpenseText}}</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">结余趋势</view>
+          <view class="stat-value">{{trendInsight.savingsTrendText}}</view>
+          <view class="stat-meta">平均 {{trendInsight.averageNetAmountText}}</view>
+        </view>
+        <view class="stat-card">
+          <view class="stat-label">最近结余</view>
+          <view class="stat-value">{{trendInsight.latestNetAmountText}}</view>
+          <view class="stat-meta">最近月份表现</view>
+        </view>
+      </view>
+      <view class="feedback-box" style="margin-top: 16rpx;">{{trendInsight.conclusion || '暂无趋势结论。'}}</view>
+      <view class="summary-list" wx:if="{{trendInsight.suggestions.length}}" style="margin-top: 16rpx;">
+        <view class="summary-item" wx:for="{{trendInsight.suggestions}}" wx:key="*this">
+          <view class="record-title">趋势建议</view>
+          <view class="record-meta">{{item}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
           <view class="panel-kicker">消费结构</view>
           <view class="panel-title">支出分类占比</view>
         </view>

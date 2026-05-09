@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @RestController
@@ -159,7 +160,10 @@ public class FixedAssetController {
                 fixedAsset.getValuationDate(),
                 effectiveValue(fixedAsset),
                 fixedAsset.getRemark(),
-                fixedAsset.getStatus()
+                fixedAsset.getStatus(),
+                valueChange(fixedAsset),
+                appreciationRate(fixedAsset),
+                valuationStatus(fixedAsset)
         );
     }
 
@@ -167,5 +171,30 @@ public class FixedAssetController {
         return fixedAsset.getValuationAmount() == null
                 ? fixedAsset.getPurchaseAmount()
                 : fixedAsset.getValuationAmount();
+    }
+
+    private static BigDecimal valueChange(FixedAsset fixedAsset) {
+        return effectiveValue(fixedAsset).subtract(fixedAsset.getPurchaseAmount());
+    }
+
+    private static BigDecimal appreciationRate(FixedAsset fixedAsset) {
+        if (fixedAsset.getPurchaseAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return valueChange(fixedAsset).divide(fixedAsset.getPurchaseAmount(), 4, RoundingMode.HALF_UP);
+    }
+
+    private static String valuationStatus(FixedAsset fixedAsset) {
+        if (fixedAsset.getValuationAmount() == null) {
+            return "NO_VALUATION";
+        }
+        BigDecimal change = valueChange(fixedAsset);
+        if (change.compareTo(BigDecimal.ZERO) > 0) {
+            return "APPRECIATED";
+        }
+        if (change.compareTo(BigDecimal.ZERO) < 0) {
+            return "DEPRECIATED";
+        }
+        return "UNCHANGED";
     }
 }

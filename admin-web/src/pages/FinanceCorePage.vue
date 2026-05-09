@@ -51,6 +51,7 @@
           <span :class="Number(overview.netCashFlow || 0) >= 0 ? 'summary-normal' : 'summary-danger'">
             {{ cashFlowConclusion }}
           </span>
+          <button class="ghost-button small" type="button" @click="goBusiness('transaction')">去维护收支</button>
         </div>
         <div class="summary-item">
           <strong>消费结构</strong>
@@ -63,16 +64,19 @@
           <span :class="(keyIndicators.exceededBudgetCount || 0) > 0 ? 'summary-danger' : 'summary-normal'">
             {{ budgetConclusion }}
           </span>
+          <button class="ghost-button small" type="button" @click="goBusiness('budget')">去处理预算</button>
         </div>
         <div class="summary-item">
           <strong>资产负债</strong>
           <span>资产 {{ formatAmount(assetSnapshot.totalAssetValue) }}</span>
           <span>负债 {{ formatAmount(assetSnapshot.totalDebtBalance) }} / 负债率 {{ formatPercent(keyIndicators.debtToAssetRatio) }}</span>
+          <button class="ghost-button small" type="button" @click="goAssets('debt')">去处理债务</button>
         </div>
         <div class="summary-item">
           <strong>流动资金覆盖</strong>
           <span>{{ formatNumber(keyIndicators.liquidityCoverageMonths) }} 个月</span>
           <span>{{ liquidityConclusion }}</span>
+          <button class="ghost-button small" type="button" @click="goFinanceAction('profile')">调整理财画像</button>
         </div>
         <div class="summary-item">
           <strong>恩格尔系数</strong>
@@ -113,6 +117,7 @@
         <div v-for="item in monthlyReport.actionItems || []" :key="item" class="summary-item">
           <strong>下一步动作</strong>
           <span>{{ item }}</span>
+          <button class="ghost-button small" type="button" @click="goActionFromText(item)">按建议处理</button>
         </div>
       </div>
     </AdminTableCard>
@@ -141,6 +146,7 @@
         <div v-for="item in healthScore.improvementSuggestions || []" :key="item" class="summary-item">
           <strong>改进建议</strong>
           <span>{{ item }}</span>
+          <button class="ghost-button small" type="button" @click="goActionFromText(item)">去处理</button>
         </div>
       </div>
     </AdminTableCard>
@@ -163,6 +169,41 @@
         </div>
       </AdminTableCard>
 
+      <AdminTableCard kicker="趋势洞察" title="收入、支出与结余变化判断">
+        <div class="summary-grid dashboard-sublist">
+          <div class="summary-item">
+            <strong>收入趋势</strong>
+            <span>{{ trendLabel(trendInsight.incomeTrend) }}</span>
+            <span>平均 {{ formatAmount(trendInsight.averageIncome) }}</span>
+          </div>
+          <div class="summary-item">
+            <strong>支出趋势</strong>
+            <span>{{ trendLabel(trendInsight.expenseTrend) }}</span>
+            <span>平均 {{ formatAmount(trendInsight.averageExpense) }}</span>
+          </div>
+          <div class="summary-item">
+            <strong>结余趋势</strong>
+            <span>{{ trendLabel(trendInsight.savingsTrend) }}</span>
+            <span>最近 {{ formatAmount(trendInsight.latestNetAmount) }}</span>
+          </div>
+          <div class="summary-item">
+            <strong>平均结余</strong>
+            <span>{{ formatAmount(trendInsight.averageNetAmount) }}</span>
+            <span :class="Number(trendInsight.averageNetAmount || 0) >= 0 ? 'summary-normal' : 'summary-danger'">
+              {{ Number(trendInsight.averageNetAmount || 0) >= 0 ? "长期现金流为正" : "长期现金流承压" }}
+            </span>
+          </div>
+          <div class="summary-item summary-item-wide">
+            <strong>趋势结论</strong>
+            <span>{{ trendInsight.conclusion || "暂无足够趋势数据" }}</span>
+          </div>
+          <div v-for="item in trendInsight.suggestions || []" :key="item" class="summary-item">
+            <strong>处理建议</strong>
+            <span>{{ item }}</span>
+          </div>
+        </div>
+      </AdminTableCard>
+
       <AdminTableCard kicker="消费结构" title="支出分类占比">
         <div class="risk-list">
           <div v-for="item in expenseStructure" :key="item.categoryId || item.categoryName" class="risk-item">
@@ -175,6 +216,7 @@
             </div>
             <div class="risk-item-body">
               <span>占总支出 {{ formatPercent(item.ratio) }}</span>
+              <button class="ghost-button small" type="button" @click="goBusiness('transaction')">查看交易</button>
             </div>
           </div>
           <div v-if="expenseStructure.length === 0" class="empty-text">暂无支出结构数据。</div>
@@ -299,6 +341,12 @@
                 <span>{{ metric.label }}</span>
               </div>
             </div>
+            <div v-if="allocationItems(item).length" class="advice-metric-grid">
+              <div v-for="allocation in allocationItems(item)" :key="allocation.label" class="advice-metric">
+                <strong>{{ allocation.percent }} / {{ allocation.amount }}</strong>
+                <span>{{ allocation.label }}：{{ allocation.desc }}</span>
+              </div>
+            </div>
             <div v-if="executionSteps(item).length" class="advice-execution">
               <strong>执行拆解</strong>
               <ol>
@@ -310,6 +358,7 @@
               <span>{{ snapshotSummary(item) }}</span>
             </div>
             <div class="button-row button-row-tight">
+              <button class="primary-button small" type="button" @click="goAdviceAction(item)">按建议处理</button>
               <button class="ghost-button small" type="button" @click="toggleAdviceRead(item)">
                 {{ item.status === "READ" ? "标记未读" : "标记已读" }}
               </button>
@@ -342,11 +391,11 @@
             <tr v-for="item in exportLogs" :key="item.id">
               <td>{{ exportTypeLabel(item.exportType) }}</td>
               <td>{{ item.fileName || item.filePath || "-" }}</td>
-              <td><span class="status-badge" :class="item.status === 'SUCCESS' ? 'is-success' : 'is-warn'">{{ item.status }}</span></td>
+              <td><span class="status-badge" :class="isExportCompleted(item.status) ? 'is-success' : 'is-warn'">{{ exportStatusLabel(item.status) }}</span></td>
               <td>{{ formatDateTime(item.completedAt || item.createdAt) }}</td>
               <td>
                 <div class="row-actions row-actions-left">
-                  <button class="ghost-button small" type="button" @click="downloadExport(item)" :disabled="item.status !== 'SUCCESS'">下载</button>
+                  <button class="ghost-button small" type="button" @click="downloadExport(item)" :disabled="!isExportCompleted(item.status)">下载</button>
                 </div>
               </td>
             </tr>
@@ -362,6 +411,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import StatCard from "@/components/StatCard.vue";
 import AdminTableCard from "@/components/AdminTableCard.vue";
 import FilterBar from "@/components/FilterBar.vue";
@@ -372,6 +422,7 @@ import { familyFinancialProfileApi } from "@/api/familyFinancialProfile";
 import { dataExportsApi } from "@/api/dataExports";
 import { usePageRefresh } from "@/composables/pageRefresh";
 
+const router = useRouter();
 const familyId = computed(() => authStore.currentFamilyId);
 const selectedMonth = ref(currentMonth());
 const trendMonths = ref(6);
@@ -393,6 +444,7 @@ const assetSnapshot = computed(() => analysis.value?.assetSnapshot || {});
 const keyIndicators = computed(() => analysis.value?.keyIndicators || {});
 const healthScore = computed(() => analysis.value?.healthScore || {});
 const monthlyReport = computed(() => analysis.value?.monthlyReport || {});
+const trendInsight = computed(() => analysis.value?.trendInsight || {});
 const monthlyTrend = computed(() => analysis.value?.monthlyTrend || []);
 const expenseStructure = computed(() => analysis.value?.expenseStructure || []);
 const budgetProgress = computed(() => analysis.value?.budgetProgress || []);
@@ -552,6 +604,62 @@ async function downloadExport(item) {
   window.URL.revokeObjectURL(url);
 }
 
+function goBusiness(section) {
+  router.push({ name: "business", query: { focus: section } });
+}
+
+function goAssets(section = "debt") {
+  router.push({ name: "assets", query: { focus: section } });
+}
+
+function goOperations(section = "export") {
+  router.push({ name: "operations", query: { focus: section } });
+}
+
+function goFinanceAction(section = "profile") {
+  feedback.value = section === "profile"
+    ? "请在下方“理财画像”中调整风险偏好、目标储蓄率和应急金覆盖月数，然后重新生成理财建议。"
+    : "请根据当前分析结论继续处理。";
+}
+
+function goAdviceAction(item) {
+  const type = String(item.adviceType || "").toUpperCase();
+  if (["DEBT", "EMERGENCY_FUND"].includes(type)) {
+    goAssets("debt");
+    return;
+  }
+  if (["CONSUMPTION", "SAVINGS", "HEALTH_FACTOR", "HEALTH_SCORE"].includes(type)) {
+    goBusiness(type === "CONSUMPTION" ? "transaction" : "budget");
+    return;
+  }
+  if (["INVESTMENT", "ALLOCATION", "GOAL", "EXECUTION_PATH"].includes(type)) {
+    goFinanceAction("profile");
+    return;
+  }
+  goOperations("export");
+}
+
+function goActionFromText(text) {
+  const value = String(text || "");
+  if (value.includes("债") || value.includes("负债") || value.includes("还款")) {
+    goAssets("debt");
+    return;
+  }
+  if (value.includes("预算") || value.includes("超支") || value.includes("支出")) {
+    goBusiness(value.includes("支出") ? "transaction" : "budget");
+    return;
+  }
+  if (value.includes("资产") || value.includes("估值")) {
+    goAssets("asset");
+    return;
+  }
+  if (value.includes("导出") || value.includes("备份")) {
+    goOperations("export");
+    return;
+  }
+  goFinanceAction("profile");
+}
+
 function budgetStatusClass(item) {
   if (item.exceeded) {
     return "is-warn";
@@ -638,10 +746,49 @@ function snapshotMetrics(item) {
   if (snapshot.totalDebtBalance !== undefined && snapshot.totalDebtBalance !== null) {
     metrics.push({ label: "债务余额", value: formatAmount(snapshot.totalDebtBalance) });
   }
+  if (snapshot.investableSurplus !== undefined && snapshot.investableSurplus !== null) {
+    metrics.push({ label: "可安排结余", value: formatAmount(snapshot.investableSurplus) });
+  }
+  if (snapshot.emergencyFundGap !== undefined && snapshot.emergencyFundGap !== null) {
+    metrics.push({ label: "应急金缺口", value: formatAmount(snapshot.emergencyFundGap) });
+  }
   if (snapshot.debtToAssetRatio !== undefined && snapshot.debtToAssetRatio !== null) {
     metrics.push({ label: "资产负债率", value: formatPercent(snapshot.debtToAssetRatio) });
   }
-  return metrics.slice(0, 4);
+  return metrics.slice(0, 6);
+}
+
+function allocationItems(item) {
+  const snapshot = parseInvestmentPreference(item.snapshotJson);
+  if (snapshot.allocationEmergencyFundPercent === undefined || snapshot.allocationEmergencyFundPercent === null) {
+    return [];
+  }
+  return [
+    {
+      label: "应急资金",
+      percent: `${Number(snapshot.allocationEmergencyFundPercent || 0).toFixed(0)}%`,
+      amount: formatAmount(snapshot.allocationEmergencyFundAmount),
+      desc: "先保证家庭安全垫"
+    },
+    {
+      label: "债务处理",
+      percent: `${Number(snapshot.allocationDebtRepaymentPercent || 0).toFixed(0)}%`,
+      amount: formatAmount(snapshot.allocationDebtRepaymentAmount),
+      desc: "优先处理高息或短期债务"
+    },
+    {
+      label: "稳健储蓄",
+      percent: `${Number(snapshot.allocationStableSavingPercent || 0).toFixed(0)}%`,
+      amount: formatAmount(snapshot.allocationStableSavingAmount),
+      desc: "用于低风险储蓄和现金管理"
+    },
+    {
+      label: "长期投资",
+      percent: `${Number(snapshot.allocationLongTermInvestmentPercent || 0).toFixed(0)}%`,
+      amount: formatAmount(snapshot.allocationLongTermInvestmentAmount),
+      desc: "按风险承受能力逐步配置"
+    }
+  ];
 }
 
 function executionSteps(item) {
@@ -684,6 +831,31 @@ function exportTypeLabel(type) {
     BUDGET_USAGE: "预算执行"
   };
   return labels[type] || type || "-";
+}
+
+function exportStatusLabel(status) {
+  const normalized = String(status || "").toUpperCase();
+  const labels = {
+    SUCCESS: "已完成",
+    COMPLETED: "已完成",
+    PROCESSING: "处理中",
+    FAILED: "失败"
+  };
+  return labels[normalized] || status || "-";
+}
+
+function isExportCompleted(status) {
+  return ["SUCCESS", "COMPLETED"].includes(String(status || "").toUpperCase());
+}
+
+function trendLabel(value) {
+  const labels = {
+    UP: "上升",
+    DOWN: "下降",
+    STABLE: "稳定",
+    NO_DATA: "暂无"
+  };
+  return labels[value] || value || "-";
 }
 
 function barWidth(value, maxValue) {

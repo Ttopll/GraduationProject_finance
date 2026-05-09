@@ -17,7 +17,8 @@ public final class FinancialAnalysisApiModels {
             MonthlyReport monthlyReport,
             List<MonthlyTrendItem> monthlyTrend,
             List<ExpenseStructureItem> expenseStructure,
-            List<BudgetProgressItem> budgetProgress
+            List<BudgetProgressItem> budgetProgress,
+            TrendInsight trendInsight
     ) {
     }
 
@@ -89,6 +90,19 @@ public final class FinancialAnalysisApiModels {
             BigDecimal income,
             BigDecimal expense,
             BigDecimal netAmount
+    ) {
+    }
+
+    public record TrendInsight(
+            String incomeTrend,
+            String expenseTrend,
+            String savingsTrend,
+            BigDecimal averageIncome,
+            BigDecimal averageExpense,
+            BigDecimal averageNetAmount,
+            BigDecimal latestNetAmount,
+            String conclusion,
+            List<String> suggestions
     ) {
     }
 

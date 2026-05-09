@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @RestController
@@ -172,6 +175,14 @@ public class DebtController {
         LocalDate nextReminderDate = "ACTIVE".equals(debt.getStatus())
                 ? debtService.resolveNextReminderDate(debt, LocalDate.now())
                 : null;
+        BigDecimal repaidPrincipal = debt.getPrincipalAmount().subtract(debt.getCurrentBalance());
+        BigDecimal repaymentProgress = debt.getPrincipalAmount().compareTo(BigDecimal.ZERO) > 0
+                ? repaidPrincipal.divide(debt.getPrincipalAmount(), 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal remainingRatio = debt.getPrincipalAmount().compareTo(BigDecimal.ZERO) > 0
+                ? debt.getCurrentBalance().divide(debt.getPrincipalAmount(), 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        Long daysToDue = nextReminderDate == null ? null : ChronoUnit.DAYS.between(LocalDate.now(), nextReminderDate);
         return new DebtApiModels.Response(
                 debt.getId(),
                 debt.getFamilyId(),
@@ -187,8 +198,32 @@ public class DebtController {
                 debt.getDueDate(),
                 debt.getStatus(),
                 debt.getRemark(),
-                nextReminderDate
+                nextReminderDate,
+                repaidPrincipal,
+                repaymentProgress,
+                remainingRatio,
+                resolveDueStatus(debt.getStatus(), daysToDue),
+                daysToDue
         );
+    }
+
+    private static String resolveDueStatus(String status, Long daysToDue) {
+        if (!"ACTIVE".equals(status)) {
+            return "CLEARED";
+        }
+        if (daysToDue == null) {
+            return "NO_DUE_DATE";
+        }
+        if (daysToDue < 0) {
+            return "OVERDUE";
+        }
+        if (daysToDue <= 7) {
+            return "DUE_SOON";
+        }
+        if (daysToDue <= 30) {
+            return "DUE_THIS_MONTH";
+        }
+        return "NORMAL";
     }
 
     private static DebtApiModels.RepaymentResponse toRepaymentResponse(DebtRepayment debtRepayment) {

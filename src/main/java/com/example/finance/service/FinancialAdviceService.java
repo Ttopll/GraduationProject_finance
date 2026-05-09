@@ -504,6 +504,14 @@ public class FinancialAdviceService {
             ExpenseCategorySummary topExpenseCategory,
             FinancialAnalysisApiModels.DashboardResponse dashboard
     ) {
+        BigDecimal investableSurplus = savingsAmount.max(BigDecimal.ZERO);
+        int emergencyFundMonths = profile.getEmergencyFundMonths() == null
+                ? DEFAULT_EMERGENCY_FUND_MONTHS
+                : profile.getEmergencyFundMonths();
+        BigDecimal emergencyFundTarget = totalExpense.multiply(BigDecimal.valueOf(emergencyFundMonths));
+        BigDecimal emergencyFundGap = emergencyFundTarget.subtract(totalAccountBalance).max(BigDecimal.ZERO);
+        AllocationPlan allocationPlan = buildAllocationPlan(profile, totalIncome, totalExpense, totalAccountBalance, totalDebtBalance);
+        AllocationAmount allocationAmount = buildAllocationAmount(investableSurplus, allocationPlan);
         StringBuilder builder = new StringBuilder();
         builder.append("{")
                 .append("\"month\":\"").append(month).append("\",")
@@ -511,6 +519,7 @@ public class FinancialAdviceService {
                 .append("\"totalExpense\":").append(totalExpense.toPlainString()).append(",")
                 .append("\"savingsAmount\":").append(savingsAmount.toPlainString()).append(",")
                 .append("\"savingsRate\":").append(savingsRate == null ? "null" : savingsRate.toPlainString()).append(",")
+                .append("\"investableSurplus\":").append(investableSurplus.toPlainString()).append(",")
                 .append("\"totalAccountBalance\":").append(totalAccountBalance.toPlainString()).append(",")
                 .append("\"totalDebtBalance\":").append(totalDebtBalance.toPlainString()).append(",")
                 .append("\"riskPreference\":").append(jsonString(profile.getRiskPreference())).append(",")
@@ -520,6 +529,16 @@ public class FinancialAdviceService {
                 .append("\"emergencyFundMonths\":").append(
                         profile.getEmergencyFundMonths() == null ? "null" : profile.getEmergencyFundMonths()
                 ).append(",")
+                .append("\"emergencyFundTarget\":").append(emergencyFundTarget.toPlainString()).append(",")
+                .append("\"emergencyFundGap\":").append(emergencyFundGap.toPlainString()).append(",")
+                .append("\"allocationEmergencyFundPercent\":").append(allocationPlan.emergencyFundPercent).append(",")
+                .append("\"allocationDebtRepaymentPercent\":").append(allocationPlan.debtRepaymentPercent).append(",")
+                .append("\"allocationStableSavingPercent\":").append(allocationPlan.stableSavingPercent).append(",")
+                .append("\"allocationLongTermInvestmentPercent\":").append(allocationPlan.longTermInvestmentPercent).append(",")
+                .append("\"allocationEmergencyFundAmount\":").append(allocationAmount.emergencyFundAmount.toPlainString()).append(",")
+                .append("\"allocationDebtRepaymentAmount\":").append(allocationAmount.debtRepaymentAmount.toPlainString()).append(",")
+                .append("\"allocationStableSavingAmount\":").append(allocationAmount.stableSavingAmount.toPlainString()).append(",")
+                .append("\"allocationLongTermInvestmentAmount\":").append(allocationAmount.longTermInvestmentAmount.toPlainString()).append(",")
                 .append("\"topExpenseCategory\":").append(
                         topExpenseCategory == null ? "null" : jsonString(topExpenseCategory.categoryName)
                 ).append(",")

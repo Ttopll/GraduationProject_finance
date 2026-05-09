@@ -71,6 +71,36 @@ function normalizeOverview(data) {
   };
 }
 
+function valuationStatusText(value) {
+  return {
+    APPRECIATED: "增值",
+    DEPRECIATED: "贬值",
+    UNCHANGED: "持平",
+    NO_VALUATION: "未估值"
+  }[value] || "未估值";
+}
+
+function dueStatusText(value) {
+  return {
+    OVERDUE: "已逾期",
+    DUE_SOON: "7天内到期",
+    DUE_THIS_MONTH: "30天内到期",
+    NORMAL: "正常",
+    NO_DUE_DATE: "未设置到期日",
+    CLEARED: "已结清"
+  }[value] || "正常";
+}
+
+function statusClassByDue(value) {
+  if (value === "OVERDUE" || value === "DUE_SOON") {
+    return "status-danger";
+  }
+  if (value === "DUE_THIS_MONTH" || value === "NO_DUE_DATE") {
+    return "status-warn";
+  }
+  return "status-normal";
+}
+
 Page({
   data: {
     overview: normalizeOverview({}),
@@ -107,14 +137,20 @@ Page({
           ...item,
           assetTypeText: assetTypeText(item.assetType),
           purchaseAmountText: money(item.purchaseAmount),
-          effectiveValueText: money(item.effectiveValue)
+          effectiveValueText: money(item.effectiveValue),
+          valueChangeText: money(item.valueChange),
+          appreciationRateText: percent(item.appreciationRate),
+          valuationStatusText: valuationStatusText(item.valuationStatus)
         })),
         debts: (overview.debts || []).map((item) => ({
           ...item,
           debtTypeText: debtTypeText(item.debtType),
           currentBalanceText: money(item.currentBalance),
+          repaymentProgressText: percent(item.repaymentProgress),
+          remainingRatioText: percent(item.remainingRatio),
+          dueStatusText: dueStatusText(item.dueStatus),
           statusText: item.status === "ACTIVE" ? "待还" : "已结清",
-          statusClass: item.status === "ACTIVE" ? "status-warn" : "status-normal"
+          statusClass: statusClassByDue(item.dueStatus)
         })),
         actionItems: this.buildActionItems(overview),
         feedback: ""
