@@ -1,0 +1,67 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">理财画像</view>
+          <view class="panel-title">家庭理财偏好</view>
+          <view class="panel-desc">这些设置会影响系统生成储蓄、应急资金、债务和资产配置建议。</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadProfile">刷新</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">风险偏好</view>
+          <picker mode="selector" range="{{riskLabels}}" value="{{riskIndex}}" bindchange="onRiskChange">
+            <view class="field-picker">{{riskLabels[riskIndex]}}</view>
+          </picker>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">目标储蓄率（%）</view>
+            <input class="field-input" type="number" value="{{form.savingsTargetRatePercent}}" data-field="savingsTargetRatePercent" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">应急资金月数</view>
+            <input class="field-input" type="number" value="{{form.emergencyFundMonths}}" data-field="emergencyFundMonths" bindinput="onFieldInput" />
+          </view>
+        </view>
+
+        <view class="field-block">
+          <view class="field-label">主要理财目标</view>
+          <picker mode="selector" range="{{goalLabels}}" value="{{goalIndex}}" bindchange="onGoalChange">
+            <view class="field-picker">{{goalLabels[goalIndex]}}</view>
+          </picker>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">目标金额</view>
+            <input class="field-input" type="digit" value="{{form.goalAmount}}" data-field="goalAmount" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">目标年份</view>
+            <input class="field-input" type="number" value="{{form.targetYear}}" data-field="targetYear" bindinput="onFieldInput" />
+          </view>
+        </view>
+      </view>
+
+      <view class="summary-list" style="margin-top: 20rpx;">
+        <view class="summary-item">
+          <view class="record-title">当前设置</view>
+          <view class="record-meta">{{riskLabels[riskIndex]}} / 储蓄率 {{form.savingsTargetRatePercent}}% / 应急资金 {{form.emergencyFundMonths}} 个月</view>
+          <view class="record-meta">{{goalLabels[goalIndex]}} / 目标金额 {{form.goalAmount || 0}} / {{form.targetYear || '-'}}</view>
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="saveProfile">保存画像</button>
+      </view>
+    </view>
+  </view>
+</view>

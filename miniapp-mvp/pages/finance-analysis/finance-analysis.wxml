@@ -1,0 +1,166 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">财务分析</view>
+          <view class="panel-title">家庭财务报表</view>
+          <view class="panel-desc">汇总本月收支、预算、消费结构、资产负债和健康评分。</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+      </view>
+      <view class="field-grid-2">
+        <view class="field-block">
+          <view class="field-label">统计月份</view>
+          <picker mode="date" fields="month" value="{{selectedMonth}}" bindchange="onMonthChange">
+            <view class="field-picker">{{selectedMonth}}</view>
+          </picker>
+        </view>
+        <view class="field-block">
+          <view class="field-label">趋势范围</view>
+          <picker mode="selector" range="{{trendLabels}}" value="{{trendIndex}}" bindchange="onTrendChange">
+            <view class="field-picker">{{trendLabels[trendIndex]}}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 16rpx;">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">本月收入</view>
+        <view class="stat-value">{{overview.totalIncomeText}}</view>
+        <view class="stat-meta">{{overview.incomeTransactionCount}} 笔收入</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">本月支出</view>
+        <view class="stat-value">{{overview.totalExpenseText}}</view>
+        <view class="stat-meta">{{overview.expenseTransactionCount}} 笔支出</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">结余</view>
+        <view class="stat-value">{{overview.netCashFlowText}}</view>
+        <view class="stat-meta">结余率 {{overview.savingsRateText}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">健康评分</view>
+        <view class="stat-value">{{healthScore.score}}</view>
+        <view class="stat-meta">{{healthScore.levelLabel}}</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">月报</view>
+          <view class="panel-title">{{monthlyReport.title || '月度综合分析'}}</view>
+        </view>
+      </view>
+      <view class="summary-list">
+        <view class="summary-item">
+          <view class="record-title">综合结论</view>
+          <view class="record-meta">{{monthlyReport.overallConclusion || '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">收支结论</view>
+          <view class="record-meta">{{monthlyReport.cashFlowConclusion || '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">预算结论</view>
+          <view class="record-meta">{{monthlyReport.budgetConclusion || '-'}}</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">消费与资产</view>
+          <view class="record-meta">{{monthlyReport.expenseConclusion || '-'}}</view>
+          <view class="record-meta">{{monthlyReport.assetDebtConclusion || '-'}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">健康评分</view>
+          <view class="panel-title">评分拆解</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{healthFactors.length}}">
+        <view class="record-item" wx:for="{{healthFactors}}" wx:key="factorCode">
+          <view class="record-top">
+            <view class="record-title">{{item.factorName}}</view>
+            <view class="tag">{{item.factorScore}} / {{item.maxScore}}</view>
+          </view>
+          <view class="progress-track" style="margin-top: 14rpx;">
+            <view class="progress-fill {{item.progressClass}}" style="width: {{item.progressWidth}};"></view>
+          </view>
+          <view class="record-meta">{{item.conclusion}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无评分明细。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">趋势</view>
+          <view class="panel-title">月度收支趋势</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{monthlyTrend.length}}">
+        <view class="record-item" wx:for="{{monthlyTrend}}" wx:key="month">
+          <view class="record-top">
+            <view class="record-title">{{item.month}}</view>
+            <view class="tag">结余 {{item.netAmountText}}</view>
+          </view>
+          <view class="record-meta">收入 {{item.incomeText}} / 支出 {{item.expenseText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无趋势数据。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">消费结构</view>
+          <view class="panel-title">支出分类占比</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{expenseStructure.length}}">
+        <view class="record-item" wx:for="{{expenseStructure}}" wx:key="categoryName">
+          <view class="record-top">
+            <view class="record-title">{{item.categoryName}}</view>
+            <view class="record-amount amount-expense">{{item.amountText}}</view>
+          </view>
+          <view class="progress-track" style="margin-top: 14rpx;">
+            <view class="progress-fill progress-normal" style="width: {{item.progressWidth}};"></view>
+          </view>
+          <view class="record-meta">占总支出 {{item.ratioText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无消费结构数据。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">预算执行</view>
+          <view class="panel-title">预算进度</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{budgetProgress.length}}">
+        <view class="record-item" wx:for="{{budgetProgress}}" wx:key="budgetId">
+          <view class="record-top">
+            <view class="record-title">{{item.budgetName}}</view>
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+          </view>
+          <view class="record-meta">{{item.categoryName || '-'}} / 已用 {{item.spentAmountText}} / 预算 {{item.budgetAmountText}}</view>
+          <view class="progress-track" style="margin-top: 14rpx;">
+            <view class="progress-fill {{item.progressClass}}" style="width: {{item.progressWidth}};"></view>
+          </view>
+          <view class="record-meta">使用率 {{item.usageRatioText}} / 剩余 {{item.remainingAmountText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无预算执行数据。</view>
+    </view>
+  </view>
+</view>

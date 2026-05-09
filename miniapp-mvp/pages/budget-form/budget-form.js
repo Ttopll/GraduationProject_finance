@@ -143,6 +143,10 @@ Page({
     this.setData({ "form.endDate": e.detail.value });
   },
 
+  goCategories() {
+    wx.navigateTo({ url: "/pages/categories/categories" });
+  },
+
   async submitForm() {
     const familyId = session.getCurrentFamilyId();
     const memberId = session.getCurrentMemberId();

@@ -65,15 +65,15 @@ Page({
     if (!session.requireLogin("/pages/transactions/transactions")) {
       return;
     }
-    this.load收支流水();
+    this.loadTransactions();
   },
 
   onTypeChange(e) {
     this.setData({ typeIndex: Number(e.detail.value) });
-    this.load收支流水();
+    this.loadTransactions();
   },
 
-  async load收支流水() {
+  async loadTransactions() {
     const familyId = session.getCurrentFamilyId();
     if (!familyId) {
       this.setData({
@@ -110,7 +110,7 @@ Page({
       }, { total: 0, expenseCount: 0, incomeCount: 0, transferCount: 0, riskyCount: 0 });
       this.setData({ items, stats, feedback: "" });
     } catch (error) {
-      this.setData({ feedback: `流水s load 失败: ${error.message}` });
+      this.setData({ feedback: `流水加载失败：${error.message}` });
     }
   },
 
@@ -127,6 +127,6 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.load收支流水().finally(() => wx.stopPullDownRefresh());
+    this.loadTransactions().finally(() => wx.stopPullDownRefresh());
   }
 });

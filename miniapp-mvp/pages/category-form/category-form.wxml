@@ -1,0 +1,52 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">分类</view>
+          <view class="panel-title">{{isEditMode ? '编辑分类' : '新增分类'}}</view>
+          <view class="panel-desc">分类用于流水、预算和消费结构分析，建议保持名称通俗清晰。</view>
+        </view>
+      </view>
+
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">分类名称</view>
+          <input class="field-input" value="{{form.categoryName}}" data-field="categoryName" bindinput="onFieldInput" />
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">分类类型</view>
+            <picker mode="selector" range="{{typeLabels}}" value="{{typeIndex}}" bindchange="onTypeChange">
+              <view class="field-picker">{{typeLabels[typeIndex]}}</view>
+            </picker>
+          </view>
+          <view class="field-block">
+            <view class="field-label">适用范围</view>
+            <picker mode="selector" range="{{scopeLabels}}" value="{{scopeIndex}}" bindchange="onScopeChange">
+              <view class="field-picker">{{scopeLabels[scopeIndex]}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="field-grid-2">
+          <view class="field-block">
+            <view class="field-label">图标编码</view>
+            <input class="field-input" value="{{form.iconCode}}" data-field="iconCode" bindinput="onFieldInput" />
+          </view>
+          <view class="field-block">
+            <view class="field-label">排序</view>
+            <input class="field-input" type="number" value="{{form.sortOrder}}" data-field="sortOrder" bindinput="onFieldInput" />
+          </view>
+        </view>
+      </view>
+
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存分类'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteCategory">删除分类</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>
+    </view>
+  </view>
+</view>

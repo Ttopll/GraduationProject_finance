@@ -16,6 +16,9 @@
             <view class="field-picker">{{categories[categoryIndex].categoryName}}</view>
           </picker>
           <view wx:else class="field-picker is-placeholder">暂无支出分类</view>
+          <view wx:if="{{!categories.length}}" class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" bindtap="goCategories">去创建分类</button>
+          </view>
         </view>
 
         <view class="field-block">

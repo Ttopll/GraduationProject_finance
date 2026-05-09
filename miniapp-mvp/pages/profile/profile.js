@@ -41,6 +41,18 @@ Page({
     wx.navigateTo({ url: "/pages/family/family" });
   },
 
+  goFinancialProfile() {
+    wx.navigateTo({ url: "/pages/financial-profile/financial-profile" });
+  },
+
+  goCategories() {
+    wx.navigateTo({ url: "/pages/categories/categories" });
+  },
+
+  goDataBackup() {
+    wx.navigateTo({ url: "/pages/data-backup/data-backup" });
+  },
+
   logout() {
     session.clearSession();
     wx.reLaunch({ url: "/pages/login/login" });

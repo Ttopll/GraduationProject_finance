@@ -13,7 +13,7 @@
         <view class="field-block">
           <view class="field-label">账户</view>
           <picker mode="selector" range="{{accounts}}" range-key="accountName" bindchange="onPickerChange" data-field="accountId">
-            <view class="field-picker {{form.accountId ? '' : 'is-placeholder'}}">{{form.accountId ? selectedAccountName : '请选择账户'}}</view>
+            <view class="field-picker {{form.accountId ? '' : 'is-placeholder'}}">{{form.transactionType === 'TRANSFER' ? '转出：' : ''}}{{form.accountId ? selectedAccountName : '请选择账户'}}</view>
           </picker>
         </view>
 
@@ -23,6 +23,9 @@
             <view class="field-picker {{form.categoryId ? '' : 'is-placeholder'}}">{{form.categoryId ? selectedCategoryName : '可不填'}}</view>
           </picker>
           <view wx:else class="field-picker is-placeholder">可不填</view>
+          <view wx:if="{{!categories.length}}" class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" bindtap="goCategories">去创建分类</button>
+          </view>
           <view wx:if="{{categoryHint}}" class="feedback-box" style="margin-top: 12rpx;">{{categoryHint}}</view>
           <view wx:if="{{budgetHint}}" class="feedback-box" style="margin-top: 12rpx;">{{budgetHint}}</view>
         </view>
@@ -31,6 +34,13 @@
           <view class="field-label">收支类型</view>
           <picker mode="selector" range="{{['支出','收入','转账']}}" bindchange="onTypeChange">
             <view class="field-picker">{{form.transactionType === 'EXPENSE' ? '支出' : form.transactionType === 'INCOME' ? '收入' : '转账'}}</view>
+          </picker>
+        </view>
+
+        <view class="field-block" wx:if="{{form.transactionType === 'TRANSFER'}}">
+          <view class="field-label">转入账户</view>
+          <picker mode="selector" range="{{accounts}}" range-key="accountName" bindchange="onPickerChange" data-field="targetAccountId">
+            <view class="field-picker {{form.targetAccountId ? '' : 'is-placeholder'}}">{{form.targetAccountId ? selectedTargetAccountName : '请选择转入账户'}}</view>
           </picker>
         </view>
 

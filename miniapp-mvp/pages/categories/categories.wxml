@@ -1,0 +1,66 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">分类</view>
+          <view class="panel-title">收支分类</view>
+          <view class="panel-desc">分类会用于流水记录、预算统计和消费结构分析。</view>
+        </view>
+        <view class="button-row">
+          <button class="ghost-btn" bindtap="loadCategories">刷新</button>
+          <button class="primary-btn" bindtap="goCreate">新增分类</button>
+        </view>
+      </view>
+      <view class="button-row">
+        <button class="{{typeFilter === '' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-type="" bindtap="changeType">全部</button>
+        <button class="{{typeFilter === 'EXPENSE' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-type="EXPENSE" bindtap="changeType">支出</button>
+        <button class="{{typeFilter === 'INCOME' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-type="INCOME" bindtap="changeType">收入</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 16rpx;">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">分类总数</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">当前家庭分类</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">支出分类</view>
+        <view class="stat-value">{{stats.expense}}</view>
+        <view class="stat-meta">用于支出和预算</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">收入分类</view>
+        <view class="stat-value">{{stats.income}}</view>
+        <view class="stat-meta">用于收入记录</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">已停用</view>
+        <view class="stat-value">{{stats.disabled}}</view>
+        <view class="stat-meta">不建议继续使用</view>
+      </view>
+    </view>
+
+    <view class="record-list" wx:if="{{filteredItems.length}}">
+      <view class="record-item" wx:for="{{filteredItems}}" wx:key="id">
+        <view class="record-top">
+          <view>
+            <view class="record-title">{{item.categoryName}}</view>
+            <view class="record-meta">{{item.typeText}} / {{item.scopeText}} / 排序 {{item.sortOrder || 0}}</view>
+          </view>
+          <view class="tag {{item.enabled === 1 ? 'status-normal' : 'status-danger'}}">{{item.enabled === 1 ? '启用' : '停用'}}</view>
+        </view>
+        <view class="record-bottom" style="margin-top: 12rpx;">
+          <view class="record-meta">{{item.iconCode || '无图标'}}</view>
+          <view class="button-row">
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="goEdit">编辑</button>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" data-enabled="{{item.enabled}}" bindtap="toggleEnabled">{{item.enabled === 1 ? '停用' : '启用'}}</button>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-box" wx:else>暂无分类数据。</view>
+  </view>
+</view>

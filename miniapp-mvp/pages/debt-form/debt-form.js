@@ -132,5 +132,55 @@ Page({
     } finally {
       this.setData({ submitting: false });
     }
+  },
+
+  clearDebt() {
+    if (!this.data.isEditMode || !this.data.debtId) {
+      return;
+    }
+    wx.showModal({
+      title: "结清债务",
+      content: "确定将这笔债务标记为已结清吗？结清后余额会变为 0。",
+      confirmText: "结清",
+      confirmColor: "#2c5f93",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        this.setData({ feedback: "正在结清债务..." });
+        try {
+          await request(`/api/debts/${this.data.debtId}/clear`, "POST");
+          wx.showToast({ title: "已结清", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `债务结清失败：${error.message}` });
+        }
+      }
+    });
+  },
+
+  deleteDebt() {
+    if (!this.data.isEditMode || !this.data.debtId) {
+      return;
+    }
+    wx.showModal({
+      title: "删除债务",
+      content: "确定删除这笔债务吗？相关还款记录会一并处理，删除后资产负债看板不再统计它。",
+      confirmText: "删除",
+      confirmColor: "#d64545",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        this.setData({ feedback: "正在删除债务..." });
+        try {
+          await request(`/api/debts/${this.data.debtId}`, "DELETE");
+          wx.showToast({ title: "已删除", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `债务删除失败：${error.message}` });
+        }
+      }
+    });
   }
 });

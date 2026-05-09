@@ -126,5 +126,30 @@ Page({
     } finally {
       this.setData({ submitting: false });
     }
+  },
+
+  deleteAsset() {
+    if (!this.data.isEditMode || !this.data.assetId) {
+      return;
+    }
+    wx.showModal({
+      title: "删除资产",
+      content: "确定删除这个固定资产吗？删除后资产看板将不再统计它。",
+      confirmText: "删除",
+      confirmColor: "#d64545",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        this.setData({ feedback: "正在删除资产..." });
+        try {
+          await request(`/api/fixed-assets/${this.data.assetId}`, "DELETE");
+          wx.showToast({ title: "已删除", icon: "success" });
+          wx.navigateBack();
+        } catch (error) {
+          this.setData({ feedback: `资产删除失败：${error.message}` });
+        }
+      }
+    });
   }
 });

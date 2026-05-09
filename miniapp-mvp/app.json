@@ -15,7 +15,12 @@
     "pages/assets-overview/assets-overview",
     "pages/debt-repayment/debt-repayment",
     "pages/fixed-asset-form/fixed-asset-form",
-    "pages/debt-form/debt-form"
+    "pages/debt-form/debt-form",
+    "pages/financial-profile/financial-profile",
+    "pages/finance-analysis/finance-analysis",
+    "pages/categories/categories",
+    "pages/category-form/category-form",
+    "pages/data-backup/data-backup"
   ],
   "window": {
     "navigationBarTitleText": "家庭理财",

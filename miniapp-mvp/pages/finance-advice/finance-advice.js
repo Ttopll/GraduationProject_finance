@@ -96,7 +96,8 @@ Page({
       healthScore: "-",
       healthLevel: "暂无评分"
     },
-    feedback: ""
+    feedback: "",
+    generating: false
   },
 
   onShow() {
@@ -138,6 +139,57 @@ Page({
     } catch (error) {
       this.setData({ feedback: `理财建议加载失败：${error.message}` });
     }
+  },
+
+  async generateAdvice() {
+    const familyId = session.getCurrentFamilyId();
+    if (!familyId) {
+      this.setData({ feedback: "当前还没有选择家庭，请先创建或加入家庭。" });
+      return;
+    }
+    wx.showModal({
+      title: "生成本月建议",
+      content: "系统会根据本月收支、预算、资产负债和家庭画像生成理财建议。确定继续吗？",
+      confirmText: "生成",
+      confirmColor: "#2c5f93",
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        this.setData({ generating: true, feedback: "正在生成理财建议..." });
+        try {
+          const result = await request(`/api/financial-advices/generate?familyId=${familyId}&month=${this.currentMonth()}`, "POST");
+          wx.showToast({ title: `生成${result.generatedCount || 0}条`, icon: "success" });
+          await this.loadPage();
+        } catch (error) {
+          this.setData({ feedback: `生成建议失败：${error.message}。如果提示无权限，请使用家庭创建者账号操作。` });
+        } finally {
+          this.setData({ generating: false });
+        }
+      }
+    });
+  },
+
+  async toggleRead(e) {
+    const id = e.currentTarget.dataset.id;
+    const status = e.currentTarget.dataset.status;
+    if (!id) {
+      return;
+    }
+    try {
+      if (status === "READ") {
+        await request(`/api/financial-advices/${id}/unread`, "POST");
+      } else {
+        await request(`/api/financial-advices/${id}/read`, "POST");
+      }
+      await this.loadPage();
+    } catch (error) {
+      this.setData({ feedback: `建议状态更新失败：${error.message}` });
+    }
+  },
+
+  goFinancialProfile() {
+    wx.navigateTo({ url: "/pages/financial-profile/financial-profile" });
   },
 
   currentMonth() {

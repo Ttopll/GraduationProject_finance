@@ -183,12 +183,20 @@ Page({
     wx.navigateTo({ url: "/pages/budgets/budgets" });
   },
 
+  goFinanceAnalysis() {
+    wx.navigateTo({ url: "/pages/finance-analysis/finance-analysis" });
+  },
+
   goAssetsOverview() {
     wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
   },
 
   goFinanceAdvice() {
     wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+  },
+
+  goDataBackup() {
+    wx.navigateTo({ url: "/pages/data-backup/data-backup" });
   },
 
   goAddTransaction() {

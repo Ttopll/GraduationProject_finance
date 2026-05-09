@@ -7,7 +7,11 @@
           <view class="panel-title">家庭建议清单</view>
           <view class="panel-desc">根据收支、预算、负债、应急资金和风险偏好生成，帮助你知道下一步先做什么。</view>
         </view>
-        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+        <view class="button-row">
+          <button class="ghost-btn" bindtap="loadPage">刷新</button>
+          <button class="ghost-btn" bindtap="goFinancialProfile">设置画像</button>
+          <button class="primary-btn" loading="{{generating}}" bindtap="generateAdvice">生成本月建议</button>
+        </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
     </view>
@@ -50,6 +54,10 @@
               <view class="record-meta">{{item.typeText}} / {{item.generatedAtText}}</view>
             </view>
             <view class="tag {{item.levelClass}}">{{item.levelText}}</view>
+          </view>
+          <view class="record-bottom" style="margin-top: 12rpx;">
+            <view class="tag {{item.status === 'READ' ? 'status-normal' : 'status-warn'}}">{{item.status === 'READ' ? '已读' : '未读'}}</view>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" data-status="{{item.status}}" bindtap="toggleRead">{{item.status === 'READ' ? '标为未读' : '标为已读'}}</button>
           </view>
           <view class="record-meta">{{item.content}}</view>
           <view class="stats-grid advice-metrics" wx:if="{{item.metrics.length}}">

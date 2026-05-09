@@ -58,6 +58,7 @@
           <view class="panel-title">{{monthlyReport ? monthlyReport.title : '月度综合分析'}}</view>
           <view class="panel-desc">由后端综合收支、预算、消费结构、资产负债和理财建议生成。</view>
         </view>
+        <button class="ghost-btn" bindtap="goFinanceAnalysis">查看报表</button>
       </view>
       <view wx:if="{{monthlyReport}}" class="summary-list">
         <view class="summary-item">
@@ -138,8 +139,10 @@
         <button class="ghost-btn" bindtap="goAccounts">账户总览</button>
         <button class="ghost-btn" bindtap="goNotifications">消息提醒</button>
         <button class="ghost-btn" bindtap="goBudgetSummary">预算汇总</button>
+        <button class="ghost-btn" bindtap="goFinanceAnalysis">财务分析</button>
         <button class="ghost-btn" bindtap="goAssetsOverview">资产负债</button>
         <button class="ghost-btn" bindtap="goFinanceAdvice">理财建议</button>
+        <button class="ghost-btn" bindtap="goDataBackup">数据备份</button>
         <button class="ghost-btn" bindtap="goFamilyInfo">家庭信息</button>
         <button class="ghost-btn" bindtap="goProfile">个人信息</button>
       </view>

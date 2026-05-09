@@ -26,9 +26,11 @@ Page({
     isEditMode: false,
     originalCreatedByMemberId: null,
     selectedAccountName: "",
+    selectedTargetAccountName: "",
     selectedCategoryName: "",
     form: {
       accountId: null,
+      targetAccountId: null,
       categoryId: null,
       transactionType: "EXPENSE",
       amount: "",
@@ -95,30 +97,35 @@ Page({
         budgetUsage: budgetUsage || [],
         categoryHint: enabledCategories.length ? "" : "暂无可用分类，可以先不选分类保存。",
         selectedAccountName: firstAccount ? firstAccount.accountName : "",
+        selectedTargetAccountName: "",
         selectedCategoryName: "",
         "form.accountId": firstAccount ? firstAccount.id : null,
+        "form.targetAccountId": null,
         feedback: ""
       });
       if (this.data.isEditMode && this.data.recordId) {
-        await this.load流水Detail();
+        await this.loadRecordDetail();
       }
     } catch (error) {
       this.setData({ feedback: `表单加载失败: ${error.message}` });
     }
   },
 
-  async load流水Detail() {
+  async loadRecordDetail() {
     try {
       const detail = await request(`/api/transaction-records/${this.data.recordId}`);
       const account = this.data.accounts.find((item) => Number(item.id) === Number(detail.accountId));
+      const targetAccount = this.data.accounts.find((item) => Number(item.id) === Number(detail.targetAccountId));
       const category = this.data.categories.find((item) => Number(item.id) === Number(detail.categoryId));
       const transactionTime = detail.transactionTime ? new Date(detail.transactionTime) : new Date();
       const local = new Date(transactionTime.getTime() - transactionTime.getTimezoneOffset() * 60000);
       this.setData({
         originalCreatedByMemberId: detail.createdByMemberId || null,
         selectedAccountName: account ? account.accountName : "",
+        selectedTargetAccountName: targetAccount ? targetAccount.accountName : "",
         selectedCategoryName: category ? category.categoryName : "",
         "form.accountId": detail.accountId || null,
+        "form.targetAccountId": detail.targetAccountId || null,
         "form.categoryId": detail.categoryId || null,
         "form.transactionType": detail.transactionType || "EXPENSE",
         "form.amount": detail.amount || "",
@@ -131,7 +138,7 @@ Page({
       });
       this.updateBudgetHint(detail.categoryId);
     } catch (error) {
-      this.setData({ feedback: `流水 detail load 失败: ${error.message}` });
+      this.setData({ feedback: `流水详情加载失败：${error.message}` });
     }
   },
 
@@ -142,7 +149,7 @@ Page({
 
   onPickerChange(e) {
     const field = e.currentTarget.dataset.field;
-    const items = field === "accountId" ? this.data.accounts : this.data.categories;
+    const items = field === "accountId" || field === "targetAccountId" ? this.data.accounts : this.data.categories;
     const target = items[e.detail.value];
     if (!target) {
       return;
@@ -150,6 +157,8 @@ Page({
     const patch = { [`form.${field}`]: target.id };
     if (field === "accountId") {
       patch.selectedAccountName = target.accountName || `账户 ${target.id}`;
+    } else if (field === "targetAccountId") {
+      patch.selectedTargetAccountName = target.accountName || `账户 ${target.id}`;
     } else {
       patch.selectedCategoryName = target.categoryName || `分类 ${target.id}`;
     }
@@ -161,7 +170,13 @@ Page({
 
   onTypeChange(e) {
     const values = ["EXPENSE", "INCOME", "TRANSFER"];
-    this.setData({ "form.transactionType": values[e.detail.value] });
+    const transactionType = values[e.detail.value] || "EXPENSE";
+    const patch = { "form.transactionType": transactionType };
+    if (transactionType !== "TRANSFER") {
+      patch["form.targetAccountId"] = null;
+      patch.selectedTargetAccountName = "";
+    }
+    this.setData(patch);
   },
 
   onDateChange(e) {
@@ -172,6 +187,10 @@ Page({
     this.setData({ "form.time": e.detail.value });
   },
 
+  goCategories() {
+    wx.navigateTo({ url: "/pages/categories/categories" });
+  },
+
   async submitForm() {
     const familyId = session.getCurrentFamilyId();
     const memberId = session.getCurrentMemberId();
@@ -180,10 +199,21 @@ Page({
       this.setData({ feedback: "请选择账户并填写金额。" });
       return;
     }
+    if (form.transactionType === "TRANSFER") {
+      if (!form.targetAccountId) {
+        this.setData({ feedback: "转账流水需要选择转入账户。" });
+        return;
+      }
+      if (Number(form.accountId) === Number(form.targetAccountId)) {
+        this.setData({ feedback: "转出账户和转入账户不能相同。" });
+        return;
+      }
+    }
     this.setData({ submitting: true, feedback: "正在保存流水..." });
     try {
       const payload = {
         accountId: Number(form.accountId),
+        targetAccountId: form.transactionType === "TRANSFER" ? Number(form.targetAccountId) : null,
         categoryId: form.categoryId ? Number(form.categoryId) : null,
         createdByMemberId: this.data.isEditMode ? this.data.originalCreatedByMemberId : memberId,
         transactionType: form.transactionType,
@@ -206,7 +236,7 @@ Page({
       wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "success" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `${this.data.isEditMode ? "保存修改" : "记录"} 失败: ${error.message}` });
+      this.setData({ feedback: `${this.data.isEditMode ? "保存修改" : "记录"}失败：${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -217,7 +247,7 @@ Page({
       return;
     }
     wx.showModal({
-      title: "删除 流水",
+      title: "删除流水",
       content: "确定删除这笔流水吗？",
       confirmText: "删除",
       confirmColor: "#d64545",
@@ -230,7 +260,7 @@ Page({
           wx.showToast({ title: "已删除", icon: "success" });
           wx.navigateBack();
         } catch (error) {
-          this.setData({ feedback: `删除 失败: ${error.message}` });
+          this.setData({ feedback: `删除失败：${error.message}` });
         }
       }
     });

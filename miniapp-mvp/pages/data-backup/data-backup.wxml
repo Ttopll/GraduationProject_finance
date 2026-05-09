@@ -1,0 +1,106 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">数据备份</view>
+          <view class="panel-title">导出家庭财务数据</view>
+          <view class="panel-desc">可按月份生成流水和预算备份记录，便于后续核对、归档或在管理员端下载文件。</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">导出记录</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">当前家庭已生成记录</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">流水备份</view>
+        <view class="stat-value">{{stats.transactions}}</view>
+        <view class="stat-meta">收支流水导出次数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">预算备份</view>
+        <view class="stat-value">{{stats.budgets}}</view>
+        <view class="stat-meta">预算执行导出次数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">最近状态</view>
+        <view class="stat-value">{{stats.latestStatus}}</view>
+        <view class="stat-meta">{{stats.latestTime}}</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">生成备份</view>
+          <view class="panel-title">选择导出月份</view>
+          <view class="panel-desc">不选择具体文件，系统会直接根据家庭数据生成 CSV 备份记录。</view>
+        </view>
+      </view>
+      <view class="field-stack">
+        <view class="field-block">
+          <view class="field-label">导出月份</view>
+          <picker mode="date" fields="month" value="{{month}}" bindchange="onMonthChange">
+            <view class="field-picker">{{month}}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="button-row" style="margin-top: 20rpx;">
+        <button class="primary-btn" loading="{{exportingType === 'transactions'}}" bindtap="exportTransactions">导出流水</button>
+        <button class="ghost-btn" loading="{{exportingType === 'budgets'}}" bindtap="exportBudgets">导出预算</button>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">说明</view>
+          <view class="panel-title">备份内容</view>
+        </view>
+      </view>
+      <view class="summary-list">
+        <view class="summary-item">
+          <view class="record-title">流水备份</view>
+          <view class="record-meta">包含家庭收支记录、账户、分类、金额、时间和备注等信息。</view>
+        </view>
+        <view class="summary-item">
+          <view class="record-title">预算备份</view>
+          <view class="record-meta">包含预算金额、已用金额、剩余金额和预算状态，方便做月度复盘。</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">历史记录</view>
+          <view class="panel-title">导出记录</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{items.length}}">
+        <view class="record-item" wx:for="{{items}}" wx:key="id">
+          <view class="record-top">
+            <view>
+              <view class="record-title">{{item.displayName}}</view>
+              <view class="record-meta">{{item.typeText}} / {{item.fileFormat || 'CSV'}}</view>
+            </view>
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+          </view>
+          <view class="record-meta">生成时间：{{item.timeText}}</view>
+          <view class="record-meta">文件名：{{item.fileName || '-'}}</view>
+          <view class="button-row" style="margin-top: 12rpx;">
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="copyDownloadUrl">复制下载地址</button>
+            <button class="warn-btn" size="mini" data-id="{{item.id}}" bindtap="deleteExport">删除记录</button>
+          </view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无导出记录。</view>
+    </view>
+  </view>
+</view>
