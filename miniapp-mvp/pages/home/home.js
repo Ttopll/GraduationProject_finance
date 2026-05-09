@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function money(value) {
@@ -183,12 +183,20 @@ Page({
     wx.navigateTo({ url: "/pages/budgets/budgets" });
   },
 
+  goAssetsOverview() {
+    wx.navigateTo({ url: "/pages/assets-overview/assets-overview" });
+  },
+
+  goFinanceAdvice() {
+    wx.navigateTo({ url: "/pages/finance-advice/finance-advice" });
+  },
+
   goAddTransaction() {
     wx.navigateTo({ url: "/pages/transaction-form/transaction-form" });
   },
 
   logout() {
-    session.clear登录状态();
+    session.clearSession();
     wx.reLaunch({ url: "/pages/login/login" });
   }
 });

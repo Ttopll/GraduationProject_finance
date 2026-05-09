@@ -1,0 +1,7 @@
+.advice-metrics {
+  margin-top: 16rpx;
+}
+
+.stat-value-small {
+  font-size: 30rpx;
+}

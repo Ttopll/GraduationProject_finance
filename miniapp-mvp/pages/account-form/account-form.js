@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 const ACCOUNT_TYPES = ["CASH", "BANK", "CREDIT", "ALIPAY", "WECHAT"];
@@ -60,7 +60,7 @@ Page({
       const accounts = await request(`/api/accounts?familyId=${familyId}`);
       const account = (accounts || []).find((item) => Number(item.id) === Number(this.data.accountId));
       if (!account) {
-        this.setData({ feedback: "账户 not found in current family." });
+        this.setData({ feedback: "当前家庭中没有找到这个账户。" });
         return;
       }
       this.setData({
@@ -104,10 +104,10 @@ Page({
     const familyId = session.getCurrentFamilyId();
     const form = this.data.form;
     if (!familyId || !form.accountName.trim()) {
-      this.setData({ feedback: "Please enter account name." });
+      this.setData({ feedback: "请填写账户名称。" });
       return;
     }
-    this.setData({ submitting: true, feedback: "保存ting account..." });
+    this.setData({ submitting: true, feedback: "正在保存账户..." });
     const payload = {
       ownerMemberId: null,
       accountName: form.accountName,
@@ -130,10 +130,10 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "success" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `账户 submit 失败: ${error.message}` });
+      this.setData({ feedback: `账户保存失败: ${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -148,7 +148,7 @@ Page({
       const result = await request(`/api/accounts/${this.data.accountId}/${disabled ? "enable" : "disable"}`, "POST");
       this.setData({
         status: Number(result.status) === 1 ? 1 : 0,
-        feedback: disabled ? "启用d." : "停用."
+        feedback: disabled ? "已启用。" : "已停用。"
       });
     } catch (error) {
       this.setData({ feedback: `状态切换失败: ${error.message}` });
@@ -160,17 +160,17 @@ Page({
       return;
     }
     wx.showModal({
-      title: "删除 账户",
-      content: "删除 this account? Related transactions may prevent deletion.",
+      title: "删除账户",
+      content: "确定删除这个账户吗？如果账户下已有流水，可能无法删除。",
       confirmText: "删除",
       confirmColor: "#d64545",
-      成功: async (res) => {
+      success: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/accounts/${this.data.accountId}`, "DELETE");
-          wx.showToast({ title: "已删除", icon: "成功" });
+          wx.showToast({ title: "已删除", icon: "success" });
           wx.navigateBack();
         } catch (error) {
           this.setData({ feedback: `删除 失败: ${error.message}` });

@@ -40,6 +40,7 @@ public class FinancialAdviceService {
     private static final int DEFAULT_EMERGENCY_FUND_MONTHS = 3;
     private static final BigDecimal HIGH_EXPENSE_RATIO = new BigDecimal("0.40");
     private static final BigDecimal HIGH_DEBT_RATIO = new BigDecimal("1.00");
+    private static final BigDecimal MODERATE_DEBT_RATIO = new BigDecimal("0.50");
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
     private final FinancialAdviceRepository financialAdviceRepository;
@@ -217,14 +218,23 @@ public class FinancialAdviceService {
         BigDecimal savingsTarget = profile.getSavingsTargetRate() == null
                 ? DEFAULT_SAVINGS_TARGET_RATE
                 : profile.getSavingsTargetRate();
+        int emergencyFundMonths = profile.getEmergencyFundMonths() == null
+                ? DEFAULT_EMERGENCY_FUND_MONTHS
+                : profile.getEmergencyFundMonths();
+        BigDecimal monthlySurplus = totalIncome.subtract(totalExpense);
+        BigDecimal emergencyFundTarget = totalExpense.multiply(BigDecimal.valueOf(emergencyFundMonths));
+        BigDecimal emergencyFundGap = emergencyFundTarget.subtract(totalAccountBalance).max(BigDecimal.ZERO);
+        BigDecimal investableSurplus = monthlySurplus.max(BigDecimal.ZERO);
 
         if (totalIncome.compareTo(BigDecimal.ZERO) > 0 && savingsRate != null && savingsRate.compareTo(savingsTarget) < 0) {
             String title = "储蓄率低于目标";
             String content = String.format(
                     Locale.ROOT,
-                    "%s 的储蓄率为 %.2f%%，低于目标 %.2f%%。建议优先控制弹性支出并提高固定储蓄比例。",
+                    "%s 的储蓄率为 %.2f%%，低于目标 %.2f%%。本月可结余 %.2f，建议先把固定储蓄设置为收入的 %.0f%%，再压缩弹性消费。",
                     month,
                     savingsRate.multiply(new BigDecimal("100")),
+                    savingsTarget.multiply(new BigDecimal("100")),
+                    monthlySurplus,
                     savingsTarget.multiply(new BigDecimal("100"))
             );
             saveAdviceIfAbsentToday(advices, familyId, "SAVINGS", title, content, "HIGH", snapshotJson);
@@ -235,10 +245,11 @@ public class FinancialAdviceService {
             String title = "可考虑分层理财配置";
             String content = String.format(
                     Locale.ROOT,
-                    "%s 的储蓄率达到 %.2f%%。结合当前风险偏好 %s，可考虑保留日常与应急资金后，将结余分配到%s。",
+                    "%s 的储蓄率达到 %.2f%%。结合当前风险偏好 %s，建议先保留应急资金，再把预计可支配结余 %.2f 分层配置到%s。",
                     month,
                     savingsRate.multiply(new BigDecimal("100")),
                     riskPreference,
+                    investableSurplus,
                     investmentSuggestion(riskPreference)
             );
             saveAdviceIfAbsentToday(advices, familyId, "INVESTMENT", title, content, "NORMAL", snapshotJson);
@@ -246,36 +257,38 @@ public class FinancialAdviceService {
 
         if (totalIncome.compareTo(BigDecimal.ZERO) > 0 || totalExpense.compareTo(BigDecimal.ZERO) > 0) {
             AllocationPlan allocationPlan = buildAllocationPlan(profile, totalIncome, totalExpense, totalAccountBalance, totalDebtBalance);
+            AllocationAmount allocationAmount = buildAllocationAmount(investableSurplus, allocationPlan);
             String title = "家庭资产配置比例建议";
             String content = String.format(
                     Locale.ROOT,
-                    "结合风险偏好 %s、储蓄率 %s、债务余额 %.2f，建议按应急资金 %d%%、债务偿还 %d%%、稳健储蓄 %d%%、长期投资 %d%% 分配可支配结余。",
+                    "结合风险偏好 %s、储蓄率 %s、债务余额 %.2f，建议按应急资金 %d%%、债务偿还 %d%%、稳健储蓄 %d%%、长期投资 %d%% 分配可支配结余。按本月结余估算，对应金额约为 %.2f、%.2f、%.2f、%.2f。",
                     normalizeRiskPreference(profile),
                     percentText(savingsRate),
                     totalDebtBalance,
                     allocationPlan.emergencyFundPercent,
                     allocationPlan.debtRepaymentPercent,
                     allocationPlan.stableSavingPercent,
-                    allocationPlan.longTermInvestmentPercent
+                    allocationPlan.longTermInvestmentPercent,
+                    allocationAmount.emergencyFundAmount,
+                    allocationAmount.debtRepaymentAmount,
+                    allocationAmount.stableSavingAmount,
+                    allocationAmount.longTermInvestmentAmount
             );
             saveAdviceIfAbsentToday(advices, familyId, "ALLOCATION", title, content, "NORMAL", snapshotJson);
         }
 
         buildHealthDrivenAdvices(advices, familyId, month, dashboard, snapshotJson);
 
-        int emergencyFundMonths = profile.getEmergencyFundMonths() == null
-                ? DEFAULT_EMERGENCY_FUND_MONTHS
-                : profile.getEmergencyFundMonths();
         if (totalExpense.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal emergencyFundTarget = totalExpense.multiply(BigDecimal.valueOf(emergencyFundMonths));
             if (totalAccountBalance.compareTo(emergencyFundTarget) < 0) {
                 String title = "应急资金覆盖不足";
                 String content = String.format(
                         Locale.ROOT,
-                        "当前流动资金为 %.2f，低于约 %d 个月支出的应急目标 %.2f。建议优先补足应急储备。",
+                        "当前流动资金为 %.2f，低于约 %d 个月支出的应急目标 %.2f，缺口约 %.2f。建议先补足应急储备，再安排长期投资。",
                         totalAccountBalance,
                         emergencyFundMonths,
-                        emergencyFundTarget
+                        emergencyFundTarget,
+                        emergencyFundGap
                 );
                 saveAdviceIfAbsentToday(advices, familyId, "EMERGENCY_FUND", title, content, "HIGH", snapshotJson);
             }
@@ -293,6 +306,16 @@ public class FinancialAdviceService {
                         debtPressureRatio.multiply(new BigDecimal("100"))
                 );
                 saveAdviceIfAbsentToday(advices, familyId, "DEBT", title, content, "HIGH", snapshotJson);
+            } else if (debtPressureRatio.compareTo(MODERATE_DEBT_RATIO) >= 0) {
+                String title = "债务压力需要持续关注";
+                String content = String.format(
+                        Locale.ROOT,
+                        "当前债务余额 %.2f，约为流动资金 %.2f 的 %.2f%%。建议优先偿还高利率债务，并把新增分期控制在可结余范围内。",
+                        totalDebtBalance,
+                        totalAccountBalance,
+                        debtPressureRatio.multiply(new BigDecimal("100"))
+                );
+                saveAdviceIfAbsentToday(advices, familyId, "DEBT", title, content, "NORMAL", snapshotJson);
             }
         } else if (totalDebtBalance.compareTo(BigDecimal.ZERO) > 0) {
             String title = "存在债务但流动资金偏低";
@@ -327,14 +350,27 @@ public class FinancialAdviceService {
             saveAdviceIfAbsentToday(advices, familyId, "SAVINGS", title, content, "NORMAL", snapshotJson);
         }
 
+        if (dashboard != null && dashboard.keyIndicators() != null) {
+            String title = "家庭理财执行顺序建议";
+            String content = buildExecutionPathAdvice(
+                    emergencyFundGap,
+                    totalDebtBalance,
+                    dashboard.keyIndicators().debtToAssetRatio(),
+                    savingsRate,
+                    normalizeRiskPreference(profile)
+            );
+            saveAdviceIfAbsentToday(advices, familyId, "EXECUTION_PATH", title, content, "NORMAL", snapshotJson);
+        }
+
         String goalType = resolveGoalType(profile.getInvestmentPreferenceJson());
         if (goalType != null) {
             String title = "理财目标执行建议";
             String content = String.format(
                     Locale.ROOT,
-                    "当前家庭目标为%s。建议先保证 %d 个月应急资金，再将月度结余按目标专户持续积累，并每月复盘预算执行情况。",
+                    "当前家庭目标为%s。建议先保证 %d 个月应急资金，再将月度结余按目标专户持续积累；若本月可结余为 %.2f，可先按 50%% 目标储备、30%% 稳健储蓄、20%% 机动资金执行。",
                     goalTypeLabel(goalType),
-                    emergencyFundMonths
+                    emergencyFundMonths,
+                    investableSurplus
             );
             saveAdviceIfAbsentToday(advices, familyId, "GOAL", title, content, "NORMAL", snapshotJson);
         }
@@ -559,6 +595,51 @@ public class FinancialAdviceService {
         };
     }
 
+    private AllocationAmount buildAllocationAmount(BigDecimal investableSurplus, AllocationPlan allocationPlan) {
+        return new AllocationAmount(
+                percentAmount(investableSurplus, allocationPlan.emergencyFundPercent),
+                percentAmount(investableSurplus, allocationPlan.debtRepaymentPercent),
+                percentAmount(investableSurplus, allocationPlan.stableSavingPercent),
+                percentAmount(investableSurplus, allocationPlan.longTermInvestmentPercent)
+        );
+    }
+
+    private BigDecimal percentAmount(BigDecimal amount, int percent) {
+        return amount.multiply(BigDecimal.valueOf(percent))
+                .divide(ONE_HUNDRED, 2, RoundingMode.HALF_UP);
+    }
+
+    private String buildExecutionPathAdvice(
+            BigDecimal emergencyFundGap,
+            BigDecimal totalDebtBalance,
+            BigDecimal debtToAssetRatio,
+            BigDecimal savingsRate,
+            String riskPreference
+    ) {
+        List<String> steps = new ArrayList<>();
+        if (emergencyFundGap.compareTo(BigDecimal.ZERO) > 0) {
+            steps.add("先补足应急资金缺口约 " + emergencyFundGap.setScale(2, RoundingMode.HALF_UP));
+        }
+        if (totalDebtBalance.compareTo(BigDecimal.ZERO) > 0
+                && debtToAssetRatio != null
+                && debtToAssetRatio.compareTo(MODERATE_DEBT_RATIO) >= 0) {
+            steps.add("再降低负债率，优先处理短期或高利率债务");
+        }
+        if (savingsRate == null || savingsRate.compareTo(DEFAULT_SAVINGS_TARGET_RATE) < 0) {
+            steps.add("随后把储蓄率稳定到 20% 左右");
+        }
+        steps.add("最后按" + riskLabel(riskPreference) + "配置长期资金");
+        return String.join("；", steps) + "。";
+    }
+
+    private String riskLabel(String riskPreference) {
+        return switch (riskPreference) {
+            case "HIGH" -> "进取型";
+            case "MEDIUM" -> "稳健型";
+            default -> "保守型";
+        };
+    }
+
     private String normalizeRiskPreference(FamilyFinancialProfile profile) {
         return profile.getRiskPreference() == null ? "LOW" : profile.getRiskPreference().trim().toUpperCase(Locale.ROOT);
     }
@@ -644,6 +725,14 @@ public class FinancialAdviceService {
             int debtRepaymentPercent,
             int stableSavingPercent,
             int longTermInvestmentPercent
+    ) {
+    }
+
+    private record AllocationAmount(
+            BigDecimal emergencyFundAmount,
+            BigDecimal debtRepaymentAmount,
+            BigDecimal stableSavingAmount,
+            BigDecimal longTermInvestmentAmount
     ) {
     }
 }

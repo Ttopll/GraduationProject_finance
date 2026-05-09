@@ -41,6 +41,18 @@ function request(path, method = "GET", data = null, auth = true) {
           resolve(res.data);
           return;
         }
+        if (auth && res.statusCode === 401) {
+          wx.removeStorageSync("accessToken");
+          wx.removeStorageSync("tokenType");
+          wx.removeStorageSync("loginUser");
+          wx.removeStorageSync("memberships");
+          wx.removeStorageSync("selectedFamilyId");
+          wx.reLaunch({
+            url: `/pages/login/login?redirect=${encodeURIComponent("/pages/home/home")}`
+          });
+          reject(new Error("登录已过期，请重新登录。"));
+          return;
+        }
         const message = res.data && (res.data.message || res.data.error || res.data.path)
           ? (res.data.message || res.data.error || res.data.path)
           : `HTTP ${res.statusCode}`;

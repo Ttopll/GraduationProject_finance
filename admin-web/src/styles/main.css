@@ -847,6 +847,73 @@ textarea {
   line-height: 1.6;
 }
 
+.advice-snapshot strong,
+.advice-snapshot span {
+  display: block;
+}
+
+.advice-snapshot strong {
+  margin-bottom: 4px;
+  color: var(--text-main);
+}
+
+.advice-badge-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.advice-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.advice-metric {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  padding: 10px 12px;
+}
+
+.advice-metric strong,
+.advice-metric span {
+  display: block;
+}
+
+.advice-metric strong {
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+.advice-metric span {
+  margin-top: 4px;
+  color: var(--text-subtle);
+  font-size: 12px;
+}
+
+.advice-execution {
+  margin-top: 12px;
+  border: 1px solid rgba(42, 111, 151, 0.18);
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 12px 14px;
+}
+
+.advice-execution strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.advice-execution ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-subtle);
+  line-height: 1.7;
+}
+
 .health-score-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);

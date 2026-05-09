@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 const PERIOD_TYPES = ["MONTH", "YEAR"];
@@ -61,22 +61,22 @@ Page({
     try {
       const categories = await request(`/api/categories?familyId=${familyId}`);
       const expenseCategories = (categories || []).filter((item) => item.categoryType === "EXPENSE" && Number(item.enabled) === 1);
-      const first分类 = expenseCategories[0] || null;
+      const firstCategory = expenseCategories[0] || null;
       this.setData({
         categories: expenseCategories,
         categoryIndex: 0,
-        "form.categoryId": first分类 ? first分类.id : null,
+        "form.categoryId": firstCategory ? firstCategory.id : null,
         feedback: expenseCategories.length ? "" : "暂无支出分类，请先在后台或分类管理中创建。"
       });
       if (this.data.isEditMode && this.data.budgetId) {
-        await this.load预算();
+        await this.loadBudget();
       }
     } catch (error) {
       this.setData({ feedback: `预算表单加载失败: ${error.message}` });
     }
   },
 
-  async load预算() {
+  async loadBudget() {
     const familyId = session.getCurrentFamilyId();
     try {
       const [budgets, usage] = await Promise.all([
@@ -85,7 +85,7 @@ Page({
       ]);
       const budget = (budgets || []).find((item) => Number(item.id) === Number(this.data.budgetId));
       if (!budget) {
-        this.setData({ feedback: "预算 not found in current family." });
+        this.setData({ feedback: "当前家庭中没有找到这个预算。" });
         return;
       }
       const categoryIndex = Math.max(this.data.categories.findIndex((item) => Number(item.id) === Number(budget.categoryId)), 0);
@@ -148,7 +148,7 @@ Page({
     const memberId = session.getCurrentMemberId();
     const form = this.data.form;
     if (!familyId || !form.categoryId || !form.budgetName.trim() || !form.amount) {
-      this.setData({ feedback: "Please complete category, name and amount." });
+      this.setData({ feedback: "请选择分类，并填写预算名称和金额。" });
       return;
     }
     const payload = {
@@ -161,7 +161,7 @@ Page({
       endDate: form.endDate || null,
       remark: form.remark || null
     };
-    this.setData({ submitting: true, feedback: "保存ting budget..." });
+    this.setData({ submitting: true, feedback: "正在保存预算..." });
     try {
       if (this.data.isEditMode && this.data.budgetId) {
         await request(`/api/budgets/${this.data.budgetId}`, "PUT", payload);
@@ -172,10 +172,10 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "success" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `预算 submit 失败: ${error.message}` });
+      this.setData({ feedback: `预算保存失败: ${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -190,7 +190,7 @@ Page({
       const result = await request(`/api/budgets/${this.data.budgetId}/${disabled ? "enable" : "disable"}`, "POST");
       this.setData({
         enabled: Number(result.enabled) === 1 ? 1 : 0,
-        feedback: disabled ? "启用d." : "停用."
+        feedback: disabled ? "已启用。" : "已停用。"
       });
     } catch (error) {
       this.setData({ feedback: `状态切换失败: ${error.message}` });
@@ -202,17 +202,17 @@ Page({
       return;
     }
     wx.showModal({
-      title: "删除 预算",
+      title: "删除预算",
       content: "确定删除这个预算吗？删除后将不再统计它的使用情况。",
       confirmText: "删除",
       confirmColor: "#d64545",
-      成功: async (res) => {
+      success: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/budgets/${this.data.budgetId}`, "DELETE");
-          wx.showToast({ title: "已删除", icon: "成功" });
+          wx.showToast({ title: "已删除", icon: "success" });
           wx.navigateBack();
         } catch (error) {
           this.setData({ feedback: `删除 失败: ${error.message}` });

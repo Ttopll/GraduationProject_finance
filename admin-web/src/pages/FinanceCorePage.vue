@@ -277,16 +277,37 @@
         <div class="risk-list">
           <div v-for="item in advices" :key="item.id" class="risk-item">
             <div class="risk-item-head">
-              <strong>{{ item.title }}</strong>
-              <span class="status-badge" :class="adviceLevelClass(item.suggestionLevel)">
-                {{ adviceLevelLabel(item.suggestionLevel) }}
-              </span>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <span>{{ adviceTypeLabel(item.adviceType) }} / {{ formatDateTime(item.generatedAt) }}</span>
+              </div>
+              <div class="advice-badge-row">
+                <span class="status-badge" :class="adviceLevelClass(item.suggestionLevel)">
+                  {{ adviceLevelLabel(item.suggestionLevel) }}
+                </span>
+                <span class="status-badge" :class="item.status === 'READ' ? 'is-muted' : 'is-info'">
+                  {{ item.status === "READ" ? "已读" : "未读" }}
+                </span>
+              </div>
             </div>
             <div class="risk-item-body">
               <span>{{ item.content }}</span>
             </div>
+            <div v-if="snapshotMetrics(item).length" class="advice-metric-grid">
+              <div v-for="metric in snapshotMetrics(item)" :key="metric.label" class="advice-metric">
+                <strong>{{ metric.value }}</strong>
+                <span>{{ metric.label }}</span>
+              </div>
+            </div>
+            <div v-if="executionSteps(item).length" class="advice-execution">
+              <strong>执行拆解</strong>
+              <ol>
+                <li v-for="step in executionSteps(item)" :key="step">{{ step }}</li>
+              </ol>
+            </div>
             <div v-if="snapshotSummary(item)" class="advice-snapshot">
-              {{ snapshotSummary(item) }}
+              <strong>分析依据</strong>
+              <span>{{ snapshotSummary(item) }}</span>
             </div>
             <div class="button-row button-row-tight">
               <button class="ghost-button small" type="button" @click="toggleAdviceRead(item)">
@@ -559,12 +580,25 @@ function adviceLevelLabel(level) {
   return level === "HIGH" ? "重点建议" : "普通建议";
 }
 
+function adviceTypeLabel(type) {
+  const labels = {
+    SAVINGS: "储蓄管理",
+    INVESTMENT: "投资配置",
+    ALLOCATION: "资产配置",
+    EMERGENCY_FUND: "应急资金",
+    DEBT: "债务管理",
+    CONSUMPTION: "消费结构",
+    HEALTH_SCORE: "健康评分",
+    HEALTH_FACTOR: "短板改善",
+    EXECUTION_PATH: "执行路径",
+    GOAL: "目标规划"
+  };
+  return labels[type] || type || "理财建议";
+}
+
 function snapshotSummary(item) {
   const snapshot = parseInvestmentPreference(item.snapshotJson);
   const pieces = [];
-  if (snapshot.healthScore !== undefined && snapshot.healthScore !== null) {
-    pieces.push(`健康评分 ${snapshot.healthScore}${snapshot.healthLevel ? `（${snapshot.healthLevel}）` : ""}`);
-  }
   if (snapshot.savingsRate !== undefined && snapshot.savingsRate !== null) {
     pieces.push(`储蓄率 ${formatPercent(snapshot.savingsRate)}`);
   }
@@ -581,6 +615,44 @@ function snapshotSummary(item) {
     pieces.push(`最大支出 ${snapshot.topExpenseCategory}`);
   }
   return pieces.join(" / ");
+}
+
+function snapshotMetrics(item) {
+  const snapshot = parseInvestmentPreference(item.snapshotJson);
+  const metrics = [];
+  if (snapshot.healthScore !== undefined && snapshot.healthScore !== null) {
+    metrics.push({
+      label: snapshot.healthLevel ? `健康评分（${snapshot.healthLevel}）` : "健康评分",
+      value: snapshot.healthScore
+    });
+  }
+  if (snapshot.savingsRate !== undefined && snapshot.savingsRate !== null) {
+    metrics.push({ label: "储蓄率", value: formatPercent(snapshot.savingsRate) });
+  }
+  if (snapshot.totalIncome !== undefined && snapshot.totalIncome !== null) {
+    metrics.push({ label: "本月收入", value: formatAmount(snapshot.totalIncome) });
+  }
+  if (snapshot.totalExpense !== undefined && snapshot.totalExpense !== null) {
+    metrics.push({ label: "本月支出", value: formatAmount(snapshot.totalExpense) });
+  }
+  if (snapshot.totalDebtBalance !== undefined && snapshot.totalDebtBalance !== null) {
+    metrics.push({ label: "债务余额", value: formatAmount(snapshot.totalDebtBalance) });
+  }
+  if (snapshot.debtToAssetRatio !== undefined && snapshot.debtToAssetRatio !== null) {
+    metrics.push({ label: "资产负债率", value: formatPercent(snapshot.debtToAssetRatio) });
+  }
+  return metrics.slice(0, 4);
+}
+
+function executionSteps(item) {
+  const sentences = String(item.content || "")
+    .split(/[。；]/)
+    .map((text) => text.trim())
+    .filter(Boolean);
+  const priorityWords = ["先", "再", "随后", "最后", "建议", "优先", "按"];
+  return sentences
+    .filter((text) => priorityWords.some((word) => text.includes(word)))
+    .slice(0, 4);
 }
 
 function parseInvestmentPreference(raw) {

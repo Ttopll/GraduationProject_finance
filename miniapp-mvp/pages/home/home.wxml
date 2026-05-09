@@ -1,4 +1,4 @@
-﻿<view class="page-shell">
+<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
@@ -138,6 +138,8 @@
         <button class="ghost-btn" bindtap="goAccounts">账户总览</button>
         <button class="ghost-btn" bindtap="goNotifications">消息提醒</button>
         <button class="ghost-btn" bindtap="goBudgetSummary">预算汇总</button>
+        <button class="ghost-btn" bindtap="goAssetsOverview">资产负债</button>
+        <button class="ghost-btn" bindtap="goFinanceAdvice">理财建议</button>
         <button class="ghost-btn" bindtap="goFamilyInfo">家庭信息</button>
         <button class="ghost-btn" bindtap="goProfile">个人信息</button>
       </view>
@@ -171,6 +173,7 @@
           <view class="panel-kicker">理财建议</view>
           <view class="panel-title">最近建议摘要</view>
         </view>
+        <button class="ghost-btn" bindtap="goFinanceAdvice">查看全部</button>
       </view>
       <view class="record-list" wx:if="{{adviceItems.length}}">
         <view class="record-item" wx:for="{{adviceItems}}" wx:key="id">

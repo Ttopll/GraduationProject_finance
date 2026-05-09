@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function todayDate() {
@@ -177,7 +177,7 @@ Page({
     const memberId = session.getCurrentMemberId();
     const form = this.data.form;
     if (!familyId || !form.accountId || !form.amount) {
-      this.setData({ feedback: "Please select account and amount." });
+      this.setData({ feedback: "请选择账户并填写金额。" });
       return;
     }
     this.setData({ submitting: true, feedback: "正在保存流水..." });
@@ -203,7 +203,7 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "success" });
       wx.navigateBack();
     } catch (error) {
       this.setData({ feedback: `${this.data.isEditMode ? "保存修改" : "记录"} 失败: ${error.message}` });
@@ -221,13 +221,13 @@ Page({
       content: "确定删除这笔流水吗？",
       confirmText: "删除",
       confirmColor: "#d64545",
-      成功: async (res) => {
+      success: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/transaction-records/${this.data.recordId}`, "DELETE");
-          wx.showToast({ title: "已删除", icon: "成功" });
+          wx.showToast({ title: "已删除", icon: "success" });
           wx.navigateBack();
         } catch (error) {
           this.setData({ feedback: `删除 失败: ${error.message}` });

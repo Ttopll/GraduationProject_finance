@@ -1,11 +1,11 @@
-﻿<view class="page-shell">
+<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
           <view class="panel-kicker">预算</view>
-          <view class="panel-title">{{isEditMode ? 'Edit 预算' : '新增 预算'}}</view>
-          <view class="panel-desc">{{isEditMode ? '保存修改 budget amount, period and alert ratio.' : '记录 a category budget for monthly or yearly tracking.'}}</view>
+          <view class="panel-title">{{isEditMode ? '编辑预算' : '新增预算'}}</view>
+          <view class="panel-desc">{{isEditMode ? '修改预算金额、周期和提醒比例。' : '为某个分类设置每月或每年的预算。'}}</view>
         </view>
       </view>
 
@@ -19,7 +19,7 @@
         </view>
 
         <view class="field-block">
-          <view class="field-label">预算 Name</view>
+          <view class="field-label">预算名称</view>
           <input class="field-input" value="{{form.budgetName}}" data-field="budgetName" bindinput="onFieldInput" />
         </view>
 
@@ -42,7 +42,7 @@
             <input class="field-input" type="digit" value="{{form.alertRatio}}" data-field="alertRatio" bindinput="onFieldInput" />
           </view>
           <view class="field-block">
-            <view class="field-label">Start 日期</view>
+            <view class="field-label">开始日期</view>
             <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange">
               <view class="field-picker">{{form.startDate}}</view>
             </picker>
@@ -50,7 +50,7 @@
         </view>
 
         <view class="field-block">
-          <view class="field-label">End 日期</view>
+          <view class="field-label">结束日期</view>
           <picker mode="date" value="{{form.endDate}}" bindchange="onEndDateChange">
             <view class="field-picker {{form.endDate ? '' : 'is-placeholder'}}">{{form.endDate || '长期有效'}}</view>
           </picker>

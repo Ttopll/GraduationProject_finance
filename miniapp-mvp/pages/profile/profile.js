@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -42,7 +42,7 @@ Page({
   },
 
   logout() {
-    session.clear登录状态();
+    session.clearSession();
     wx.reLaunch({ url: "/pages/login/login" });
   }
 });

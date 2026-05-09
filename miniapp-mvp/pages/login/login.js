@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -31,17 +31,17 @@ Page({
   async submitLogin() {
     const { username, password } = this.data;
     if (!username || !password) {
-      this.setData({ feedback: "Please enter username and password." });
+      this.setData({ feedback: "请输入用户名和密码。" });
       return;
     }
-    this.setData({ loading: true, feedback: "Signing in..." });
+    this.setData({ loading: true, feedback: "正在登录..." });
     try {
       const loginRes = await request("/api/auth/login", "POST", { username, password }, false);
-      session.set登录状态(loginRes);
-      this.setData({ feedback: "登录 成功. Redirecting..." });
+      session.setSession(loginRes);
+      this.setData({ feedback: "登录成功，正在进入首页..." });
       wx.reLaunch({ url: this.redirectUrl });
     } catch (error) {
-      this.setData({ feedback: `登录 失败: ${error.message}` });
+      this.setData({ feedback: `登录失败: ${error.message}` });
     } finally {
       this.setData({ loading: false });
     }

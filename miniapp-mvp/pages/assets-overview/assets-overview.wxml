@@ -1,0 +1,114 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">资产负债</view>
+          <view class="panel-title">家庭资产看板</view>
+          <view class="panel-desc">查看账户、固定资产、债务和净资产情况，判断家庭资产是否健康。</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">总资产</view>
+        <view class="stat-value">{{overview.totalAssetValueText}}</view>
+        <view class="stat-meta">账户余额 + 固定资产</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">净资产</view>
+        <view class="stat-value">{{overview.netAssetValueText}}</view>
+        <view class="stat-meta">总资产减去债务</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">负债率</view>
+        <view class="stat-value">{{overview.debtToAssetRatioText}}</view>
+        <view class="stat-meta">{{overview.riskConclusion}}</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">30天到期</view>
+        <view class="stat-value">{{overview.dueDebtCount}}</view>
+        <view class="stat-meta">{{overview.overdueDebtCount}} 条逾期</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">诊断</view>
+          <view class="panel-title">资产负债建议</view>
+        </view>
+        <view class="tag {{overview.riskClass}}">{{overview.riskText}}</view>
+      </view>
+      <view class="record-list" wx:if="{{overview.diagnosisSuggestions.length}}">
+        <view class="record-item" wx:for="{{overview.diagnosisSuggestions}}" wx:key="*this">
+          <view class="record-title">建议</view>
+          <view class="record-meta">{{item}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无资产负债诊断建议。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">账户</view>
+          <view class="panel-title">流动资金</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{accounts.length}}">
+        <view class="record-item" wx:for="{{accounts}}" wx:key="accountId">
+          <view class="record-top">
+            <view class="record-title">{{item.accountName}}</view>
+            <view class="record-amount amount-transfer">{{item.currentBalanceText}}</view>
+          </view>
+          <view class="record-meta">{{item.accountType || '账户'}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无账户数据。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">固定资产</view>
+          <view class="panel-title">房产、车辆和其他资产</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{fixedAssets.length}}">
+        <view class="record-item" wx:for="{{fixedAssets}}" wx:key="assetId">
+          <view class="record-top">
+            <view class="record-title">{{item.assetName}}</view>
+            <view class="record-amount amount-income">{{item.effectiveValueText}}</view>
+          </view>
+          <view class="record-meta">{{item.assetTypeText}} / 买入 {{item.purchaseAmountText}}</view>
+          <view class="record-meta">估值日期：{{item.valuationDate || '-'}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无固定资产数据。</view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">债务</view>
+          <view class="panel-title">待还债务</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{debts.length}}">
+        <view class="record-item" wx:for="{{debts}}" wx:key="debtId">
+          <view class="record-top">
+            <view class="record-title">{{item.debtName}}</view>
+            <view class="record-amount amount-expense">{{item.currentBalanceText}}</view>
+          </view>
+          <view class="record-meta">{{item.debtTypeText}} / 到期日 {{item.dueDate || '-'}}</view>
+          <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无债务数据。</view>
+    </view>
+  </view>
+</view>

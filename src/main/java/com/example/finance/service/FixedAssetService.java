@@ -224,11 +224,23 @@ public class FixedAssetService {
         if (netAssetValue.compareTo(BigDecimal.ZERO) < 0) {
             suggestions.add("当前净资产为负，建议优先降低负债余额并减少新增借款。");
         }
+        if (debtItems.isEmpty()) {
+            suggestions.add("当前未登记债务，可继续保持债务台账完整，便于后续净资产分析。");
+        }
         if (debtToAssetRatio != null && debtToAssetRatio.compareTo(new BigDecimal("0.50")) > 0) {
             suggestions.add("负债率超过 50%，建议优先偿还高利率或短期债务。");
+        } else if (debtToAssetRatio != null && debtToAssetRatio.compareTo(new BigDecimal("0.30")) > 0) {
+            suggestions.add("负债率处于关注区间，建议控制新增分期，并观察未来 3 个月现金流。");
         }
         if (fixedAssetRatio != null && fixedAssetRatio.compareTo(new BigDecimal("0.80")) > 0) {
             suggestions.add("固定资产占比较高，需关注现金流和短期偿债能力。");
+        } else if (fixedAssetRatio != null && fixedAssetRatio.compareTo(new BigDecimal("0.60")) > 0) {
+            suggestions.add("固定资产占比较高，建议保留足够流动资金用于日常支出和债务偿还。");
+        }
+        if (debtToAssetRatio != null && fixedAssetRatio != null
+                && debtToAssetRatio.compareTo(new BigDecimal("0.50")) > 0
+                && fixedAssetRatio.compareTo(new BigDecimal("0.70")) > 0) {
+            suggestions.add("负债率和固定资产占比同时偏高，说明资产流动性不足，应避免继续加杠杆购置大额资产。");
         }
         if (overdueDebtCount > 0) {
             suggestions.add("存在逾期债务，请尽快处理还款并查看消息提醒。");

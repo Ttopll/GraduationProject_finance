@@ -1,4 +1,4 @@
-﻿const { request } = require("../../utils/api");
+const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -20,20 +20,20 @@ Page({
     if (!session.requireLogin("/pages/notifications/notifications")) {
       return;
     }
-    this.load提醒();
+    this.loadNotifications();
   },
 
   onUnreadToggle(e) {
     this.setData({ unreadOnly: e.detail.value });
-    this.load提醒();
+    this.loadNotifications();
   },
 
   onSourceChange(e) {
     this.setData({ sourceType: e.currentTarget.dataset.source || "" });
-    this.load提醒();
+    this.loadNotifications();
   },
 
-  async load提醒() {
+  async loadNotifications() {
     const familyId = session.getCurrentFamilyId();
     const memberId = session.getCurrentMemberId();
     if (!familyId) {
@@ -79,7 +79,7 @@ Page({
     const id = e.currentTarget.dataset.id;
     try {
       await request(`/api/notifications/${id}/read`, "POST");
-      this.load提醒();
+      this.loadNotifications();
     } catch (error) {
       this.setData({ feedback: `设为已读失败: ${error.message}` });
     }
@@ -94,14 +94,14 @@ Page({
     wx.showModal({
       title: "全部标为已读",
       content: "把当前这些提醒都标为已读吗？",
-      confirmText: "Confirm",
-      成功: async (res) => {
+      confirmText: "确认",
+      success: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId || ""}`, "POST");
-          this.load提醒();
+          this.loadNotifications();
         } catch (error) {
           this.setData({ feedback: `全部已读失败: ${error.message}` });
         }
@@ -119,6 +119,6 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.load提醒().finally(() => wx.stopPullDownRefresh());
+    this.loadNotifications().finally(() => wx.stopPullDownRefresh());
   }
 });

@@ -1,0 +1,74 @@
+<view class="page-shell">
+  <view class="page-stack">
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">理财建议</view>
+          <view class="panel-title">家庭建议清单</view>
+          <view class="panel-desc">根据收支、预算、负债、应急资金和风险偏好生成，帮助你知道下一步先做什么。</view>
+        </view>
+        <button class="ghost-btn" bindtap="loadPage">刷新</button>
+      </view>
+      <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
+    </view>
+
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-label">建议总数</view>
+        <view class="stat-value">{{stats.total}}</view>
+        <view class="stat-meta">当前家庭建议</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">重点建议</view>
+        <view class="stat-value">{{stats.high}}</view>
+        <view class="stat-meta">优先处理</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">未读建议</view>
+        <view class="stat-value">{{stats.unread}}</view>
+        <view class="stat-meta">还没有查看</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-label">最近评分</view>
+        <view class="stat-value">{{stats.healthScore}}</view>
+        <view class="stat-meta">{{stats.healthLevel}}</view>
+      </view>
+    </view>
+
+    <view class="panel-card">
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">建议详情</view>
+          <view class="panel-title">可以执行的理财动作</view>
+        </view>
+      </view>
+      <view class="record-list" wx:if="{{advices.length}}">
+        <view class="record-item" wx:for="{{advices}}" wx:key="id">
+          <view class="record-top">
+            <view>
+              <view class="record-title">{{item.title}}</view>
+              <view class="record-meta">{{item.typeText}} / {{item.generatedAtText}}</view>
+            </view>
+            <view class="tag {{item.levelClass}}">{{item.levelText}}</view>
+          </view>
+          <view class="record-meta">{{item.content}}</view>
+          <view class="stats-grid advice-metrics" wx:if="{{item.metrics.length}}">
+            <view class="stat-card" wx:for="{{item.metrics}}" wx:key="label">
+              <view class="stat-label">{{item.label}}</view>
+              <view class="stat-value stat-value-small">{{item.value}}</view>
+              <view class="stat-meta">{{item.meta}}</view>
+            </view>
+          </view>
+          <view class="summary-list" wx:if="{{item.steps.length}}">
+            <view class="summary-item" wx:for="{{item.steps}}" wx:key="*this">
+              <view class="record-title">执行步骤</view>
+              <view class="record-meta">{{item}}</view>
+            </view>
+          </view>
+          <view class="record-meta" wx:if="{{item.reasonText}}">分析依据：{{item.reasonText}}</view>
+        </view>
+      </view>
+      <view class="empty-box" wx:else>暂无理财建议。可先在管理员端生成建议，或补充收支、预算和资产负债数据。</view>
+    </view>
+  </view>
+</view>

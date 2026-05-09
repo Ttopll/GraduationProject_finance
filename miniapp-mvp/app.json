@@ -10,7 +10,9 @@
     "pages/profile/profile",
     "pages/budgets/budgets",
     "pages/budget-form/budget-form",
-    "pages/family/family"
+    "pages/family/family",
+    "pages/finance-advice/finance-advice",
+    "pages/assets-overview/assets-overview"
   ],
   "window": {
     "navigationBarTitleText": "家庭理财",
