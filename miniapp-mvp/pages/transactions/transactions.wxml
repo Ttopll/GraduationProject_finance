@@ -1,18 +1,18 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Transactions</view>
-          <view class="panel-title">Record List</view>
-          <view class="panel-desc">View recent family records and create a new one.</view>
+          <view class="panel-kicker">收支流水</view>
+          <view class="panel-title">流水记录</view>
+          <view class="panel-desc">查看家庭最近的收支记录，也可以新增一笔。</view>
         </view>
-        <button class="primary-btn" bindtap="goCreate">New Record</button>
+        <button class="primary-btn" bindtap="goCreate">新增流水</button>
       </view>
       <view class="field-block">
-        <view class="field-label">Type</view>
-        <picker mode="selector" range="{{['All','Expense','Income','Transfer']}}" value="{{typeIndex}}" bindchange="onTypeChange">
-          <view class="field-picker">{{typeIndex === 1 ? 'Expense' : typeIndex === 2 ? 'Income' : typeIndex === 3 ? 'Transfer' : 'All'}}</view>
+        <view class="field-label">类型</view>
+        <picker mode="selector" range="{{['全部','支出','收入','转账']}}" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="field-picker">{{typeIndex === 1 ? '支出' : typeIndex === 2 ? '收入' : typeIndex === 3 ? '转账' : '全部'}}</view>
         </picker>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 16rpx;">{{feedback}}</view>
@@ -20,46 +20,46 @@
 
     <view class="stats-grid">
       <view class="stat-card">
-        <view class="stat-label">Total</view>
+        <view class="stat-label">总数</view>
         <view class="stat-value">{{stats.total}}</view>
-        <view class="stat-meta">Recent transactions in current filter</view>
+        <view class="stat-meta">当前筛选下的最近流水</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Expense</view>
+        <view class="stat-label">支出</view>
         <view class="stat-value">{{stats.expenseCount}}</view>
-        <view class="stat-meta">Expense records</view>
+        <view class="stat-meta">支出记录</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Income</view>
+        <view class="stat-label">收入</view>
         <view class="stat-value">{{stats.incomeCount}}</view>
-        <view class="stat-meta">Income records</view>
+        <view class="stat-meta">收入记录</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Risk Related</view>
+        <view class="stat-label">涉及预算</view>
         <view class="stat-value">{{stats.riskyCount}}</view>
-        <view class="stat-meta">Mapped to warning budgets</view>
+        <view class="stat-meta">关联到预警预算的流水</view>
       </view>
     </view>
 
     <view class="record-list" wx:if="{{items.length}}">
       <view class="record-item" wx:for="{{items}}" wx:key="id">
         <view class="record-top">
-          <view class="record-title">{{item.merchantName || item.counterpartyName || 'Manual Record'}}</view>
+          <view class="record-title">{{item.merchantName || item.counterpartyName || '手动记录'}}</view>
           <view class="record-amount {{item.transactionType === 'EXPENSE' ? 'amount-expense' : item.transactionType === 'INCOME' ? 'amount-income' : 'amount-transfer'}}">{{item.amountText}}</view>
         </view>
         <view class="record-meta">{{item.typeLabel}} / {{item.note || item.sourcePlatform || '-'}}</view>
         <view wx:if="{{item.budgetRisk}}" class="feedback-box" style="margin-top: 12rpx;">
-          Related budget "{{item.budgetRisk.budgetName}}" is {{item.budgetRisk.exceeded ? 'Exceeded' : 'In Warning'}}. Current usage {{item.budgetRisk.usageRatioText}}.
+          相关预算“{{item.budgetRisk.budgetName}}”{{item.budgetRisk.exceeded ? '已超支' : '接近上限'}}，当前使用率 {{item.budgetRisk.usageRatioText}}。
         </view>
         <view class="record-bottom" style="margin-top: 12rpx;">
           <view class="record-meta">{{item.accountDisplayName}} / {{item.categoryDisplayName}}</view>
           <view class="button-row">
             <view class="tag">{{item.transactionTimeText}}</view>
-            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="openRecord">Open</button>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="openRecord">查看</button>
           </view>
         </view>
       </view>
     </view>
-    <view class="empty-box" wx:else>No records found.</view>
+    <view class="empty-box" wx:else>暂无流水记录。</view>
   </view>
 </view>

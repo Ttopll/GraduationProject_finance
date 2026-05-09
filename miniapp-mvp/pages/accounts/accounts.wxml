@@ -1,15 +1,15 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Accounts</view>
-          <view class="panel-title">Account Overview</view>
-          <view class="panel-desc">View current family accounts and balances.</view>
+          <view class="panel-kicker">账户</view>
+          <view class="panel-title">账户总览</view>
+          <view class="panel-desc">查看当前家庭的账户和余额。</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn" bindtap="goCreate">New</button>
-          <button class="ghost-btn" bindtap="loadAccounts">Refresh</button>
+          <button class="primary-btn" bindtap="goCreate">新增</button>
+          <button class="ghost-btn" bindtap="loadAccounts">刷新</button>
         </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
@@ -17,24 +17,24 @@
 
     <view class="stats-grid">
       <view class="stat-card">
-        <view class="stat-label">Total</view>
+        <view class="stat-label">总数</view>
         <view class="stat-value">{{stats.total}}</view>
-        <view class="stat-meta">Family accounts</view>
+        <view class="stat-meta">家庭账户数量</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Active</view>
+        <view class="stat-label">启用</view>
         <view class="stat-value">{{stats.active}}</view>
-        <view class="stat-meta">Enabled accounts</view>
+        <view class="stat-meta">正在使用的账户</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Disabled</view>
+        <view class="stat-label">停用</view>
         <view class="stat-value">{{stats.disabled}}</view>
-        <view class="stat-meta">Stopped accounts</view>
+        <view class="stat-meta">已停用的账户</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Balance</view>
+        <view class="stat-label">余额</view>
         <view class="stat-value">{{stats.totalBalance}}</view>
-        <view class="stat-meta">Total account balance</view>
+        <view class="stat-meta">账户余额合计</view>
       </view>
     </view>
 
@@ -44,16 +44,16 @@
           <view class="record-title">{{item.accountName}}</view>
           <view class="tag">{{item.accountTypeLabel}}</view>
         </view>
-        <view class="record-meta">{{item.institutionName || 'No bank'}} / {{item.accountNoMask || 'No tail no.'}}</view>
+        <view class="record-meta">{{item.institutionName || '未填写银行'}} / {{item.accountNoMask || '未填写尾号'}}</view>
         <view class="record-bottom" style="margin-top: 12rpx;">
-          <view class="record-meta">Status: {{item.status === 1 ? 'Active' : 'Disabled'}}</view>
+          <view class="record-meta">状态： {{item.status === 1 ? '启用' : '停用'}}</view>
           <view class="button-row">
             <view class="record-amount amount-transfer">{{item.currentBalanceText}}</view>
-            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="openAccount">Open</button>
+            <button class="ghost-btn" size="mini" data-id="{{item.id}}" bindtap="openAccount">查看</button>
           </view>
         </view>
       </view>
     </view>
-    <view class="empty-box" wx:else>No account data.</view>
+    <view class="empty-box" wx:else>暂无账户数据。</view>
   </view>
 </view>

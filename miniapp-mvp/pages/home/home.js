@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function money(value) {
@@ -60,7 +60,7 @@ Page({
       wx.setStorageSync("loginUser", me.user || null);
       wx.setStorageSync("memberships", me.memberships || []);
       const memberships = me.memberships || [];
-      const familyOptions = memberships.map((item) => `${item.familyName || `Family ${item.familyId}`} / ${item.roleCode || "MEMBER"}`);
+      const familyOptions = memberships.map((item) => `${item.familyName || `家庭 ${item.familyId}`} / ${item.roleCode || "MEMBER"}`);
       const familyId = session.normalizeCurrentFamily();
       if (!familyId) {
         this.setData({
@@ -107,7 +107,7 @@ Page({
         familyOptions,
         familyIndex,
         selectedFamilyId: familyId,
-        currentFamilyLabel: familyOptions[familyIndex] || `Family ${familyId}`,
+        currentFamilyLabel: familyOptions[familyIndex] || `家庭 ${familyId}`,
         monthlySummary: monthlySummary || [],
         summary: {
           accountCount: accounts.length,
@@ -154,7 +154,7 @@ Page({
     this.setData({
       familyIndex,
       selectedFamilyId: membership.familyId,
-      currentFamilyLabel: this.data.familyOptions[familyIndex] || `Family ${membership.familyId}`
+      currentFamilyLabel: this.data.familyOptions[familyIndex] || `家庭 ${membership.familyId}`
     });
     this.loadPage();
   },
@@ -188,7 +188,7 @@ Page({
   },
 
   logout() {
-    session.clearSession();
+    session.clear登录状态();
     wx.reLaunch({ url: "/pages/login/login" });
   }
 });

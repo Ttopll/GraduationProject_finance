@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 const ACCOUNT_TYPES = ["CASH", "BANK", "CREDIT", "ALIPAY", "WECHAT"];
@@ -45,22 +45,22 @@ Page({
       return;
     }
     if (this.data.isEditMode) {
-      this.loadAccount();
+      this.loadAccounts();
     }
   },
 
-  async loadAccount() {
+  async loadAccounts() {
     const familyId = session.getCurrentFamilyId();
     if (!familyId) {
-      this.setData({ feedback: "No family context." });
+      this.setData({ feedback: "当前还没有选择家庭，请先创建或加入家庭。" });
       return;
     }
-    this.setData({ feedback: "Loading account..." });
+    this.setData({ feedback: "正在加载账户..." });
     try {
       const accounts = await request(`/api/accounts?familyId=${familyId}`);
       const account = (accounts || []).find((item) => Number(item.id) === Number(this.data.accountId));
       if (!account) {
-        this.setData({ feedback: "Account not found in current family." });
+        this.setData({ feedback: "账户 not found in current family." });
         return;
       }
       this.setData({
@@ -79,7 +79,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Account load failed: ${error.message}` });
+      this.setData({ feedback: `账户加载失败: ${error.message}` });
     }
   },
 
@@ -107,7 +107,7 @@ Page({
       this.setData({ feedback: "Please enter account name." });
       return;
     }
-    this.setData({ submitting: true, feedback: "Submitting account..." });
+    this.setData({ submitting: true, feedback: "保存ting account..." });
     const payload = {
       ownerMemberId: null,
       accountName: form.accountName,
@@ -130,10 +130,10 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "Updated" : "Saved", icon: "success" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `Account submit failed: ${error.message}` });
+      this.setData({ feedback: `账户 submit 失败: ${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -148,10 +148,10 @@ Page({
       const result = await request(`/api/accounts/${this.data.accountId}/${disabled ? "enable" : "disable"}`, "POST");
       this.setData({
         status: Number(result.status) === 1 ? 1 : 0,
-        feedback: disabled ? "Enabled." : "Disabled."
+        feedback: disabled ? "启用d." : "停用."
       });
     } catch (error) {
-      this.setData({ feedback: `Status change failed: ${error.message}` });
+      this.setData({ feedback: `状态切换失败: ${error.message}` });
     }
   },
 
@@ -160,20 +160,20 @@ Page({
       return;
     }
     wx.showModal({
-      title: "Delete Account",
-      content: "Delete this account? Related transactions may prevent deletion.",
-      confirmText: "Delete",
+      title: "删除 账户",
+      content: "删除 this account? Related transactions may prevent deletion.",
+      confirmText: "删除",
       confirmColor: "#d64545",
-      success: async (res) => {
+      成功: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/accounts/${this.data.accountId}`, "DELETE");
-          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.showToast({ title: "已删除", icon: "成功" });
           wx.navigateBack();
         } catch (error) {
-          this.setData({ feedback: `Delete failed: ${error.message}` });
+          this.setData({ feedback: `删除 失败: ${error.message}` });
         }
       }
     });

@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function accountTypeLabel(value) {
@@ -41,11 +41,11 @@ Page({
       this.setData({
         accounts: [],
         stats: { total: 0, active: 0, disabled: 0, totalBalance: "0.00" },
-        feedback: "No family context."
+        feedback: "当前还没有选择家庭，请先创建或加入家庭。"
       });
       return;
     }
-    this.setData({ feedback: "Loading accounts..." });
+    this.setData({ feedback: "正在加载账户..." });
     try {
       const accounts = await request(`/api/accounts?familyId=${familyId}`);
       const decorated = (accounts || []).map((item) => ({
@@ -74,7 +74,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Accounts load failed: ${error.message}` });
+      this.setData({ feedback: `账户加载失败: ${error.message}` });
     }
   },
 

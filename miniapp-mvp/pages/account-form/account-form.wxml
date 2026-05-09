@@ -1,22 +1,22 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Account</view>
-          <view class="panel-title">{{isEditMode ? 'Edit Account' : 'New Account'}}</view>
-          <view class="panel-desc">{{isEditMode ? 'Update account metadata and status.' : 'Create a family account for transactions and balances.'}}</view>
+          <view class="panel-kicker">账户</view>
+          <view class="panel-title">{{isEditMode ? 'Edit 账户' : '新增 账户'}}</view>
+          <view class="panel-desc">{{isEditMode ? '保存修改 account metadata and status.' : '记录 a family account for transactions and balances.'}}</view>
         </view>
       </view>
 
       <view class="field-stack">
         <view class="field-block">
-          <view class="field-label">Account Name</view>
+          <view class="field-label">账户 Name</view>
           <input class="field-input" value="{{form.accountName}}" data-field="accountName" bindinput="onFieldInput" />
         </view>
 
         <view class="field-block">
-          <view class="field-label">Account Type</view>
+          <view class="field-label">账户 类型</view>
           <picker mode="selector" range="{{['Cash','Bank Card','Credit Card','Alipay','WeChat']}}" value="{{typeIndex}}" bindchange="onTypeChange">
             <view class="field-picker">{{form.accountType}}</view>
           </picker>
@@ -35,7 +35,7 @@
 
         <view class="field-grid-2">
           <view class="field-block">
-            <view class="field-label">Initial Balance</view>
+            <view class="field-label">Initial 余额</view>
             <input class="field-input" disabled="{{isEditMode}}" type="digit" value="{{form.currentBalance}}" data-field="currentBalance" bindinput="onFieldInput" />
           </view>
           <view class="field-block">
@@ -56,20 +56,20 @@
         </view>
 
         <view class="switch-row">
-          <view class="field-label">Shared Account</view>
+          <view class="field-label">Shared 账户</view>
           <switch checked="{{form.isShared === 1}}" bindchange="onSharedChange" color="#2c5f93" />
         </view>
 
         <view class="field-block">
-          <view class="field-label">Remark</view>
+          <view class="field-label">备注</view>
           <input class="field-input" value="{{form.remark}}" data-field="remark" bindinput="onFieldInput" />
         </view>
       </view>
 
       <view class="button-row" style="margin-top: 20rpx;">
-        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? 'Update' : 'Submit'}}</button>
-        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleStatus">{{status === 1 ? 'Disable' : 'Enable'}}</button>
-        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteAccount">Delete</button>
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存'}}</button>
+        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleStatus">{{status === 1 ? '停用' : '启用'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteAccount">删除</button>
       </view>
 
       <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>

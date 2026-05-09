@@ -1,60 +1,60 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Family</view>
-          <view class="panel-title">Family Info</view>
-          <view class="panel-desc">View current family settings and members.</view>
+          <view class="panel-kicker">家庭</view>
+          <view class="panel-title">家庭信息</view>
+          <view class="panel-desc">查看当前家庭信息和成员。</view>
         </view>
-        <button class="ghost-btn" bindtap="loadFamily">Refresh</button>
+        <button class="ghost-btn" bindtap="loadFamily">刷新</button>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
     </view>
 
     <view class="stats-grid" wx:if="{{family}}">
       <view class="stat-card">
-        <view class="stat-label">Family Name</view>
+        <view class="stat-label">家庭名称</view>
         <view class="stat-value">{{family.familyName || '-'}}</view>
-        <view class="stat-meta">Current family display name</view>
+        <view class="stat-meta">当前家庭显示名称</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Invite Code</view>
+        <view class="stat-label">邀请码</view>
         <view class="stat-value">{{family.inviteCode || '-'}}</view>
-        <view class="stat-meta">Used for joining the family</view>
+        <view class="stat-meta">用于邀请家人加入</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Currency</view>
+        <view class="stat-label">币种</view>
         <view class="stat-value">{{family.currencyCode || '-'}}</view>
-        <view class="stat-meta">Family default currency</view>
+        <view class="stat-meta">家庭默认币种</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Timezone</view>
+        <view class="stat-label">时区</view>
         <view class="stat-value">{{family.timezone || '-'}}</view>
-        <view class="stat-meta">Family timezone setting</view>
+        <view class="stat-meta">家庭时区设置</view>
       </view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Members</view>
-          <view class="panel-title">Member List</view>
+          <view class="panel-kicker">成员</view>
+          <view class="panel-title">成员列表</view>
         </view>
       </view>
       <view class="record-list" wx:if="{{members.length}}">
         <view class="record-item" wx:for="{{members}}" wx:key="memberId">
           <view class="record-top">
-            <view class="record-title">{{item.memberName || item.nickname || item.username || ('Member #' + item.memberId)}}</view>
+            <view class="record-title">{{item.memberName || item.nickname || item.username || ('成员 #' + item.memberId)}}</view>
             <view class="tag">{{item.roleCode || '-'}}</view>
           </view>
-          <view class="record-meta">User: {{item.username || '-'}} / Nickname: {{item.nickname || '-'}}</view>
+          <view class="record-meta">账号： {{item.username || '-'}} / 昵称： {{item.nickname || '-'}}</view>
           <view class="record-bottom" style="margin-top: 12rpx;">
-            <view class="record-meta">Joined: {{item.joinedAt || '-'}} / Status: {{item.status === 1 ? 'Active' : 'Inactive'}}</view>
+            <view class="record-meta">加入时间： {{item.joinedAt || '-'}} / 状态： {{item.status === 1 ? '启用' : '停用'}}</view>
           </view>
         </view>
       </view>
-      <view class="empty-box" wx:else>No family members found.</view>
+      <view class="empty-box" wx:else>暂无家庭成员。</view>
     </view>
   </view>
 </view>

@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -20,27 +20,27 @@ Page({
     if (!session.requireLogin("/pages/notifications/notifications")) {
       return;
     }
-    this.loadNotifications();
+    this.load提醒();
   },
 
   onUnreadToggle(e) {
     this.setData({ unreadOnly: e.detail.value });
-    this.loadNotifications();
+    this.load提醒();
   },
 
   onSourceChange(e) {
     this.setData({ sourceType: e.currentTarget.dataset.source || "" });
-    this.loadNotifications();
+    this.load提醒();
   },
 
-  async loadNotifications() {
+  async load提醒() {
     const familyId = session.getCurrentFamilyId();
     const memberId = session.getCurrentMemberId();
     if (!familyId) {
-      this.setData({ items: [], feedback: "No family context." });
+      this.setData({ items: [], feedback: "当前还没有选择家庭，请先创建或加入家庭。" });
       return;
     }
-    this.setData({ feedback: "Loading alerts..." });
+    this.setData({ feedback: "正在加载提醒..." });
     const sourceSuffix = this.data.sourceType ? `&sourceType=${this.data.sourceType}` : "";
     const unreadSuffix = this.data.unreadOnly ? "&readStatus=0" : "";
     try {
@@ -71,7 +71,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Alerts load failed: ${error.message}` });
+      this.setData({ feedback: `提醒加载失败: ${error.message}` });
     }
   },
 
@@ -79,9 +79,9 @@ Page({
     const id = e.currentTarget.dataset.id;
     try {
       await request(`/api/notifications/${id}/read`, "POST");
-      this.loadNotifications();
+      this.load提醒();
     } catch (error) {
-      this.setData({ feedback: `Mark read failed: ${error.message}` });
+      this.setData({ feedback: `设为已读失败: ${error.message}` });
     }
   },
 
@@ -92,18 +92,18 @@ Page({
       return;
     }
     wx.showModal({
-      title: "Mark All Read",
-      content: "Mark all current notifications as read?",
+      title: "全部标为已读",
+      content: "把当前这些提醒都标为已读吗？",
       confirmText: "Confirm",
-      success: async (res) => {
+      成功: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/notifications/read-all?familyId=${familyId}&targetMemberId=${memberId || ""}`, "POST");
-          this.loadNotifications();
+          this.load提醒();
         } catch (error) {
-          this.setData({ feedback: `Mark all read failed: ${error.message}` });
+          this.setData({ feedback: `全部已读失败: ${error.message}` });
         }
       }
     });
@@ -119,6 +119,6 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadNotifications().finally(() => wx.stopPullDownRefresh());
+    this.load提醒().finally(() => wx.stopPullDownRefresh());
   }
 });

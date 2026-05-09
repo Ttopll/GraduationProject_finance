@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -17,7 +17,7 @@ Page({
   },
 
   async loadProfile() {
-    this.setData({ feedback: "Loading profile..." });
+    this.setData({ feedback: "正在加载个人信息..." });
     try {
       const me = await request("/api/auth/me");
       wx.setStorageSync("loginUser", me.user || null);
@@ -33,7 +33,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Profile load failed: ${error.message}` });
+      this.setData({ feedback: `个人信息加载失败: ${error.message}` });
     }
   },
 
@@ -42,7 +42,7 @@ Page({
   },
 
   logout() {
-    session.clearSession();
+    session.clear登录状态();
     wx.reLaunch({ url: "/pages/login/login" });
   }
 });

@@ -1,48 +1,48 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Budget</view>
-          <view class="panel-title">{{isEditMode ? 'Edit Budget' : 'New Budget'}}</view>
-          <view class="panel-desc">{{isEditMode ? 'Update budget amount, period and alert ratio.' : 'Create a category budget for monthly or yearly tracking.'}}</view>
+          <view class="panel-kicker">预算</view>
+          <view class="panel-title">{{isEditMode ? 'Edit 预算' : '新增 预算'}}</view>
+          <view class="panel-desc">{{isEditMode ? '保存修改 budget amount, period and alert ratio.' : '记录 a category budget for monthly or yearly tracking.'}}</view>
         </view>
       </view>
 
       <view class="field-stack">
         <view class="field-block">
-          <view class="field-label">Category</view>
+          <view class="field-label">分类</view>
           <picker wx:if="{{categories.length}}" mode="selector" range="{{categories}}" range-key="categoryName" value="{{categoryIndex}}" bindchange="onCategoryChange">
             <view class="field-picker">{{categories[categoryIndex].categoryName}}</view>
           </picker>
-          <view wx:else class="field-picker is-placeholder">No expense category</view>
+          <view wx:else class="field-picker is-placeholder">暂无支出分类</view>
         </view>
 
         <view class="field-block">
-          <view class="field-label">Budget Name</view>
+          <view class="field-label">预算 Name</view>
           <input class="field-input" value="{{form.budgetName}}" data-field="budgetName" bindinput="onFieldInput" />
         </view>
 
         <view class="field-grid-2">
           <view class="field-block">
-            <view class="field-label">Period</view>
-            <picker mode="selector" range="{{['Monthly','Yearly']}}" value="{{periodIndex}}" bindchange="onPeriodChange">
-              <view class="field-picker">{{form.periodType === 'YEAR' ? 'Yearly' : 'Monthly'}}</view>
+            <view class="field-label">周期</view>
+            <picker mode="selector" range="{{['每月','每年']}}" value="{{periodIndex}}" bindchange="onPeriodChange">
+              <view class="field-picker">{{form.periodType === 'YEAR' ? '每年' : '每月'}}</view>
             </picker>
           </view>
           <view class="field-block">
-            <view class="field-label">Amount</view>
+            <view class="field-label">金额</view>
             <input class="field-input" type="digit" value="{{form.amount}}" data-field="amount" bindinput="onFieldInput" />
           </view>
         </view>
 
         <view class="field-grid-2">
           <view class="field-block">
-            <view class="field-label">Alert Ratio</view>
+            <view class="field-label">提醒比例</view>
             <input class="field-input" type="digit" value="{{form.alertRatio}}" data-field="alertRatio" bindinput="onFieldInput" />
           </view>
           <view class="field-block">
-            <view class="field-label">Start Date</view>
+            <view class="field-label">Start 日期</view>
             <picker mode="date" value="{{form.startDate}}" bindchange="onStartDateChange">
               <view class="field-picker">{{form.startDate}}</view>
             </picker>
@@ -50,14 +50,14 @@
         </view>
 
         <view class="field-block">
-          <view class="field-label">End Date</view>
+          <view class="field-label">End 日期</view>
           <picker mode="date" value="{{form.endDate}}" bindchange="onEndDateChange">
-            <view class="field-picker {{form.endDate ? '' : 'is-placeholder'}}">{{form.endDate || 'Long term'}}</view>
+            <view class="field-picker {{form.endDate ? '' : 'is-placeholder'}}">{{form.endDate || '长期有效'}}</view>
           </picker>
         </view>
 
         <view class="field-block">
-          <view class="field-label">Remark</view>
+          <view class="field-label">备注</view>
           <input class="field-input" value="{{form.remark}}" data-field="remark" bindinput="onFieldInput" />
         </view>
       </view>
@@ -65,9 +65,9 @@
       <view wx:if="{{usageHint}}" class="feedback-box" style="margin-top: 20rpx;">{{usageHint}}</view>
 
       <view class="button-row" style="margin-top: 20rpx;">
-        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? 'Update' : 'Submit'}}</button>
-        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleEnabled">{{enabled === 1 ? 'Disable' : 'Enable'}}</button>
-        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteBudget">Delete</button>
+        <button class="primary-btn" loading="{{submitting}}" bindtap="submitForm">{{isEditMode ? '保存修改' : '保存'}}</button>
+        <button wx:if="{{isEditMode}}" class="ghost-btn" bindtap="toggleEnabled">{{enabled === 1 ? '停用' : '启用'}}</button>
+        <button wx:if="{{isEditMode}}" class="warn-btn" bindtap="deleteBudget">删除</button>
       </view>
 
       <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 20rpx;">{{feedback}}</view>

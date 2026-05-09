@@ -1,62 +1,62 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Profile</view>
-          <view class="panel-title">My Account</view>
-          <view class="panel-desc">View current login account, family role and session info.</view>
+          <view class="panel-kicker">我的</view>
+          <view class="panel-title">我的账号</view>
+          <view class="panel-desc">查看当前登录账号、家庭身份和登录状态。</view>
         </view>
-        <button class="ghost-btn" bindtap="loadProfile">Refresh</button>
+        <button class="ghost-btn" bindtap="loadProfile">刷新</button>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
     </view>
 
     <view class="stats-grid">
       <view class="stat-card">
-        <view class="stat-label">Username</view>
+        <view class="stat-label">用户名</view>
         <view class="stat-value">{{user ? user.username : '-'}}</view>
-        <view class="stat-meta">System login account</view>
+        <view class="stat-meta">系统登录账号</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Nickname</view>
+        <view class="stat-label">昵称</view>
         <view class="stat-value">{{user ? (user.nickname || '-') : '-'}}</view>
-        <view class="stat-meta">Display name</view>
+        <view class="stat-meta">显示名称</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Current Family</view>
+        <view class="stat-label">当前家庭</view>
         <view class="stat-value">{{currentMembership ? currentMembership.familyName : '-'}}</view>
-        <view class="stat-meta">Current family context</view>
+        <view class="stat-meta">当前正在查看的家庭</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Role</view>
+        <view class="stat-label">身份</view>
         <view class="stat-value">{{currentMembership ? currentMembership.roleCode : '-'}}</view>
-        <view class="stat-meta">Role in current family</view>
+        <view class="stat-meta">在当前家庭中的身份</view>
       </view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Account Info</view>
-          <view class="panel-title">Basic Details</view>
+          <view class="panel-kicker">账号信息</view>
+          <view class="panel-title">基本信息</view>
         </view>
       </view>
       <view class="summary-list">
         <view class="summary-item">
-          <view class="record-title">Real Name</view>
+          <view class="record-title">真实姓名</view>
           <view class="record-meta">{{user ? (user.realName || '-') : '-'}}</view>
         </view>
         <view class="summary-item">
-          <view class="record-title">Phone</view>
+          <view class="record-title">手机号</view>
           <view class="record-meta">{{user ? (user.phone || '-') : '-'}}</view>
         </view>
         <view class="summary-item">
-          <view class="record-title">Email</view>
+          <view class="record-title">邮箱</view>
           <view class="record-meta">{{user ? (user.email || '-') : '-'}}</view>
         </view>
         <view class="summary-item">
-          <view class="record-title">Family Count</view>
+          <view class="record-title">加入家庭数</view>
           <view class="record-meta">{{memberships.length}}</view>
         </view>
       </view>
@@ -65,24 +65,24 @@
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">More</view>
-          <view class="panel-title">Related Pages</view>
+          <view class="panel-kicker">更多</view>
+          <view class="panel-title">相关页面</view>
         </view>
       </view>
       <view class="button-row">
-        <button class="ghost-btn" bindtap="goFamilyInfo">Family Info</button>
+        <button class="ghost-btn" bindtap="goFamilyInfo">家庭信息</button>
       </view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Session</view>
-          <view class="panel-title">Actions</view>
+          <view class="panel-kicker">登录状态</view>
+          <view class="panel-title">操作</view>
         </view>
       </view>
       <view class="button-row">
-        <button class="warn-btn" bindtap="logout">Logout</button>
+        <button class="warn-btn" bindtap="logout">退出登录</button>
       </view>
     </view>
   </view>

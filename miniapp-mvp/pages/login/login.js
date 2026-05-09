@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 Page({
@@ -37,11 +37,11 @@ Page({
     this.setData({ loading: true, feedback: "Signing in..." });
     try {
       const loginRes = await request("/api/auth/login", "POST", { username, password }, false);
-      session.setSession(loginRes);
-      this.setData({ feedback: "Login success. Redirecting..." });
+      session.set登录状态(loginRes);
+      this.setData({ feedback: "登录 成功. Redirecting..." });
       wx.reLaunch({ url: this.redirectUrl });
     } catch (error) {
-      this.setData({ feedback: `Login failed: ${error.message}` });
+      this.setData({ feedback: `登录 失败: ${error.message}` });
     } finally {
       this.setData({ loading: false });
     }

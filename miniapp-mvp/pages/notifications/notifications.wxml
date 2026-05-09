@@ -1,54 +1,54 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Notifications</view>
-          <view class="panel-title">Alert Center</view>
-          <view class="panel-desc">View reminder messages for current family and member.</view>
+          <view class="panel-kicker">提醒</view>
+          <view class="panel-title">提醒中心</view>
+          <view class="panel-desc">查看当前家庭和成员收到的提醒。</view>
         </view>
-        <button class="ghost-btn" bindtap="markAllRead">Read All</button>
+        <button class="ghost-btn" bindtap="markAllRead">全部已读</button>
       </view>
       <view class="switch-row">
-        <view class="field-label">Unread only</view>
+        <view class="field-label">只看未读</view>
         <switch checked="{{unreadOnly}}" bindchange="onUnreadToggle" color="#2c5f93" />
       </view>
       <view class="button-row" style="margin-top: 16rpx;">
-        <button class="{{sourceType === '' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="" bindtap="onSourceChange">All</button>
-        <button class="{{sourceType === 'BUDGET' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="BUDGET" bindtap="onSourceChange">Budget</button>
-        <button class="{{sourceType === 'RULE' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="RULE" bindtap="onSourceChange">Rule</button>
+        <button class="{{sourceType === '' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="" bindtap="onSourceChange">全部</button>
+        <button class="{{sourceType === 'BUDGET' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="BUDGET" bindtap="onSourceChange">预算</button>
+        <button class="{{sourceType === 'RULE' ? 'primary-btn' : 'ghost-btn'}}" size="mini" data-source="RULE" bindtap="onSourceChange">自动</button>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}" style="margin-top: 16rpx;">{{feedback}}</view>
     </view>
 
     <view class="stats-grid">
       <view class="stat-card">
-        <view class="stat-label">Total</view>
+        <view class="stat-label">总数</view>
         <view class="stat-value">{{stats.total}}</view>
-        <view class="stat-meta">Current filtered notifications</view>
+        <view class="stat-meta">当前筛选出的提醒</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Unread</view>
+        <view class="stat-label">未读</view>
         <view class="stat-value">{{stats.unread}}</view>
-        <view class="stat-meta">Messages waiting to read</view>
+        <view class="stat-meta">还没有查看的消息</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Budget</view>
+        <view class="stat-label">预算</view>
         <view class="stat-value">{{stats.budgetCount}}</view>
-        <view class="stat-meta">Budget alert notifications</view>
+        <view class="stat-meta">预算相关提醒</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Rule</view>
+        <view class="stat-label">自动</view>
         <view class="stat-value">{{stats.ruleCount}}</view>
-        <view class="stat-meta">Rule evaluation notifications</view>
+        <view class="stat-meta">系统自动判断产生的提醒</view>
       </view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Source</view>
-          <view class="panel-title">Source Summary</view>
+          <view class="panel-kicker">来源</view>
+          <view class="panel-title">来源汇总</view>
         </view>
       </view>
       <view class="record-list" wx:if="{{sourceSummary.length}}">
@@ -57,28 +57,28 @@
             <view class="record-title">{{item.source}}</view>
             <view class="tag">{{item.count}}</view>
           </view>
-          <view class="record-meta">{{item.unread}} unread notifications under this source</view>
+          <view class="record-meta">{{item.unread}} 条未读提醒</view>
         </view>
       </view>
-      <view class="empty-box" wx:else>No source summary data.</view>
+      <view class="empty-box" wx:else>暂无来源汇总。</view>
     </view>
 
     <view class="record-list" wx:if="{{items.length}}">
       <view class="record-item" wx:for="{{items}}" wx:key="id">
         <view class="record-top">
-          <view class="record-title">{{item.title || 'System Alert'}}</view>
-          <view class="tag">{{item.readStatus === 1 ? 'Read' : 'Unread'}}</view>
+          <view class="record-title">{{item.title || '系统提醒'}}</view>
+          <view class="tag">{{item.readStatus === 1 ? '已读' : '未读'}}</view>
         </view>
         <view class="record-meta">{{item.content || '-'}}</view>
         <view class="record-bottom" style="margin-top: 12rpx;">
           <view class="record-meta">{{item.levelCode || '-'}} / {{item.sourceType || '-'}}</view>
           <view class="button-row">
-            <button class="ghost-btn" size="mini" data-source-type="{{item.sourceType}}" bindtap="openNotificationLink">Open</button>
-            <button class="ghost-btn" size="mini" wx:if="{{item.readStatus !== 1}}" data-id="{{item.id}}" bindtap="markRead">Mark Read</button>
+            <button class="ghost-btn" size="mini" data-source-type="{{item.sourceType}}" bindtap="openNotificationLink">查看</button>
+            <button class="ghost-btn" size="mini" wx:if="{{item.readStatus !== 1}}" data-id="{{item.id}}" bindtap="markRead">设为已读</button>
           </view>
         </view>
       </view>
     </view>
-    <view class="empty-box" wx:else>No alert data.</view>
+    <view class="empty-box" wx:else>暂无提醒。</view>
   </view>
 </view>

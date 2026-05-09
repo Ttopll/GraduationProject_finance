@@ -1,35 +1,35 @@
-<view class="login-shell">
+﻿<view class="login-shell">
   <view class="login-hero">
-    <view class="panel-kicker">Finance Mini</view>
-    <view class="login-title">Finance User App</view>
-    <view class="login-desc">Sign in first, then open home, accounts, records, alerts and profile.</view>
+    <view class="panel-kicker">家庭理财</view>
+    <view class="login-title">家庭理财小程序</view>
+    <view class="login-desc">先登录账号，然后查看家庭账本、账户、流水、提醒和个人信息。</view>
   </view>
 
   <view class="panel-card">
     <view class="panel-head">
       <view>
-        <view class="panel-kicker">Account Login</view>
-        <view class="panel-title">Sign In</view>
+        <view class="panel-kicker">账号登录</view>
+        <view class="panel-title">登录</view>
       </view>
     </view>
 
     <view class="field-stack">
       <view class="field-block">
-        <view class="field-label">Username</view>
-        <input class="field-input" placeholder="Enter username" value="{{username}}" bindinput="onUsernameInput" />
+        <view class="field-label">用户名</view>
+        <input class="field-input" placeholder="请输入用户名" value="{{username}}" bindinput="onUsernameInput" />
       </view>
       <view class="field-block">
-        <view class="field-label">Password</view>
-        <input class="field-input" password placeholder="Enter password" value="{{password}}" bindinput="onPasswordInput" />
+        <view class="field-label">密码</view>
+        <input class="field-input" password placeholder="请输入密码" value="{{password}}" bindinput="onPasswordInput" />
       </view>
     </view>
 
     <view class="button-row" style="margin-top: 20rpx;">
-      <button class="primary-btn" loading="{{loading}}" bindtap="submitLogin">Login</button>
-      <button class="ghost-btn" bindtap="fillDemo">Use Demo</button>
+      <button class="primary-btn" loading="{{loading}}" bindtap="submitLogin">登录</button>
+      <button class="ghost-btn" bindtap="fillDemo">填入演示账号</button>
     </view>
 
-    <view class="feedback-box {{feedback.indexOf('failed') >= 0 ? 'error' : feedback.indexOf('success') >= 0 ? 'success' : ''}}" wx:if="{{feedback}}" style="margin-top: 20rpx;">
+    <view class="feedback-box {{feedback.indexOf('失败') >= 0 ? 'error' : feedback.indexOf('成功') >= 0 ? '成功' : ''}}" wx:if="{{feedback}}" style="margin-top: 20rpx;">
       {{feedback}}
     </view>
   </view>

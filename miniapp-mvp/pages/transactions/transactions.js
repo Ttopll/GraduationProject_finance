@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 const TYPE_OPTIONS = ["", "EXPENSE", "INCOME", "TRANSFER"];
@@ -19,7 +19,7 @@ function buildRiskMap(budgetUsage) {
       map.set(item.categoryId, {
         exceeded: Boolean(item.exceeded),
         alertTriggered: Boolean(item.alertTriggered),
-        budgetName: item.budgetName || "Budget",
+        budgetName: item.budgetName || "预算",
         usageRatioText: `${(Number(item.usageRatio || 0) * 100).toFixed(0)}%`
       });
     }
@@ -32,17 +32,17 @@ function decorateItems(items, accounts, categories, budgetUsage) {
   const categoryMap = new Map((categories || []).map((item) => [item.id, item.categoryName]));
   const riskMap = buildRiskMap(budgetUsage);
   const typeMap = {
-    EXPENSE: "Expense",
-    INCOME: "Income",
-    TRANSFER: "Transfer"
+    EXPENSE: "支出",
+    INCOME: "收入",
+    TRANSFER: "转账"
   };
   return (items || []).map((item) => ({
     ...item,
     amountText: money(item.amount),
     transactionTimeText: item.transactionTime ? new Date(item.transactionTime).toLocaleString("zh-CN", { hour12: false }) : "-",
     typeLabel: typeMap[item.transactionType] || item.transactionType || "-",
-    accountDisplayName: accountMap.get(item.accountId) || `Account ${item.accountId || '-'}`,
-    categoryDisplayName: item.categoryId ? (categoryMap.get(item.categoryId) || `Category ${item.categoryId}`) : "-",
+    accountDisplayName: accountMap.get(item.accountId) || `账户 ${item.accountId || '-'}`,
+    categoryDisplayName: item.categoryId ? (categoryMap.get(item.categoryId) || `分类 ${item.categoryId}`) : "-",
     budgetRisk: riskMap.get(item.categoryId) || null
   }));
 }
@@ -65,25 +65,25 @@ Page({
     if (!session.requireLogin("/pages/transactions/transactions")) {
       return;
     }
-    this.loadTransactions();
+    this.load收支流水();
   },
 
   onTypeChange(e) {
     this.setData({ typeIndex: Number(e.detail.value) });
-    this.loadTransactions();
+    this.load收支流水();
   },
 
-  async loadTransactions() {
+  async load收支流水() {
     const familyId = session.getCurrentFamilyId();
     if (!familyId) {
       this.setData({
         items: [],
         stats: { total: 0, expenseCount: 0, incomeCount: 0, transferCount: 0, riskyCount: 0 },
-        feedback: "No family context."
+        feedback: "当前还没有选择家庭，请先创建或加入家庭。"
       });
       return;
     }
-    this.setData({ feedback: "Loading records..." });
+    this.setData({ feedback: "正在加载流水..." });
     const type = TYPE_OPTIONS[this.data.typeIndex] || "";
     const query = `/api/transaction-records/search?familyId=${familyId}&page=0&size=50${type ? `&transactionType=${type}` : ""}`;
     try {
@@ -110,7 +110,7 @@ Page({
       }, { total: 0, expenseCount: 0, incomeCount: 0, transferCount: 0, riskyCount: 0 });
       this.setData({ items, stats, feedback: "" });
     } catch (error) {
-      this.setData({ feedback: `Records load failed: ${error.message}` });
+      this.setData({ feedback: `流水s load 失败: ${error.message}` });
     }
   },
 
@@ -127,6 +127,6 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadTransactions().finally(() => wx.stopPullDownRefresh());
+    this.load收支流水().finally(() => wx.stopPullDownRefresh());
   }
 });

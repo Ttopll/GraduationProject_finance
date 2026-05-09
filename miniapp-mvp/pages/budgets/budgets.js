@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function money(value) {
@@ -14,7 +14,7 @@ function ratio(value) {
 function normalizeUsageItem(item) {
   const exceeded = Boolean(item.exceeded);
   const warning = !exceeded && Boolean(item.alertTriggered);
-  const statusText = exceeded ? "Exceeded" : warning ? "Warning" : "Normal";
+  const statusText = exceeded ? "已超支" : warning ? "接近上限" : "正常";
   const statusClass = exceeded ? "status-danger" : warning ? "status-warn" : "status-normal";
   const progressClass = exceeded ? "progress-danger" : warning ? "progress-warn" : "progress-normal";
   const ratioNumber = Math.max(0, Number(item.usageRatio || 0));
@@ -109,11 +109,11 @@ Page({
         coverageRows: [],
         stats: { total: 0, warningCount: 0, exceededCount: 0, normalCount: 0 },
         notificationStats: { budgetCount: 0, budgetUnread: 0, ruleCount: 0, ruleUnread: 0 },
-        feedback: "No family context."
+        feedback: "当前还没有选择家庭，请先创建或加入家庭。"
       });
       return;
     }
-    this.setData({ feedback: "Loading budget summary..." });
+    this.setData({ feedback: "正在加载预算..." });
     try {
       const [budgetUsage, monthlySummary, rules, notifications] = await Promise.all([
         request(`/api/budgets/usage?familyId=${familyId}`),
@@ -122,7 +122,7 @@ Page({
         request(`/api/notifications/search?familyId=${familyId}&targetMemberId=${session.getCurrentMemberId() || ""}&page=0&size=50`)
       ]);
       const normalizedUsage = (budgetUsage || []).map(normalizeUsageItem);
-      const riskyBudgets = normalizedUsage.filter((item) => item.statusText !== "Normal");
+      const riskyBudgets = normalizedUsage.filter((item) => item.statusText !== "正常");
       const coverageRows = riskyBudgets.map((item) => normalizeRiskItem(item, rules || []));
       const notificationItems = notifications.items || [];
       const notificationStats = notificationItems.reduce((acc, item) => {
@@ -143,9 +143,9 @@ Page({
       }, { budgetCount: 0, budgetUnread: 0, ruleCount: 0, ruleUnread: 0 });
       const stats = normalizedUsage.reduce((acc, item) => {
         acc.total += 1;
-        if (item.statusText === "Exceeded") {
+        if (item.statusText === "已超支") {
           acc.exceededCount += 1;
-        } else if (item.statusText === "Warning") {
+        } else if (item.statusText === "接近上限") {
           acc.warningCount += 1;
         } else {
           acc.normalCount += 1;
@@ -162,7 +162,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Budget summary load failed: ${error.message}` });
+      this.setData({ feedback: `预算汇总加载失败: ${error.message}` });
     }
   },
 

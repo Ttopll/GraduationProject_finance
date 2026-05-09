@@ -1,15 +1,15 @@
-<view class="page-shell">
+﻿<view class="page-shell">
   <view class="page-stack">
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Budgets</view>
-          <view class="panel-title">Budget Summary</view>
-          <view class="panel-desc">View budget usage and recent monthly income/expense summary.</view>
+          <view class="panel-kicker">预算</view>
+          <view class="panel-title">预算汇总</view>
+          <view class="panel-desc">查看预算使用情况和最近几个月的收支。</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn" bindtap="goCreate">New</button>
-          <button class="ghost-btn" bindtap="loadBudgetSummary">Refresh</button>
+          <button class="primary-btn" bindtap="goCreate">新增</button>
+          <button class="ghost-btn" bindtap="loadBudgetSummary">刷新</button>
         </view>
       </view>
       <view class="feedback-box" wx:if="{{feedback}}">{{feedback}}</view>
@@ -17,55 +17,55 @@
 
     <view class="stats-grid">
       <view class="stat-card">
-        <view class="stat-label">Total Budgets</view>
+        <view class="stat-label">预算总数</view>
         <view class="stat-value">{{stats.total}}</view>
-        <view class="stat-meta">Current active budget items</view>
+        <view class="stat-meta">当前启用的预算</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Warnings</view>
+        <view class="stat-label">接近上限</view>
         <view class="stat-value">{{stats.warningCount}}</view>
-        <view class="stat-meta">Close to alert threshold</view>
+        <view class="stat-meta">快要达到提醒线</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Exceeded</view>
+        <view class="stat-label">已超支</view>
         <view class="stat-value">{{stats.exceededCount}}</view>
-        <view class="stat-meta">Already over budget</view>
+        <view class="stat-meta">已经超出预算</view>
       </view>
       <view class="stat-card">
-        <view class="stat-label">Normal</view>
+        <view class="stat-label">正常</view>
         <view class="stat-value">{{stats.normalCount}}</view>
-        <view class="stat-meta">Still within safe range</view>
+        <view class="stat-meta">还在安全范围内</view>
       </view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Linkage</view>
-          <view class="panel-title">Budget Risk and Alert Flow</view>
-          <view class="panel-desc">Check current budget risk, matched rules and delivered notifications.</view>
+          <view class="panel-kicker">提醒联动</view>
+          <view class="panel-title">预算风险和提醒</view>
+          <view class="panel-desc">查看哪些预算需要注意，以及系统是否已经发出提醒。</view>
         </view>
       </view>
       <view class="stats-grid">
         <view class="stat-card">
-          <view class="stat-label">Risk Budgets</view>
+          <view class="stat-label">风险预算</view>
           <view class="stat-value">{{riskyBudgets.length}}</view>
-          <view class="stat-meta">Warning or exceeded budgets</view>
+          <view class="stat-meta">接近上限或已超支的预算</view>
         </view>
         <view class="stat-card">
-          <view class="stat-label">Budget Alerts</view>
+          <view class="stat-label">预算提醒</view>
           <view class="stat-value">{{notificationStats.budgetCount}}</view>
-          <view class="stat-meta">{{notificationStats.budgetUnread}} unread budget notifications</view>
+          <view class="stat-meta">{{notificationStats.budgetUnread}} 条未读预算提醒</view>
         </view>
         <view class="stat-card">
-          <view class="stat-label">Rule Alerts</view>
+          <view class="stat-label">自动提醒</view>
           <view class="stat-value">{{notificationStats.ruleCount}}</view>
-          <view class="stat-meta">{{notificationStats.ruleUnread}} unread rule notifications</view>
+          <view class="stat-meta">{{notificationStats.ruleUnread}} 条未读自动提醒</view>
         </view>
         <view class="stat-card">
-          <view class="stat-label">Coverage Rows</view>
+          <view class="stat-label">待关注项</view>
           <view class="stat-value">{{coverageRows.length}}</view>
-          <view class="stat-meta">Risk budgets waiting for review</view>
+          <view class="stat-meta">需要查看的预算风险</view>
         </view>
       </view>
     </view>
@@ -73,8 +73,8 @@
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Usage</view>
-          <view class="panel-title">Budget Usage</view>
+          <view class="panel-kicker">预算使用</view>
+          <view class="panel-title">预算使用情况</view>
         </view>
       </view>
       <view class="record-list" wx:if="{{budgetUsage.length}}">
@@ -83,28 +83,28 @@
             <view class="record-title">{{item.budgetName}}</view>
             <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
           </view>
-          <view class="record-meta">Category: {{item.categoryName || '-'}} / Month: {{item.month || '-'}}</view>
-          <view class="record-meta">Spent {{item.spentAmountText}} / Budget {{item.budgetAmountText}} / Remaining {{item.remainingAmountText}}</view>
+          <view class="record-meta">分类: {{item.categoryName || '-'}} / 月份： {{item.month || '-'}}</view>
+          <view class="record-meta">已用 {{item.spentAmountText}} / 预算 {{item.budgetAmountText}} / 剩余 {{item.remainingAmountText}}</view>
           <view class="progress-track" style="margin-top: 14rpx;">
             <view class="progress-fill {{item.progressClass}}" style="width: {{item.progressWidth}};"></view>
           </view>
           <view class="record-bottom" style="margin-top: 12rpx;">
-            <view class="record-meta">Usage Ratio</view>
+            <view class="record-meta">使用比例</view>
             <view class="button-row">
               <view class="record-amount">{{item.usageRatioText}}</view>
-              <button class="ghost-btn" size="mini" data-id="{{item.budgetId}}" bindtap="openBudget">Open</button>
+              <button class="ghost-btn" size="mini" data-id="{{item.budgetId}}" bindtap="openBudget">查看</button>
             </view>
           </view>
         </view>
       </view>
-      <view class="empty-box" wx:else>No budget usage data yet. Create budgets in admin first.</view>
+      <view class="empty-box" wx:else>暂无预算使用数据，请先创建预算。</view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Coverage</view>
-          <view class="panel-title">Risk Budget Coverage</view>
+          <view class="panel-kicker">提醒覆盖</view>
+          <view class="panel-title">风险预算 提醒覆盖</view>
         </view>
       </view>
       <view class="record-list" wx:if="{{coverageRows.length}}">
@@ -114,23 +114,23 @@
             <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
           </view>
           <view class="record-meta">{{item.categoryName}} / {{item.month}}</view>
-          <view class="record-meta">Spent {{item.spentAmountText}} / Budget {{item.budgetAmountText}} / Usage {{item.usageRatioText}}</view>
+          <view class="record-meta">已用 {{item.spentAmountText}} / 预算 {{item.budgetAmountText}} / 使用比例 {{item.usageRatioText}}</view>
           <view class="record-bottom" style="margin-top: 12rpx;">
             <view class="record-meta">{{item.coverageText}}</view>
             <view class="tag {{item.coverageCount > 0 ? 'status-normal' : 'status-danger'}}">
-              {{item.coverageCount > 0 ? 'Covered' : 'Uncovered'}}
+              {{item.coverageCount > 0 ? '已提醒' : '未提醒'}}
             </view>
           </view>
         </view>
       </view>
-      <view class="empty-box" wx:else>No risky budget needs rule coverage review.</view>
+      <view class="empty-box" wx:else>当前没有需要重点关注的预算风险。</view>
     </view>
 
     <view class="panel-card">
       <view class="panel-head">
         <view>
-          <view class="panel-kicker">Monthly</view>
-          <view class="panel-title">Last 6 Months</view>
+          <view class="panel-kicker">每月</view>
+          <view class="panel-title">近 6 个月</view>
         </view>
       </view>
       <view class="record-list" wx:if="{{monthlySummary.length}}">
@@ -139,10 +139,10 @@
             <view class="record-title">{{item.month}}</view>
             <view class="record-amount {{item.netClass}}">{{item.netAmountText}}</view>
           </view>
-          <view class="record-meta">Income {{item.incomeText}} / Expense {{item.expenseText}}</view>
+          <view class="record-meta">收入 {{item.incomeText}} / 支出 {{item.expenseText}}</view>
         </view>
       </view>
-      <view class="empty-box" wx:else>No monthly summary data.</view>
+      <view class="empty-box" wx:else>暂无月度汇总数据。</view>
     </view>
   </view>
 </view>

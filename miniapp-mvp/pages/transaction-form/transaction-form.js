@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 function todayDate() {
@@ -58,12 +58,12 @@ Page({
     }
     const matched = (this.data.budgetUsage || []).find((item) => Number(item.categoryId) === Number(categoryId));
     if (!matched) {
-      this.setData({ budgetHint: "No active budget linked to this category right now." });
+      this.setData({ budgetHint: "这个分类当前没有设置预算。" });
       return;
     }
-    const status = matched.exceeded ? "Exceeded" : matched.alertTriggered ? "Warning" : "Normal";
+    const status = matched.exceeded ? "已超支" : matched.alertTriggered ? "接近上限" : "正常";
     this.setData({
-      budgetHint: `Budget "${matched.budgetName || "Budget"}" is ${status}. Spent ${money(matched.spentAmount)} / Budget ${money(matched.budgetAmount)} / Remaining ${money(matched.remainingAmount)}.`
+      budgetHint: `预算“${matched.budgetName || "预算"}”${status}. 已用 ${money(matched.spentAmount)} / 预算 ${money(matched.budgetAmount)} / 剩余 ${money(matched.remainingAmount)}.`
     });
   },
 
@@ -77,10 +77,10 @@ Page({
   async loadOptions() {
     const familyId = session.getCurrentFamilyId();
     if (!familyId) {
-      this.setData({ feedback: "No family context." });
+      this.setData({ feedback: "当前还没有选择家庭，请先创建或加入家庭。" });
       return;
     }
-    this.setData({ feedback: "Loading form options...", categoryHint: "", budgetHint: "" });
+    this.setData({ feedback: "正在加载表单...", categoryHint: "", budgetHint: "" });
     try {
       const [accounts, categories, budgetUsage] = await Promise.all([
         request(`/api/accounts?familyId=${familyId}`),
@@ -93,21 +93,21 @@ Page({
         accounts,
         categories: enabledCategories,
         budgetUsage: budgetUsage || [],
-        categoryHint: enabledCategories.length ? "" : "No categories yet. Create categories in admin first, or submit without category.",
+        categoryHint: enabledCategories.length ? "" : "暂无可用分类，可以先不选分类保存。",
         selectedAccountName: firstAccount ? firstAccount.accountName : "",
         selectedCategoryName: "",
         "form.accountId": firstAccount ? firstAccount.id : null,
         feedback: ""
       });
       if (this.data.isEditMode && this.data.recordId) {
-        await this.loadRecordDetail();
+        await this.load流水Detail();
       }
     } catch (error) {
-      this.setData({ feedback: `Form options load failed: ${error.message}` });
+      this.setData({ feedback: `表单加载失败: ${error.message}` });
     }
   },
 
-  async loadRecordDetail() {
+  async load流水Detail() {
     try {
       const detail = await request(`/api/transaction-records/${this.data.recordId}`);
       const account = this.data.accounts.find((item) => Number(item.id) === Number(detail.accountId));
@@ -131,7 +131,7 @@ Page({
       });
       this.updateBudgetHint(detail.categoryId);
     } catch (error) {
-      this.setData({ feedback: `Record detail load failed: ${error.message}` });
+      this.setData({ feedback: `流水 detail load 失败: ${error.message}` });
     }
   },
 
@@ -149,9 +149,9 @@ Page({
     }
     const patch = { [`form.${field}`]: target.id };
     if (field === "accountId") {
-      patch.selectedAccountName = target.accountName || `Account ${target.id}`;
+      patch.selectedAccountName = target.accountName || `账户 ${target.id}`;
     } else {
-      patch.selectedCategoryName = target.categoryName || `Category ${target.id}`;
+      patch.selectedCategoryName = target.categoryName || `分类 ${target.id}`;
     }
     this.setData(patch);
     if (field === "categoryId") {
@@ -180,7 +180,7 @@ Page({
       this.setData({ feedback: "Please select account and amount." });
       return;
     }
-    this.setData({ submitting: true, feedback: "Submitting record..." });
+    this.setData({ submitting: true, feedback: "正在保存流水..." });
     try {
       const payload = {
         accountId: Number(form.accountId),
@@ -203,10 +203,10 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "Updated" : "Saved", icon: "success" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `${this.data.isEditMode ? "Update" : "Create"} failed: ${error.message}` });
+      this.setData({ feedback: `${this.data.isEditMode ? "保存修改" : "记录"} 失败: ${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -217,20 +217,20 @@ Page({
       return;
     }
     wx.showModal({
-      title: "Delete Record",
-      content: "Delete this transaction record?",
-      confirmText: "Delete",
+      title: "删除 流水",
+      content: "确定删除这笔流水吗？",
+      confirmText: "删除",
       confirmColor: "#d64545",
-      success: async (res) => {
+      成功: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/transaction-records/${this.data.recordId}`, "DELETE");
-          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.showToast({ title: "已删除", icon: "成功" });
           wx.navigateBack();
         } catch (error) {
-          this.setData({ feedback: `Delete failed: ${error.message}` });
+          this.setData({ feedback: `删除 失败: ${error.message}` });
         }
       }
     });

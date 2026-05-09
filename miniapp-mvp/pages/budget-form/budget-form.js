@@ -1,4 +1,4 @@
-const { request } = require("../../utils/api");
+﻿const { request } = require("../../utils/api");
 const session = require("../../utils/session");
 
 const PERIOD_TYPES = ["MONTH", "YEAR"];
@@ -54,29 +54,29 @@ Page({
   async loadOptions() {
     const familyId = session.getCurrentFamilyId();
     if (!familyId) {
-      this.setData({ feedback: "No family context." });
+      this.setData({ feedback: "当前还没有选择家庭，请先创建或加入家庭。" });
       return;
     }
-    this.setData({ feedback: "Loading budget form..." });
+    this.setData({ feedback: "正在加载预算表单..." });
     try {
       const categories = await request(`/api/categories?familyId=${familyId}`);
       const expenseCategories = (categories || []).filter((item) => item.categoryType === "EXPENSE" && Number(item.enabled) === 1);
-      const firstCategory = expenseCategories[0] || null;
+      const first分类 = expenseCategories[0] || null;
       this.setData({
         categories: expenseCategories,
         categoryIndex: 0,
-        "form.categoryId": firstCategory ? firstCategory.id : null,
-        feedback: expenseCategories.length ? "" : "No expense categories. Create a category in admin first."
+        "form.categoryId": first分类 ? first分类.id : null,
+        feedback: expenseCategories.length ? "" : "暂无支出分类，请先在后台或分类管理中创建。"
       });
       if (this.data.isEditMode && this.data.budgetId) {
-        await this.loadBudget();
+        await this.load预算();
       }
     } catch (error) {
-      this.setData({ feedback: `Budget form load failed: ${error.message}` });
+      this.setData({ feedback: `预算表单加载失败: ${error.message}` });
     }
   },
 
-  async loadBudget() {
+  async load预算() {
     const familyId = session.getCurrentFamilyId();
     try {
       const [budgets, usage] = await Promise.all([
@@ -85,7 +85,7 @@ Page({
       ]);
       const budget = (budgets || []).find((item) => Number(item.id) === Number(this.data.budgetId));
       if (!budget) {
-        this.setData({ feedback: "Budget not found in current family." });
+        this.setData({ feedback: "预算 not found in current family." });
         return;
       }
       const categoryIndex = Math.max(this.data.categories.findIndex((item) => Number(item.id) === Number(budget.categoryId)), 0);
@@ -96,7 +96,7 @@ Page({
         periodIndex,
         enabled: Number(budget.enabled) === 1 ? 1 : 0,
         usageHint: usageItem
-          ? `Current usage: Spent ${money(usageItem.spentAmount)} / Budget ${money(usageItem.budgetAmount)} / Remaining ${money(usageItem.remainingAmount)}.`
+          ? `当前使用率: 已用 ${money(usageItem.spentAmount)} / 预算 ${money(usageItem.budgetAmount)} / 剩余 ${money(usageItem.remainingAmount)}.`
           : "",
         "form.categoryId": budget.categoryId,
         "form.budgetName": budget.budgetName || "",
@@ -109,7 +109,7 @@ Page({
         feedback: ""
       });
     } catch (error) {
-      this.setData({ feedback: `Budget load failed: ${error.message}` });
+      this.setData({ feedback: `预算加载失败: ${error.message}` });
     }
   },
 
@@ -161,7 +161,7 @@ Page({
       endDate: form.endDate || null,
       remark: form.remark || null
     };
-    this.setData({ submitting: true, feedback: "Submitting budget..." });
+    this.setData({ submitting: true, feedback: "保存ting budget..." });
     try {
       if (this.data.isEditMode && this.data.budgetId) {
         await request(`/api/budgets/${this.data.budgetId}`, "PUT", payload);
@@ -172,10 +172,10 @@ Page({
           ...payload
         });
       }
-      wx.showToast({ title: this.data.isEditMode ? "Updated" : "Saved", icon: "success" });
+      wx.showToast({ title: this.data.isEditMode ? "已更新" : "已保存", icon: "成功" });
       wx.navigateBack();
     } catch (error) {
-      this.setData({ feedback: `Budget submit failed: ${error.message}` });
+      this.setData({ feedback: `预算 submit 失败: ${error.message}` });
     } finally {
       this.setData({ submitting: false });
     }
@@ -190,10 +190,10 @@ Page({
       const result = await request(`/api/budgets/${this.data.budgetId}/${disabled ? "enable" : "disable"}`, "POST");
       this.setData({
         enabled: Number(result.enabled) === 1 ? 1 : 0,
-        feedback: disabled ? "Enabled." : "Disabled."
+        feedback: disabled ? "启用d." : "停用."
       });
     } catch (error) {
-      this.setData({ feedback: `Status change failed: ${error.message}` });
+      this.setData({ feedback: `状态切换失败: ${error.message}` });
     }
   },
 
@@ -202,20 +202,20 @@ Page({
       return;
     }
     wx.showModal({
-      title: "Delete Budget",
-      content: "Delete this budget plan? Usage statistics will no longer include it.",
-      confirmText: "Delete",
+      title: "删除 预算",
+      content: "确定删除这个预算吗？删除后将不再统计它的使用情况。",
+      confirmText: "删除",
       confirmColor: "#d64545",
-      success: async (res) => {
+      成功: async (res) => {
         if (!res.confirm) {
           return;
         }
         try {
           await request(`/api/budgets/${this.data.budgetId}`, "DELETE");
-          wx.showToast({ title: "Deleted", icon: "success" });
+          wx.showToast({ title: "已删除", icon: "成功" });
           wx.navigateBack();
         } catch (error) {
-          this.setData({ feedback: `Delete failed: ${error.message}` });
+          this.setData({ feedback: `删除 失败: ${error.message}` });
         }
       }
     });
