@@ -619,6 +619,10 @@ textarea {
   background: #fff;
 }
 
+.summary-item-wide {
+  grid-column: 1 / -1;
+}
+
 .summary-link {
   color: inherit;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;

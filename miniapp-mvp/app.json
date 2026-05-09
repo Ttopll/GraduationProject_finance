@@ -13,7 +13,7 @@
     "pages/family/family"
   ],
   "window": {
-    "navigationBarTitleText": "Finance Mini",
+    "navigationBarTitleText": "家庭理财",
     "navigationBarBackgroundColor": "#f8fbff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f3f6fb",
@@ -25,11 +25,11 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/home/home", "text": "Home" },
-      { "pagePath": "pages/accounts/accounts", "text": "Accounts" },
-      { "pagePath": "pages/transactions/transactions", "text": "Records" },
-      { "pagePath": "pages/notifications/notifications", "text": "Alerts" },
-      { "pagePath": "pages/profile/profile", "text": "Profile" }
+      { "pagePath": "pages/home/home", "text": "首页" },
+      { "pagePath": "pages/accounts/accounts", "text": "账户" },
+      { "pagePath": "pages/transactions/transactions", "text": "流水" },
+      { "pagePath": "pages/notifications/notifications", "text": "提醒" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
     ]
   },
   "style": "v2",

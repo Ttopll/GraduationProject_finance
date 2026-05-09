@@ -14,6 +14,7 @@ public final class FinancialAnalysisApiModels {
             AssetSnapshot assetSnapshot,
             KeyIndicators keyIndicators,
             HealthScore healthScore,
+            MonthlyReport monthlyReport,
             List<MonthlyTrendItem> monthlyTrend,
             List<ExpenseStructureItem> expenseStructure,
             List<BudgetProgressItem> budgetProgress
@@ -68,6 +69,18 @@ public final class FinancialAnalysisApiModels {
             Integer factorScore,
             Integer maxScore,
             String conclusion
+    ) {
+    }
+
+    public record MonthlyReport(
+            String title,
+            String overallConclusion,
+            String cashFlowConclusion,
+            String budgetConclusion,
+            String expenseConclusion,
+            String assetDebtConclusion,
+            String adviceConclusion,
+            List<String> actionItems
     ) {
     }
 

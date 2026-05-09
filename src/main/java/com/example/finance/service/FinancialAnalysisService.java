@@ -88,15 +88,126 @@ public class FinancialAnalysisService {
 
         FinancialAnalysisApiModels.KeyIndicators keyIndicators = buildKeyIndicators(overview, assetSnapshot, expenseStructure, budgetUsage);
 
+        FinancialAnalysisApiModels.HealthScore healthScore = buildHealthScore(overview, keyIndicators);
+        List<FinancialAnalysisApiModels.BudgetProgressItem> budgetProgress = budgetUsage.stream()
+                .map(this::toBudgetProgressItem)
+                .toList();
+
         return new FinancialAnalysisApiModels.DashboardResponse(
                 month.toString(),
                 overview,
                 assetSnapshot,
                 keyIndicators,
-                buildHealthScore(overview, keyIndicators),
+                healthScore,
+                buildMonthlyReport(month, overview, assetSnapshot, keyIndicators, healthScore, budgetProgress, expenseStructure),
                 buildMonthlyTrend(familyId, month, trendMonths),
                 expenseStructure,
-                budgetUsage.stream().map(this::toBudgetProgressItem).toList()
+                budgetProgress
+        );
+    }
+
+    private FinancialAnalysisApiModels.MonthlyReport buildMonthlyReport(
+            YearMonth month,
+            FinancialAnalysisApiModels.Overview overview,
+            FinancialAnalysisApiModels.AssetSnapshot assetSnapshot,
+            FinancialAnalysisApiModels.KeyIndicators keyIndicators,
+            FinancialAnalysisApiModels.HealthScore healthScore,
+            List<FinancialAnalysisApiModels.BudgetProgressItem> budgetProgress,
+            List<FinancialAnalysisApiModels.ExpenseStructureItem> expenseStructure
+    ) {
+        List<String> actionItems = new ArrayList<>();
+        String cashFlowConclusion = overview.netCashFlow().compareTo(BigDecimal.ZERO) >= 0
+                ? String.format(
+                Locale.ROOT,
+                "本月收入 %.2f，支出 %.2f，现金流为正，结余率为 %s。",
+                overview.totalIncome(),
+                overview.totalExpense(),
+                percentText(overview.savingsRate())
+        )
+                : String.format(
+                Locale.ROOT,
+                "本月支出 %.2f 高于收入 %.2f，现金流为负，需要优先控制支出。",
+                overview.totalExpense(),
+                overview.totalIncome()
+        );
+        if (overview.netCashFlow().compareTo(BigDecimal.ZERO) < 0 || scoreSavingsRate(overview.savingsRate()) < 20) {
+            actionItems.add("优先复盘本月大额支出，并设置固定储蓄比例。");
+        }
+
+        String budgetConclusion;
+        if (keyIndicators.exceededBudgetCount() != null && keyIndicators.exceededBudgetCount() > 0) {
+            budgetConclusion = String.format(
+                    Locale.ROOT,
+                    "本月共有 %d 项预算超支，%d 项预算触发预警，预算执行需要重点处理。",
+                    keyIndicators.exceededBudgetCount(),
+                    keyIndicators.alertBudgetCount()
+            );
+            actionItems.add("查看超支预算对应分类，减少非必要消费或调整预算额度。");
+        } else if (keyIndicators.alertBudgetCount() != null && keyIndicators.alertBudgetCount() > 0) {
+            budgetConclusion = String.format(
+                    Locale.ROOT,
+                    "本月有 %d 项预算接近上限，整体尚未超支，但需要持续观察。",
+                    keyIndicators.alertBudgetCount()
+            );
+            actionItems.add("对预警预算设置消费提醒，避免月底集中超支。");
+        } else if (budgetProgress.isEmpty()) {
+            budgetConclusion = "本月尚未配置预算，无法形成预算执行评价。";
+            actionItems.add("为餐饮、交通、购物等主要支出分类补充月度预算。");
+        } else {
+            budgetConclusion = "本月预算执行稳定，暂未发现超支或明显预警。";
+        }
+
+        String expenseConclusion = expenseStructure.isEmpty()
+                ? "本月暂无可分析的支出分类数据。"
+                : String.format(
+                Locale.ROOT,
+                "本月最大支出分类为%s，金额 %.2f，占总支出 %s。",
+                keyIndicators.topExpenseCategory(),
+                keyIndicators.topExpenseAmount(),
+                percentText(keyIndicators.topExpenseRatio())
+        );
+        if (keyIndicators.topExpenseRatio() != null && keyIndicators.topExpenseRatio().compareTo(ZERO_POINT_FIVE) > 0) {
+            actionItems.add("最大支出分类占比超过 50%，建议拆分明细并判断是否可压缩。");
+        }
+
+        String assetDebtConclusion = String.format(
+                Locale.ROOT,
+                "当前总资产 %.2f，负债 %.2f，净资产 %.2f，负债率为 %s。",
+                assetSnapshot.totalAssetValue(),
+                assetSnapshot.totalDebtBalance(),
+                assetSnapshot.netAssetValue(),
+                percentText(keyIndicators.debtToAssetRatio())
+        );
+        if (keyIndicators.debtToAssetRatio() != null && keyIndicators.debtToAssetRatio().compareTo(ZERO_POINT_FIVE) > 0) {
+            actionItems.add("负债率偏高，优先偿还高利率或短期债务。");
+        }
+        if (keyIndicators.liquidityCoverageMonths() != null && keyIndicators.liquidityCoverageMonths().compareTo(new BigDecimal("3")) < 0) {
+            actionItems.add("流动资金覆盖不足 3 个月支出，建议优先补足应急资金。");
+        }
+
+        String adviceConclusion = String.format(
+                Locale.ROOT,
+                "财务健康评分为 %d 分，评级为%s，建议优先改善评分较低的指标。",
+                healthScore.score(),
+                healthScore.levelLabel()
+        );
+        actionItems.addAll(healthScore.improvementSuggestions());
+
+        List<String> distinctActionItems = actionItems.stream()
+                .distinct()
+                .limit(6)
+                .toList();
+
+        String overallConclusion = resolveMonthlyOverallConclusion(healthScore, overview);
+        return new FinancialAnalysisApiModels.MonthlyReport(
+                month + " 家庭财务月报",
+                overallConclusion,
+                cashFlowConclusion,
+                budgetConclusion,
+                expenseConclusion,
+                assetDebtConclusion,
+                adviceConclusion,
+                distinctActionItems
         );
     }
 
@@ -309,6 +420,22 @@ public class FinancialAnalysisService {
         };
     }
 
+    private String resolveMonthlyOverallConclusion(
+            FinancialAnalysisApiModels.HealthScore healthScore,
+            FinancialAnalysisApiModels.Overview overview
+    ) {
+        if (healthScore.score() >= 85 && overview.netCashFlow().compareTo(BigDecimal.ZERO) >= 0) {
+            return "本月家庭财务状态健康，收支结余、预算执行和资产负债结构整体表现较好。";
+        }
+        if (healthScore.score() >= 70) {
+            return "本月家庭财务状态整体良好，但仍需要关注预算执行和消费结构变化。";
+        }
+        if (healthScore.score() >= 55) {
+            return "本月家庭财务状态需要关注，建议优先处理结余、预算或负债方面的短板。";
+        }
+        return "本月家庭财务风险较高，需要优先控制支出、偿还债务并补足应急资金。";
+    }
+
     private List<FinancialAnalysisApiModels.MonthlyTrendItem> buildMonthlyTrend(
             Long familyId,
             YearMonth endMonth,
@@ -478,6 +605,13 @@ public class FinancialAnalysisService {
 
     private BigDecimal safeDivide(BigDecimal dividend, BigDecimal divisor) {
         return dividend.divide(divisor, RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private String percentText(BigDecimal value) {
+        if (value == null) {
+            return "暂无";
+        }
+        return value.multiply(new BigDecimal("100")).setScale(1, RoundingMode.HALF_UP) + "%";
     }
 
     private static class TrendBucket {

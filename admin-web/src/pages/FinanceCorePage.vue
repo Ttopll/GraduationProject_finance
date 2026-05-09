@@ -82,6 +82,41 @@
       </div>
     </AdminTableCard>
 
+    <AdminTableCard kicker="家庭财务月报" :title="monthlyReport.title || '月度综合分析报告'">
+      <div class="summary-grid finance-core-grid">
+        <div class="summary-item summary-item-wide">
+          <strong>综合结论</strong>
+          <span>{{ monthlyReport.overallConclusion || "暂无月报结论" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>收支结论</strong>
+          <span>{{ monthlyReport.cashFlowConclusion || "-" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>预算结论</strong>
+          <span>{{ monthlyReport.budgetConclusion || "-" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>消费结构结论</strong>
+          <span>{{ monthlyReport.expenseConclusion || "-" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>资产负债结论</strong>
+          <span>{{ monthlyReport.assetDebtConclusion || "-" }}</span>
+        </div>
+        <div class="summary-item">
+          <strong>理财建议摘要</strong>
+          <span>{{ monthlyReport.adviceConclusion || "-" }}</span>
+        </div>
+      </div>
+      <div class="summary-grid dashboard-sublist">
+        <div v-for="item in monthlyReport.actionItems || []" :key="item" class="summary-item">
+          <strong>下一步动作</strong>
+          <span>{{ item }}</span>
+        </div>
+      </div>
+    </AdminTableCard>
+
     <AdminTableCard kicker="财务健康评分" title="家庭财务健康诊断">
       <div class="health-score-layout">
         <div class="health-score-card" :class="healthLevelClass">
@@ -336,6 +371,7 @@ const overview = computed(() => analysis.value?.overview || {});
 const assetSnapshot = computed(() => analysis.value?.assetSnapshot || {});
 const keyIndicators = computed(() => analysis.value?.keyIndicators || {});
 const healthScore = computed(() => analysis.value?.healthScore || {});
+const monthlyReport = computed(() => analysis.value?.monthlyReport || {});
 const monthlyTrend = computed(() => analysis.value?.monthlyTrend || []);
 const expenseStructure = computed(() => analysis.value?.expenseStructure || []);
 const budgetProgress = computed(() => analysis.value?.budgetProgress || []);
